@@ -1,12 +1,13 @@
 -- =============================================
 -- Query: Product Sales By Drawer
 -- Purpose: Cash drawer reconciliation report showing GT values, refunds, and sales by tender type
+-- Target: SQL Server 2014+
 -- Created: 2025-11-28
 -- =============================================
 
 -- Parameters
 DECLARE @SiteId BIGINT = 1;              -- Site ID to filter
-DECLARE @Date DATE = '2025-11-28';       -- Date to filter
+DECLARE @Date DATE = '2025-11-28';       -- Date to filter (BusDate)
 
 -- Main Query
 SELECT
@@ -22,7 +23,6 @@ SELECT
     SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END) AS EftposRefund,
 
     -- Gift Card/Coupon Sold (using CountedAmount for TENDER_GIFT_COUPON category)
-    -- Note: Requires join to TenderType table for Category field
     SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END) AS GCSold,
 
     -- Sales (To be confirmed - currently set to 0)
@@ -36,7 +36,11 @@ SELECT
     0 AS NonProdSales,                   -- Field doesn't exist yet, blank for now
     (0 - 0) AS ProductSales              -- NetSales - NonProdSales (both 0 for now)
 
-FROM [dbo].[SWCCashDrawer] cd
+FROM [dbo].[SWCPeriod] p
+
+-- Join to Cash Drawer via Operating Period
+INNER JOIN [dbo].[SWCCashDrawer] cd
+    ON p.Id = cd.OperatingPeriodId
 
 -- Join to POS Terminal for Pod/Type
 INNER JOIN [dbo].[SWCPosTerminal] pt
@@ -48,26 +52,28 @@ LEFT JOIN [dbo].[SWCCashDrawerTender] cdt
     ON cd.Id = cdt.OperatingPeriodCashDrawerId
 
 -- Join to TenderType for Category (TENDER_GIFT_COUPON)
--- Note: Assuming TenderType table exists with Category field
 LEFT JOIN [dbo].[TenderType] tt
     ON cdt.TenderTypeId = tt.Id
 
 -- Aggregate SalesFact for GST
+-- Join via OperatingPeriod (SWCPeriodId in SalesFact maps to SWCPeriod.Id)
 LEFT JOIN (
     SELECT
-        SWCCashDrawerId,
+        SWCPeriodId,
         SUM(TaxAmount) AS TotalTax
     FROM [dbo].[SalesFact]
-    WHERE CalendarDate = @Date
-    GROUP BY SWCCashDrawerId
-) sf ON cd.Id = sf.SWCCashDrawerId
+    WHERE SiteId = @SiteId
+        AND CalendarDate = @Date
+        AND DatePeriodDimensionId = 15
+        AND PosId <> ''
+        AND Pod <> ''
+    GROUP BY SWCPeriodId
+) sf ON p.Id = sf.SWCPeriodId
 
 WHERE
-    -- Filter by date and site
-    -- Note: Using LogOutDateTime as the session date identifier
-    CAST(cd.LogOutDateTime AS DATE) = @Date
-    -- If SiteId is needed, uncomment and add SiteId to SWCCashDrawer joins
-    -- AND cd.SiteId = @SiteId
+    -- Filter by site and date via SWCPeriod
+    p.SiteId = @SiteId
+    AND p.BusDate = @Date
 
 GROUP BY
     cd.PosId,
@@ -83,8 +89,25 @@ ORDER BY
 -- TODO / INCOMPLETE ITEMS:
 -- 1. Confirm GrossSales equation (currently 0)
 -- 2. Confirm NetSales equation (currently 0)
--- 3. Verify TenderType table exists and has Category field
--- 4. Confirm date filter field (using LogOutDateTime)
--- 5. Add SiteId filter if SWCCashDrawer has SiteId field
+-- 3. ✅ TenderType.Category field verified (exists)
+-- 4. ✅ SiteId and Date filter updated to use SWCPeriod
+-- 5. ✅ SalesFact usage updated - joins via SWCPeriodId with proper filters
 -- 6. Test GetPodFullName server action with Pod values
+-- 7. Review and implement index recommendations
+-- =============================================
+
+-- =============================================
+-- SALESFACT USAGE (Updated):
+--
+-- Approach:
+--   - Join via: SWCPeriodId (OperatingPeriodId)
+--   - Filters: SiteId, CalendarDate, DatePeriodDimensionId = 15
+--   - Exclude: Empty PosId and Pod values
+--   - Groups by: SWCPeriodId
+--   - Aggregates: TaxAmount
+--
+-- This approach ensures:
+--   - Proper period-level aggregation
+--   - Filters out incomplete/invalid transactions
+--   - DatePeriodDimensionId = 15 for specific dimension context
 -- =============================================

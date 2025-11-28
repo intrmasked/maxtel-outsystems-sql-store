@@ -5,8 +5,10 @@
   "created_date": "2025-11-28",
   "status": "in_progress",
   "author": "MaxTel Team",
+  "sql_server_version": "2014+",
   "description": "Cash drawer reconciliation report showing GT values, refunds, and product sales by tender type",
   "tables_used": [
+    "SWCPeriod",
     "SWCCashDrawer",
     "SWCPosTerminal",
     "SWCCashDrawerTender",

@@ -53,6 +53,13 @@ queries/[category]/[story-name]/
 ### Query SQL Structure:
 **Always start queries with DECLARE statements for parameters:**
 ```sql
+-- =============================================
+-- Query: [Query Name]
+-- Purpose: [Brief description]
+-- Target: SQL Server 2014+
+-- Created: YYYY-MM-DD
+-- =============================================
+
 -- Parameters
 DECLARE @SiteId BIGINT = 1;
 DECLARE @Date DATE = '2025-01-15';
@@ -61,6 +68,31 @@ DECLARE @Date DATE = '2025-01-15';
 SELECT ...
 ```
 This allows easy testing by changing values at the top.
+
+### SQL Server Compatibility:
+- **Target**: SQL Server 2014+ by default
+- Use standard T-SQL syntax
+- Avoid features from newer versions unless specified
+- Test compatibility when using advanced features
+
+### Index Recommendations:
+**After building each query:**
+1. Analyze WHERE clauses and JOIN conditions
+2. Document index recommendations in query README.md only
+3. Track index status (Recommended / Implemented / Not Needed)
+4. DO NOT add index recommendations to the query.sql file itself
+
+**Format in README.md:**
+```markdown
+## Index Recommendations
+
+**Status**: Recommended (Pending DBA review)
+
+1. **IX_TableName_Column1_Column2** (Column1, Column2)
+   - Impact: High/Medium/Low
+   - Reason: WHERE/JOIN filtering
+   - Status: Recommended / Implemented / Not Needed
+```
 
 ---
 

@@ -59,24 +59,45 @@ The SalesFact table is the main fact table for sales transactions in the MaxTel 
 
 ## Common Query Patterns
 
-### Get Sales for a Date and Site
+### Get Sales for a Date and Site (via Operating Period)
 ```sql
 SELECT
-    PosId,
-    Pod,
-    TenderTypeId,
+    SWCPeriodId,
     SUM(NetAmount) as TotalNet,
     SUM(TaxAmount) as TotalTax
 FROM [dbo].[SalesFact]
-WHERE CalendarDate = @Date
-    AND SiteId = @SiteId
-GROUP BY PosId, Pod, TenderTypeId
+WHERE SiteId = @SiteId
+    AND CalendarDate = @Date
+    AND DatePeriodDimensionId = 15
+    AND PosId <> ''
+    AND Pod <> ''
+GROUP BY SWCPeriodId
+```
+
+### Join to SWCPeriod
+```sql
+SELECT
+    p.SiteId,
+    p.BusDate,
+    sf.NetAmount,
+    sf.TaxAmount
+FROM [dbo].[SWCPeriod] p
+INNER JOIN [dbo].[SalesFact] sf
+    ON p.Id = sf.SWCPeriodId
+WHERE p.SiteId = @SiteId
+    AND p.BusDate = @Date
+    AND sf.DatePeriodDimensionId = 15
+    AND sf.PosId <> ''
+    AND sf.Pod <> ''
 ```
 
 ---
 
 ## Notes for OutSystems
+- **Join via SWCPeriodId** - Links to SWCPeriod.Id (OperatingPeriodId)
+- **DatePeriodDimensionId = 15** - Standard dimension filter
+- **Filter out empty strings** - PosId <> '' AND Pod <> ''
 - Use CalendarDate for date filtering
 - TaxAmount contains GST
 - NetAmount is pre-tax amount
-- Pod field links to POS terminal type
+- Large table - always use indexed filters (SiteId, CalendarDate, DatePeriodDimensionId)

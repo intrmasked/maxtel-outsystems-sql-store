@@ -45,9 +45,10 @@ Product Sales = Net Sales - NonProdSales
 **Incomplete items**:
 1. GrossSales equation not confirmed (currently 0)
 2. NetSales equation not confirmed (currently 0)
-3. TenderType.Category field needs verification
-4. SiteId filter needs field confirmation
-5. Date filter field needs confirmation (using LogOutDateTime)
+3. ✅ TenderType.Category field verified (exists)
+4. ✅ SiteId filter updated (uses SWCPeriod.SiteId)
+5. ✅ Date filter updated (uses SWCPeriod.BusDate)
+6. ✅ SalesFact usage confirmed (joins via SWCPeriodId)
 
 ---
 
@@ -57,6 +58,7 @@ Product Sales = Net Sales - NonProdSales
 - `database-context/tables/SWCPosTerminal/` - [NEW] - POS terminal session data
 - `database-context/tables/SWCCashDrawerTender/` - [NEW] - Tender-specific drawer data
 - `database-context/tables/SWCCashDrawer/` - [NEW] - Main cash drawer session table
+- `database-context/tables/SWCPeriod/` - [NEW] - Operating period with SiteId and BusDate
 
 **Note**: All table docs are universal and can be reused by other queries
 
@@ -66,9 +68,10 @@ Product Sales = Net Sales - NonProdSales
 
 - `queries/reports/product-sales-by-drawer/` - [IN PROGRESS]
   - Purpose: Cash drawer reconciliation with GT values, refunds, and sales
-  - Tables used: SWCCashDrawer, SWCPosTerminal, SWCCashDrawerTender, TenderType, SalesFact
+  - Tables used: SWCPeriod, SWCCashDrawer, SWCPosTerminal, SWCCashDrawerTender, TenderType, SalesFact
   - Output: POS, Type, GT values, refunds, GC sold, GST, sales calculations
-  - Parameters: @SiteId, @Date
+  - Parameters: @SiteId (via SWCPeriod), @Date (BusDate)
+  - Index recommendations: 5 indexes documented (3 High/Critical impact)
 
 ---
 
@@ -80,17 +83,22 @@ Product Sales = Net Sales - NonProdSales
 - **GC Sold field**: Using CountedAmount instead of NetAmount → Rationale: User provided snippet showed CountedAmount
 - **Incomplete equations**: Set to 0 rather than guessing → Rationale: Better to be explicit about unknowns
 - **Table docs made universal**: Removed query-specific language → Rationale: Reusable across all queries
+- **SWCPeriod added**: Primary filter table for SiteId and BusDate → Rationale: SWC tables don't have direct SiteId
+- **SalesFact via SWCPeriodId**: Join through OperatingPeriodId → Rationale: User confirmed SWCPeriodId is populated
+- **SalesFact filters**: DatePeriodDimensionId = 15, exclude empty PosId/Pod → Rationale: User specified standard filters
+- **Index recommendations**: Added to query and workflow → Rationale: User requested index tracking
 
 ---
 
 ## Next Steps (if incomplete)
 
 1. **Get equations** - User needs to provide GrossSales and NetSales formulas
-2. **Verify TenderType table** - Check if Category field exists
-3. **Confirm date filter** - Verify LogOutDateTime is correct field for @Date filter
-4. **Test SiteId** - Verify SWCCashDrawer has SiteId field or needs different join
+2. ✅ **TenderType.Category** - Verified exists
+3. ✅ **Date/Site filters** - Updated to use SWCPeriod
+4. ✅ **SalesFact** - Updated with proper join and filters
 5. **Test query** - Run with real data once equations are confirmed
 6. **Update calculations** - Replace 0s with actual equations when provided
+7. **DBA review** - Submit index recommendations for implementation
 
 ---
 
@@ -139,12 +147,17 @@ Product Sales = Net Sales - NonProdSales
 - `database-context/tables/SWCPosTerminal/README.md`
 - `database-context/tables/SWCCashDrawerTender/README.md`
 - `database-context/tables/SWCCashDrawer/README.md`
+- `database-context/tables/SWCPeriod/README.md` (added later)
 - `queries/reports/product-sales-by-drawer/query.sql`
 - `queries/reports/product-sales-by-drawer/README.md`
 - `queries/reports/product-sales-by-drawer/metadata.json`
+- `queries/reports/product-sales-by-drawer/WORKFLOW.md`
 - `.claude/sessions/product-sales-by-drawer-context.md` (this file)
 
 **Files updated**:
-- `.claude/claude.md` - Added DECLARE pattern rule, query naming rule, table doc guidelines
+- `.claude/claude.md` - Added DECLARE pattern rule, query naming rule, table doc guidelines, index recommendations
+- `README.md` - Optimized for Claude auto-load workflow
+- `queries/reports/product-sales-by-drawer/query.sql` - Updated SalesFact usage, added index recommendations
+- `database-context/tables/SalesFact/README.md` - Added proper join patterns with SWCPeriodId
 
 **Ready for**: Equation confirmations and testing

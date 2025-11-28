@@ -3,6 +3,7 @@
 **Category**: Reports
 **Created**: 2025-11-28
 **Status**: In Progress - Pending equation confirmations
+**SQL Server**: 2014+ compatible
 
 ---
 
@@ -51,11 +52,12 @@ Filtered by site and date for daily reconciliation.
 
 ## Tables Used
 
+- `SWCPeriod` - Operating period (primary filter by SiteId and BusDate)
 - `SWCCashDrawer` - Main drawer session data (GT values)
 - `SWCPosTerminal` - POS terminal info (Pod/Type)
 - `SWCCashDrawerTender` - Tender-specific refunds and amounts
 - `TenderType` - Tender categories (for TENDER_GIFT_COUPON)
-- `SalesFact` - Tax/GST amounts
+- `SalesFact` - Tax/GST amounts (joins via SWCPeriodId)
 
 ---
 
@@ -75,9 +77,34 @@ Filtered by site and date for daily reconciliation.
 
 1. **GrossSales equation** - Currently set to 0, pending confirmation
 2. **NetSales equation** - Currently set to 0, pending confirmation
-3. **TenderType.Category** - Verify TenderType table has Category field
-4. **SiteId filter** - Currently commented out, verify SWCCashDrawer has SiteId
-5. **Date filter** - Using LogOutDateTime, confirm if correct field
+3. ✅ **TenderType.Category** - Verified, exists
+4. ✅ **SiteId filter** - Updated to use SWCPeriod.SiteId
+5. ✅ **Date filter** - Updated to use SWCPeriod.BusDate
+6. ✅ **SalesFact** - Updated to join via SWCPeriodId with proper filters
+
+---
+
+## Index Recommendations
+
+**Status**: Recommended (Pending DBA review)
+
+1. **IX_SWCPeriod_SiteId_BusDate** (SiteId, BusDate)
+   - Impact: **High** - Primary query filter
+   - Reason: WHERE clause filtering
+
+2. **IX_SWCCashDrawer_OperatingPeriodId** (OperatingPeriodId)
+   - Impact: **High** - JOIN performance
+   - Reason: Main JOIN to SWCPeriod
+
+3. **IX_SWCPosTerminal_OperatingPeriodId_PosId** (OperatingPeriodId, PosId)
+   - Impact: Medium - JOIN and grouping
+
+4. **IX_SalesFact_SiteId_CalendarDate_DatePeriodDimensionId** (SiteId, CalendarDate, DatePeriodDimensionId, SWCPeriodId)
+   - Impact: **Critical** - Large fact table with multiple filters
+   - Reason: Subquery filtering on large table
+
+5. **IX_SWCCashDrawerTender_OperatingPeriodCashDrawerId** (OperatingPeriodCashDrawerId)
+   - Impact: Medium - Tender JOIN performance
 
 ---
 
