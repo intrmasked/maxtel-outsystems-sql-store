@@ -86,7 +86,9 @@ Product Sales = Net Sales - NonProdSales
 - **SWCPeriod added**: Primary filter table for SiteId and BusDate → Rationale: SWC tables don't have direct SiteId
 - **SalesFact via SWCPeriodId**: Join through OperatingPeriodId → Rationale: User confirmed SWCPeriodId is populated
 - **SalesFact filters**: DatePeriodDimensionId = 15, exclude empty PosId/Pod → Rationale: User specified standard filters
-- **Index recommendations**: Added to query and workflow → Rationale: User requested index tracking
+- **Index recommendations**: Added to README.md only (not in query.sql) → Rationale: User requested clean query files
+- **Table naming convention**: Use {TableName} format, not [dbo].[TableName] → Rationale: OutSystems standard convention
+- **SQL Server 2014+ target**: All queries compatible with SQL 2014+ → Rationale: Production environment requirement
 
 ---
 
@@ -109,6 +111,10 @@ Product Sales = Net Sales - NonProdSales
 - **Images not needed**: User confirmed no need to save images to table docs
 - **Session tracking**: Context file designed for anyone to continue work
 - **Pending equations**: Don't guess - wait for user confirmation
+- **Table naming**: Always use {TableName}, NEVER [dbo].[TableName] - OutSystems convention
+- **Index docs**: Only in README.md, not in query.sql files
+- **SQL Server**: Target 2014+ compatibility for all queries
+- **Latest commit**: 50611d9 - OutSystems naming convention applied throughout
 
 ---
 
@@ -155,9 +161,17 @@ Product Sales = Net Sales - NonProdSales
 - `.claude/sessions/product-sales-by-drawer-context.md` (this file)
 
 **Files updated**:
-- `.claude/claude.md` - Added DECLARE pattern rule, query naming rule, table doc guidelines, index recommendations
+- `.claude/claude.md` - Added DECLARE pattern rule, query naming rule, table doc guidelines, index recommendations workflow, SQL Server 2014+ target, {TableName} naming convention
 - `README.md` - Optimized for Claude auto-load workflow
-- `queries/reports/product-sales-by-drawer/query.sql` - Updated SalesFact usage, added index recommendations
-- `database-context/tables/SalesFact/README.md` - Added proper join patterns with SWCPeriodId
+- `queries/reports/product-sales-by-drawer/query.sql` - Updated SalesFact usage, changed to {TableName} format, removed inline index comments, added SQL 2014+ compatibility header
+- `queries/reports/product-sales-by-drawer/README.md` - Added SQL Server 2014+ note, comprehensive index recommendations
+- `queries/reports/product-sales-by-drawer/metadata.json` - Added sql_server_version field
+- `database-context/tables/SalesFact/README.md` - Added proper join patterns with SWCPeriodId, updated to {TableName} format
+- All table docs - Updated example queries to use {TableName} format
+
+**Git Commits**:
+1. Initial commit (09ace3a) - Repository setup with initial query
+2. Update commit (0845458) - SQL 2014 compatible, SWCPeriod integration, index recommendations
+3. Naming convention (50611d9) - OutSystems {TableName} format throughout
 
 **Ready for**: Equation confirmations and testing
