@@ -41,10 +41,21 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
 ### Folder Structure Per Query:
 ```
 queries/[category]/[story-name]/
-├── query.sql          # The actual SQL
-├── README.md          # What it does, how to use it
-└── metadata.json      # Date, author, category
+├── query.sql               # The actual SQL (production query)
+├── README.md               # What it does, how to use it
+├── metadata.json           # Date, author, category
+└── tests/                  # Test queries subfolder
+    ├── test-[feature].sql
+    ├── test-[diagnostic].sql
+    └── ...
 ```
+
+### Test Queries:
+**All test/diagnostic queries go in the `tests/` subfolder within the query directory**
+- Use descriptive names starting with `test-`
+- Test queries help diagnose issues, verify data, or prototype logic
+- Keep them organized in the `tests/` subfolder
+- Example: `queries/reports/product-sales-by-drawer/tests/test-salesfact.sql`
 
 ### Table Documentation Guidelines:
 - Table docs in `database-context/tables/` are **universal** - used by ALL queries
@@ -63,13 +74,17 @@ queries/[category]/[story-name]/
 -- =============================================
 
 -- Parameters
-DECLARE @SiteId BIGINT = 1;
+DECLARE @SiteId BIGINT = 3187;  -- Default SiteId
 DECLARE @Date DATE = '2025-01-15';
 
 -- Query starts here
 SELECT ...
 ```
 This allows easy testing by changing values at the top.
+
+**Default Values:**
+- `@SiteId` = 3187 (standard test site)
+- `@Date` = Current or test date in 'YYYY-MM-DD' format
 
 **After any query changes**: Update session context with what changed and why.
 
@@ -115,7 +130,14 @@ This allows easy testing by changing values at the top.
 
 ## Session Context Updates (CRITICAL!)
 
-### Update Session Context REGULARLY - Not Just at the End!
+### 🚨 MANDATORY: Update Session Context on EVERY Change!
+
+**THINK on EVERY change you make:**
+1. Did I modify the query? → Update session context
+2. Did I add/change tables? → Update session context
+3. Did user give feedback? → Update session context
+4. Did I make a decision? → Update session context
+5. Did I fix an error? → Update session context
 
 **When to update `.claude/sessions/[query-name]-context.md`:**
 
@@ -125,6 +147,7 @@ This allows easy testing by changing values at the top.
 4. **Before complex changes** - Save state before major refactoring
 5. **After query modifications** - JOIN changes, filter updates, new columns
 6. **When user says "update"** - Always update immediately
+7. **After ANY code change** - Keep session context in sync with code
 
 **IMPORTANT**: Session context is for the TEAM. Keep it updated so anyone can:
 - Pick up where you left off
@@ -133,9 +156,24 @@ This allows easy testing by changing values at the top.
 - Know what's pending vs complete
 
 ### Session Update Frequency:
-- **Minimum**: After every significant change
-- **Ideal**: After each user interaction or decision
-- **Required**: When user explicitly says "update" or "finish"
+- **ALWAYS**: After EVERY change to code or documentation
+- **MINIMUM**: After every significant change
+- **IDEAL**: After each user interaction or decision
+- **REQUIRED**: When user explicitly says "update" or "finish"
+
+### 🚫 Query Completion Rules:
+
+**NEVER mark a query as "Complete" unless:**
+- User explicitly says "this is complete" or "mark it complete"
+- User confirms testing passed and query is working
+
+**Query Status Levels:**
+1. **In Progress** - Actively developing
+2. **In Testing** - User is testing (development done, waiting for feedback)
+3. **Needs Review** - Waiting for user review
+4. **Complete** - ONLY when user explicitly confirms
+
+**DO NOT assume completion** - Always wait for user confirmation!
 
 ---
 

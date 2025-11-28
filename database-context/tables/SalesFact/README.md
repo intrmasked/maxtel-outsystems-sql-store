@@ -93,6 +93,40 @@ WHERE p.SiteId = @SiteId
 
 ---
 
+## Mandatory Filter Rules (ALWAYS APPLY)
+
+**🚨 CRITICAL: When querying SalesFact, ALWAYS filter unused dimension IDs to NULL:**
+
+```sql
+-- Standard filters (ALWAYS required)
+WHERE SiteId = @SiteId
+    AND CalendarDate = @Date
+    AND DatePeriodDimensionId = 15
+    AND PosId <> ''
+    AND Pod <> ''
+    AND PosId IS NOT NULL
+
+-- Dimension filters (set to NULL if NOT using that dimension)
+    AND ProductMenuId IS NULL        -- ALWAYS NULL unless filtering by product menu
+    AND TenderTypeId IS NULL         -- ALWAYS NULL unless filtering by tender type
+    AND OperationId IS NULL          -- ALWAYS NULL unless filtering by operation
+    AND OperationKindId IS NULL      -- ALWAYS NULL unless filtering by operation kind
+    AND SWCCashDrawerId IS NULL      -- ALWAYS NULL unless filtering by cash drawer
+    AND SaleTypeId IS NULL           -- ALWAYS NULL unless filtering by sale type
+
+-- Product type filters (use when needed)
+    AND ProductSaleTypeId = 1        -- Use 1 for product sales, 2 for non-product sales
+    AND ProductSaleTypeId IS NOT NULL
+```
+
+**Why these filters are mandatory:**
+- SalesFact is a large fact table with multiple dimensions
+- Setting unused dimension IDs to NULL ensures accurate aggregation
+- Prevents double-counting or incorrect sums
+- If you're NOT using a specific dimension (MenuId, TenderTypeId, etc.), it MUST be NULL
+
+---
+
 ## Notes for OutSystems
 - **Join via SWCPeriodId** - Links to SWCPeriod.Id (OperatingPeriodId)
 - **DatePeriodDimensionId = 15** - Standard dimension filter
@@ -101,3 +135,4 @@ WHERE p.SiteId = @SiteId
 - TaxAmount contains GST
 - NetAmount is pre-tax amount
 - Large table - always use indexed filters (SiteId, CalendarDate, DatePeriodDimensionId)
+- **ALWAYS set unused dimension IDs to NULL** - See Mandatory Filter Rules above

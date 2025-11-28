@@ -36,11 +36,11 @@ Product Sales = Net Sales - NonProdSales
 
 ## Status
 
-- [X] Complete (Pending Testing)
-- [ ] In Progress
+- [ ] Complete
+- [X] In Testing (User actively testing)
 - [ ] Needs Review
 
-**Current step**: All equations implemented, ready for production testing
+**Current step**: All equations implemented - User is now testing the query
 
 **Complete items**:
 1. ✅ GrossSales equation implemented: Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
@@ -51,9 +51,15 @@ Product Sales = Net Sales - NonProdSales
 6. ✅ SiteId filter updated (uses SWCPeriod.SiteId)
 7. ✅ Date filter updated (uses SWCPeriod.BusDate)
 8. ✅ SalesFact usage confirmed (joins via SWCPeriodId)
+9. ✅ GROUP BY clause error fixed (added sfNonProd.NonProdSales)
+10. ✅ DB optimization guidelines added to claude.md
 
-**Pending**:
-- Production data testing
+**Testing in progress**:
+- User is actively testing the query with production data
+- Waiting for test results and feedback
+- May need adjustments based on test findings
+
+**Pending (after testing)**:
 - GetPodFullName server action validation
 - Index implementation by DBA
 
@@ -73,12 +79,13 @@ Product Sales = Net Sales - NonProdSales
 
 ## Queries Created
 
-- `queries/reports/product-sales-by-drawer/` - [IN PROGRESS]
+- `queries/reports/product-sales-by-drawer/` - [IN TESTING]
   - Purpose: Cash drawer reconciliation with GT values, refunds, and sales
   - Tables used: SWCPeriod, SWCCashDrawer, SWCPosTerminal, SWCCashDrawerTender, TenderType, SalesFact
-  - Output: POS, Type, GT values, refunds, GC sold, GST, sales calculations
+  - Output: POS, Type, GT values, refunds, GC sold, GST, sales calculations (GrossSales, NetSales, ProductSales)
   - Parameters: @SiteId (via SWCPeriod), @Date (BusDate)
   - Index recommendations: 5 indexes documented (3 High/Critical impact)
+  - Status: All equations implemented, GROUP BY fixed, user is testing with production data
 
 ---
 
@@ -100,18 +107,33 @@ Product Sales = Net Sales - NonProdSales
 - **NetSales formula**: GrossSales - GST → Rationale: User specified
 - **NonProdSales filter**: ProductSaleTypeId = 2 in SalesFact → Rationale: User specified product type IDs (1=product, 2=non-product)
 - **ProductSales calculation**: NetSales - NonProdSales → Rationale: Per original requirements
+- **GROUP BY clause fix**: Added sfNonProd.NonProdSales to GROUP BY → Rationale: Fixed SQL error for aggregated subquery columns
+- **DB optimization priority**: Minimize database hits, use single query with JOINs/subqueries → Rationale: User requested performance optimization guidelines
+- **Query completion policy**: NEVER mark complete until user explicitly confirms → Rationale: User must confirm testing passed before marking complete
+- **Session update mandate**: Update session context on EVERY change → Rationale: Think on every change, keep context in sync for team collaboration
+- **SalesFact mandatory filters**: ALWAYS set unused dimension IDs to NULL → Rationale: Prevents double-counting in fact table aggregation, ensures accurate sums (ProductMenuId, TenderTypeId, OperationId, OperationKindId, SWCCashDrawerId, SaleTypeId must be NULL if not used)
+- **SalesFact per-POS grouping**: GROUP BY SWCPeriodId AND PosId, JOIN on both → Rationale: Fixed negative sales values - each POS must get only its own GST/NonProdSales, not totals for all POS terminals
+- **Default SiteId**: Changed from 1 to 3187 → Rationale: User specified 3187 as standard test site for all queries
+- **SalesFact JOIN on PosId AND Pod**: All SalesFact subqueries group by PosId, Pod and join on both → Rationale: Each POS-Pod combination needs its own GST/ProductSales/NonProdSales values, not period totals. Period-level totals were causing negative NetSales (each row got the same total GST value)
+- **ProductSales from SalesFact directly**: ProductSales = SUM(NetAmount) WHERE ProductSaleTypeId = 1, NOT NetSales - NonProdSales → Rationale: User corrected - ProductSales comes directly from SalesFact, not calculated from cash drawer values
+- **Test queries location**: All test files in `tests/` subfolder within query directory → Rationale: Keep test/diagnostic queries organized in dedicated subfolder, prefix with `test-`
 
 ---
 
-## Next Steps (if incomplete)
+## Next Steps
 
-1. **Get equations** - User needs to provide GrossSales and NetSales formulas
-2. ✅ **TenderType.Category** - Verified exists
-3. ✅ **Date/Site filters** - Updated to use SWCPeriod
-4. ✅ **SalesFact** - Updated with proper join and filters
-5. **Test query** - Run with real data once equations are confirmed
-6. **Update calculations** - Replace 0s with actual equations when provided
-7. **DBA review** - Submit index recommendations for implementation
+**Currently**: User is testing the query
+
+**Waiting for**:
+1. Test results from production data
+2. User feedback on any issues or adjustments needed
+3. Confirmation that query is working as expected
+
+**After testing passes**:
+1. Mark query as COMPLETE
+2. GetPodFullName server action integration
+3. DBA review - Submit 5 index recommendations for implementation
+4. Performance monitoring
 
 ---
 
@@ -125,7 +147,9 @@ Product Sales = Net Sales - NonProdSales
 - **Table naming**: Always use {TableName}, NEVER [dbo].[TableName] - OutSystems convention
 - **Index docs**: Only in README.md, not in query.sql files
 - **SQL Server**: Target 2014+ compatibility for all queries
-- **Latest commit**: 50611d9 - OutSystems naming convention applied throughout
+- **DB optimization**: Minimize hits to database, use single query with JOINs/subqueries
+- **Latest commit**: 96f0bdc - Fixed GROUP BY clause error, added DB optimization guidelines
+- **Current status**: User is testing the query - waiting for feedback before marking as complete
 
 ---
 
@@ -141,19 +165,19 @@ Product Sales = Net Sales - NonProdSales
 
 2. **Check current query**:
    - `queries/reports/product-sales-by-drawer/query.sql`
-   - Review TODO comments at bottom
-   - DECLARE parameters at top for easy testing
+   - Query is COMPLETE - all equations implemented
+   - DECLARE parameters at top (@SiteId, @Date)
 
-3. **Continue from**:
-   - Waiting for GrossSales and NetSales equations from user
-   - Once received, update lines with "TODO: Confirm equation"
-   - Test TenderType.Category availability
-   - Validate date and SiteId filters
+3. **Status**:
+   - ✅ All sales calculations complete (GrossSales, NetSales, ProductSales)
+   - ✅ GROUP BY clause fixed
+   - ✅ DB optimization guidelines added
+   - 🧪 **IN TESTING** - User is actively testing with production data
 
-4. **Ask user for**:
-   - "What's the equation for Gross Sales?"
-   - "What's the equation for Net Sales?"
-   - "Does TenderType table have a Category field?"
+4. **Next actions**:
+   - Wait for test results and user feedback
+   - Address any issues found during testing
+   - Mark as complete when user confirms it's working
 
 ---
 
@@ -181,8 +205,12 @@ Product Sales = Net Sales - NonProdSales
 - All table docs - Updated example queries to use {TableName} format
 
 **Git Commits**:
-1. Initial commit (09ace3a) - Repository setup with initial query
-2. Update commit (0845458) - SQL 2014 compatible, SWCPeriod integration, index recommendations
-3. Naming convention (50611d9) - OutSystems {TableName} format throughout
+1. `09ace3a` - Initial commit: Repository setup with initial query
+2. `0845458` - SQL 2014 compatible, SWCPeriod integration, index recommendations
+3. `50611d9` - OutSystems {TableName} format throughout
+4. `2442a5b` - Session context update
+5. `5c3367d` - Session context must be updated REGULARLY (claude.md update)
+6. `c8c6393` - COMPLETE: All sales equations implemented
+7. `96f0bdc` - Fix GROUP BY clause error, add DB optimization guidelines
 
-**Ready for**: Equation confirmations and testing
+**Current State**: Query development complete, IN TESTING - waiting for user feedback

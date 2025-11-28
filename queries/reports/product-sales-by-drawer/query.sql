@@ -6,7 +6,7 @@
 -- =============================================
 
 -- Parameters
-DECLARE @SiteId BIGINT = 1;              -- Site ID to filter
+DECLARE @SiteId BIGINT = 3187;           -- Site ID to filter (default test site)
 DECLARE @Date DATE = '2025-11-28';       -- Date to filter (BusDate)
 
 -- Main Query
@@ -47,19 +47,11 @@ SELECT
         - ISNULL(sf.TotalTax, 0)
     ) AS NetSales,
 
-    -- Non-Product Sales (ProductSaleTypeId = 2)
+    -- Non-Product Sales (ProductSaleTypeId = 2) from SalesFact
     ISNULL(sfNonProd.NonProdSales, 0) AS NonProdSales,
 
-    -- Product Sales = Net Sales - Non-Product Sales
-    (
-        (cd.FinalGT - cd.InitialGT) - 0
-        - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
-        - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
-        - 0
-        - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
-        - ISNULL(sf.TotalTax, 0)
-        - ISNULL(sfNonProd.NonProdSales, 0)
-    ) AS ProductSales
+    -- Product Sales (ProductSaleTypeId = 1) from SalesFact
+    ISNULL(sfProd.ProdSales, 0) AS ProductSales
 
 FROM {SWCPeriod} p
 
@@ -80,11 +72,12 @@ LEFT JOIN {SWCCashDrawerTender} cdt
 LEFT JOIN {TenderType} tt
     ON cdt.TenderTypeId = tt.Id
 
--- Aggregate SalesFact for GST
--- Join via OperatingPeriod (SWCPeriodId in SalesFact maps to SWCPeriod.Id)
+-- Aggregate SalesFact for GST (ALL sales - product + non-product)
+-- GROUP BY PosId and Pod to get per-POS-Pod GST
 LEFT JOIN (
     SELECT
-        SWCPeriodId,
+        PosId,
+        Pod,
         SUM(TaxAmount) AS TotalTax
     FROM {SalesFact}
     WHERE SiteId = @SiteId
@@ -92,13 +85,48 @@ LEFT JOIN (
         AND DatePeriodDimensionId = 15
         AND PosId <> ''
         AND Pod <> ''
-    GROUP BY SWCPeriodId
-) sf ON p.Id = sf.SWCPeriodId
+        AND PosId IS NOT NULL
+        AND ProductSaleTypeId IS NOT NULL  -- Include both product (1) and non-product (2)
+        AND ProductMenuId IS NULL
+        AND TenderTypeId IS NULL
+        AND OperationId IS NULL
+        AND OperationKindId IS NULL
+        AND SWCCashDrawerId IS NULL
+        AND SaleTypeId IS NULL
+    GROUP BY PosId, Pod
+) sf ON cd.PosId = sf.PosId AND pt.Pod = sf.Pod
 
--- Aggregate SalesFact for Non-Product Sales (ProductSaleTypeId = 2)
+-- Aggregate SalesFact for Product Sales (ProductSaleTypeId = 1)
+-- GROUP BY PosId and Pod to get per-POS-Pod Product Sales
 LEFT JOIN (
     SELECT
-        SWCPeriodId,
+        PosId,
+        Pod,
+        SUM(NetAmount) AS ProdSales
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+        AND CalendarDate = @Date
+        AND DatePeriodDimensionId = 15
+        AND PosId <> ''
+        AND Pod <> ''
+        AND PosId IS NOT NULL
+        AND ProductSaleTypeId = 1  -- Product sales
+        AND ProductSaleTypeId IS NOT NULL
+        AND ProductMenuId IS NULL
+        AND TenderTypeId IS NULL
+        AND OperationId IS NULL
+        AND OperationKindId IS NULL
+        AND SWCCashDrawerId IS NULL
+        AND SaleTypeId IS NULL
+    GROUP BY PosId, Pod
+) sfProd ON cd.PosId = sfProd.PosId AND pt.Pod = sfProd.Pod
+
+-- Aggregate SalesFact for Non-Product Sales (ProductSaleTypeId = 2)
+-- GROUP BY PosId and Pod to get per-POS-Pod Non-Product Sales
+LEFT JOIN (
+    SELECT
+        PosId,
+        Pod,
         SUM(NetAmount) AS NonProdSales
     FROM {SalesFact}
     WHERE SiteId = @SiteId
@@ -106,9 +134,17 @@ LEFT JOIN (
         AND DatePeriodDimensionId = 15
         AND PosId <> ''
         AND Pod <> ''
+        AND PosId IS NOT NULL
         AND ProductSaleTypeId = 2  -- Non-product sales
-    GROUP BY SWCPeriodId
-) sfNonProd ON p.Id = sfNonProd.SWCPeriodId
+        AND ProductSaleTypeId IS NOT NULL
+        AND ProductMenuId IS NULL
+        AND TenderTypeId IS NULL
+        AND OperationId IS NULL
+        AND OperationKindId IS NULL
+        AND SWCCashDrawerId IS NULL
+        AND SaleTypeId IS NULL
+    GROUP BY PosId, Pod
+) sfNonProd ON cd.PosId = sfNonProd.PosId AND pt.Pod = sfNonProd.Pod
 
 WHERE
     -- Filter by site and date via SWCPeriod
@@ -121,23 +157,11 @@ GROUP BY
     cd.FinalGT,
     cd.InitialGT,
     sf.TotalTax,
+    sfProd.ProdSales,
     sfNonProd.NonProdSales
 
 ORDER BY
     cd.PosId;
-
--- =============================================
--- COMPLETE - All equations implemented:
--- 1. ✅ GrossSales = Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
--- 2. ✅ NetSales = GrossSales - GST
--- 3. ✅ NonProdSales = SUM(NetAmount) WHERE ProductSaleTypeId = 2
--- 4. ✅ ProductSales = NetSales - NonProdSales
--- 5. ✅ TenderType.Category field verified (exists)
--- 6. ✅ SiteId and Date filter updated to use SWCPeriod
--- 7. ✅ SalesFact usage updated - joins via SWCPeriodId with proper filters
--- 8. Test GetPodFullName server action with Pod values
--- 9. Review and implement index recommendations
--- =============================================
 
 -- =============================================
 -- SALES CALCULATIONS:
@@ -154,9 +178,14 @@ ORDER BY
 -- Net Sales:
 --   Gross Sales - GST
 --
+-- Product Sales:
+--   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 1
+--
 -- Non-Product Sales:
 --   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
 --
--- Product Sales:
---   Net Sales - Non-Product Sales
+-- =============================================
+-- STATUS: IN TESTING
+-- All calculations implemented from SalesFact
+-- SalesFact joins on SWCPeriodId only (Operating Period level)
 -- =============================================
