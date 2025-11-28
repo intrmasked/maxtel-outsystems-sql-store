@@ -36,19 +36,26 @@ Product Sales = Net Sales - NonProdSales
 
 ## Status
 
-- [ ] Complete
-- [X] In Progress
+- [X] Complete (Pending Testing)
+- [ ] In Progress
 - [ ] Needs Review
 
-**Current step**: Query built with known requirements, awaiting equation confirmations
+**Current step**: All equations implemented, ready for production testing
 
-**Incomplete items**:
-1. GrossSales equation not confirmed (currently 0)
-2. NetSales equation not confirmed (currently 0)
-3. ✅ TenderType.Category field verified (exists)
-4. ✅ SiteId filter updated (uses SWCPeriod.SiteId)
-5. ✅ Date filter updated (uses SWCPeriod.BusDate)
-6. ✅ SalesFact usage confirmed (joins via SWCPeriodId)
+**Complete items**:
+1. ✅ GrossSales equation implemented: Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
+2. ✅ NetSales equation implemented: GrossSales - GST
+3. ✅ NonProdSales implemented: SUM(NetAmount) WHERE ProductSaleTypeId = 2
+4. ✅ ProductSales implemented: NetSales - NonProdSales
+5. ✅ TenderType.Category field verified (exists)
+6. ✅ SiteId filter updated (uses SWCPeriod.SiteId)
+7. ✅ Date filter updated (uses SWCPeriod.BusDate)
+8. ✅ SalesFact usage confirmed (joins via SWCPeriodId)
+
+**Pending**:
+- Production data testing
+- GetPodFullName server action validation
+- Index implementation by DBA
 
 ---
 
@@ -89,6 +96,10 @@ Product Sales = Net Sales - NonProdSales
 - **Index recommendations**: Added to README.md only (not in query.sql) → Rationale: User requested clean query files
 - **Table naming convention**: Use {TableName} format, not [dbo].[TableName] → Rationale: OutSystems standard convention
 - **SQL Server 2014+ target**: All queries compatible with SQL 2014+ → Rationale: Production environment requirement
+- **GrossSales formula**: Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold → Rationale: User provided calculation from image
+- **NetSales formula**: GrossSales - GST → Rationale: User specified
+- **NonProdSales filter**: ProductSaleTypeId = 2 in SalesFact → Rationale: User specified product type IDs (1=product, 2=non-product)
+- **ProductSales calculation**: NetSales - NonProdSales → Rationale: Per original requirements
 
 ---
 

@@ -73,14 +73,54 @@ Filtered by site and date for daily reconciliation.
 
 ---
 
-## Known Issues / TODO
+## Sales Calculations
 
-1. **GrossSales equation** - Currently set to 0, pending confirmation
-2. **NetSales equation** - Currently set to 0, pending confirmation
-3. ✅ **TenderType.Category** - Verified, exists
-4. ✅ **SiteId filter** - Updated to use SWCPeriod.SiteId
-5. ✅ **Date filter** - Updated to use SWCPeriod.BusDate
-6. ✅ **SalesFact** - Updated to join via SWCPeriodId with proper filters
+### Gross Sales Formula:
+```
+GrossSales = Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
+```
+
+Where:
+- **Difference** = Close (FinalGT) - Open (InitialGT)
+- **Overring** = Always 0
+- **CashRefund** = Refunds for TenderTypeId = 0
+- **EftposRefund** = Refunds for TenderTypeIds IN (10,13,16,19,21)
+- **OtherReceipt** = 0 (removed as per requirements)
+- **GCSold** = Gift Card/Coupon sales
+
+### Net Sales:
+```
+NetSales = GrossSales - GST
+```
+
+### Non-Product Sales:
+```
+NonProdSales = SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
+```
+
+### Product Sales:
+```
+ProductSales = NetSales - NonProdSales
+```
+
+---
+
+## Implementation Status
+
+✅ **Complete**:
+- GrossSales equation implemented
+- NetSales equation implemented
+- NonProdSales from SalesFact (ProductSaleTypeId = 2)
+- ProductSales calculation
+- TenderType.Category verified
+- SiteId filter via SWCPeriod
+- Date filter via SWCPeriod.BusDate
+- SalesFact joins via SWCPeriodId
+
+⏳ **Pending**:
+- Testing with production data
+- GetPodFullName server action validation
+- DBA review of index recommendations
 
 ---
 

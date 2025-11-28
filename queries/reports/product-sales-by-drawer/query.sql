@@ -25,16 +25,41 @@ SELECT
     -- Gift Card/Coupon Sold (using CountedAmount for TENDER_GIFT_COUPON category)
     SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END) AS GCSold,
 
-    -- Sales (To be confirmed - currently set to 0)
-    0 AS GrossSales,                     -- TODO: Confirm equation
-    0 AS NetSales,                       -- TODO: Confirm equation
+    -- Gross Sales = Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
+    (
+        (cd.FinalGT - cd.InitialGT) - 0
+        - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
+        - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
+        - 0  -- Other Receipt removed
+        - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
+    ) AS GrossSales,
 
     -- GST from SalesFact
     ISNULL(sf.TotalTax, 0) AS GST,
 
-    -- Non-Product and Product Sales
-    0 AS NonProdSales,                   -- Field doesn't exist yet, blank for now
-    (0 - 0) AS ProductSales              -- NetSales - NonProdSales (both 0 for now)
+    -- Net Sales = Gross Sales - GST
+    (
+        (cd.FinalGT - cd.InitialGT) - 0
+        - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
+        - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
+        - 0
+        - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
+        - ISNULL(sf.TotalTax, 0)
+    ) AS NetSales,
+
+    -- Non-Product Sales (ProductSaleTypeId = 2)
+    ISNULL(sfNonProd.NonProdSales, 0) AS NonProdSales,
+
+    -- Product Sales = Net Sales - Non-Product Sales
+    (
+        (cd.FinalGT - cd.InitialGT) - 0
+        - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
+        - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
+        - 0
+        - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
+        - ISNULL(sf.TotalTax, 0)
+        - ISNULL(sfNonProd.NonProdSales, 0)
+    ) AS ProductSales
 
 FROM {SWCPeriod} p
 
@@ -70,6 +95,21 @@ LEFT JOIN (
     GROUP BY SWCPeriodId
 ) sf ON p.Id = sf.SWCPeriodId
 
+-- Aggregate SalesFact for Non-Product Sales (ProductSaleTypeId = 2)
+LEFT JOIN (
+    SELECT
+        SWCPeriodId,
+        SUM(NetAmount) AS NonProdSales
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+        AND CalendarDate = @Date
+        AND DatePeriodDimensionId = 15
+        AND PosId <> ''
+        AND Pod <> ''
+        AND ProductSaleTypeId = 2  -- Non-product sales
+    GROUP BY SWCPeriodId
+) sfNonProd ON p.Id = sfNonProd.SWCPeriodId
+
 WHERE
     -- Filter by site and date via SWCPeriod
     p.SiteId = @SiteId
@@ -86,28 +126,36 @@ ORDER BY
     cd.PosId;
 
 -- =============================================
--- TODO / INCOMPLETE ITEMS:
--- 1. Confirm GrossSales equation (currently 0)
--- 2. Confirm NetSales equation (currently 0)
--- 3. ✅ TenderType.Category field verified (exists)
--- 4. ✅ SiteId and Date filter updated to use SWCPeriod
--- 5. ✅ SalesFact usage updated - joins via SWCPeriodId with proper filters
--- 6. Test GetPodFullName server action with Pod values
--- 7. Review and implement index recommendations
+-- COMPLETE - All equations implemented:
+-- 1. ✅ GrossSales = Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
+-- 2. ✅ NetSales = GrossSales - GST
+-- 3. ✅ NonProdSales = SUM(NetAmount) WHERE ProductSaleTypeId = 2
+-- 4. ✅ ProductSales = NetSales - NonProdSales
+-- 5. ✅ TenderType.Category field verified (exists)
+-- 6. ✅ SiteId and Date filter updated to use SWCPeriod
+-- 7. ✅ SalesFact usage updated - joins via SWCPeriodId with proper filters
+-- 8. Test GetPodFullName server action with Pod values
+-- 9. Review and implement index recommendations
 -- =============================================
 
 -- =============================================
--- SALESFACT USAGE (Updated):
+-- SALES CALCULATIONS:
 --
--- Approach:
---   - Join via: SWCPeriodId (OperatingPeriodId)
---   - Filters: SiteId, CalendarDate, DatePeriodDimensionId = 15
---   - Exclude: Empty PosId and Pod values
---   - Groups by: SWCPeriodId
---   - Aggregates: TaxAmount
+-- Gross Sales Formula:
+--   C - D - E - F - G - H where:
+--   C = Difference (FinalGT - InitialGT)
+--   D = Overring (always 0)
+--   E = Cash Refund
+--   F = EFTPOS Refund
+--   G = Other Receipt (removed, = 0)
+--   H = GC Sold
 --
--- This approach ensures:
---   - Proper period-level aggregation
---   - Filters out incomplete/invalid transactions
---   - DatePeriodDimensionId = 15 for specific dimension context
+-- Net Sales:
+--   Gross Sales - GST
+--
+-- Non-Product Sales:
+--   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
+--
+-- Product Sales:
+--   Net Sales - Non-Product Sales
 -- =============================================

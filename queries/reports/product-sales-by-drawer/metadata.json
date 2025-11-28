@@ -3,7 +3,7 @@
   "story_name": "Product Sales By Drawer",
   "category": "reports",
   "created_date": "2025-11-28",
-  "status": "in_progress",
+  "status": "complete_pending_test",
   "author": "MaxTel Team",
   "sql_server_version": "2014+",
   "description": "Cash drawer reconciliation report showing GT values, refunds, and product sales by tender type",
@@ -28,10 +28,9 @@
     }
   ],
   "pending_items": [
-    "Confirm GrossSales equation",
-    "Confirm NetSales equation",
-    "Verify TenderType.Category field",
-    "Test and validate with real data"
+    "Test query with production data",
+    "Validate GetPodFullName server action integration",
+    "DBA review and implementation of index recommendations"
   ],
   "last_updated": "2025-11-28"
 }
