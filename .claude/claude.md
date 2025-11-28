@@ -82,6 +82,16 @@ This allows easy testing by changing values at the top.
 - Avoid features from newer versions unless specified
 - Test compatibility when using advanced features
 
+### Query Performance & Optimization:
+- **Minimize database hits** - Optimize for fewer queries to the database
+  - Use JOINs and subqueries instead of multiple separate queries
+  - Aggregate data in single query when possible
+  - Avoid N+1 query patterns
+- **Use proper indexing** - Recommend indexes for WHERE/JOIN columns
+- **Filter early** - Apply WHERE filters as early as possible in subqueries
+- **Aggregate wisely** - Use GROUP BY efficiently, include all non-aggregated columns
+- **Subquery optimization** - Pre-aggregate in subqueries to reduce JOIN complexity
+
 ### Index Recommendations:
 **After building each query:**
 1. Analyze WHERE clauses and JOIN conditions

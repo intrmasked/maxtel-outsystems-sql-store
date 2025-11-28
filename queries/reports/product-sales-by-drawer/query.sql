@@ -120,7 +120,8 @@ GROUP BY
     pt.Pod,
     cd.FinalGT,
     cd.InitialGT,
-    sf.TotalTax
+    sf.TotalTax,
+    sfNonProd.NonProdSales
 
 ORDER BY
     cd.PosId;
