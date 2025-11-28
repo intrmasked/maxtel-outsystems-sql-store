@@ -71,6 +71,9 @@ This allows easy testing by changing values at the top.
 
 ### SQL Server Compatibility:
 - **Target**: SQL Server 2014+ by default
+- **Table naming**: Use `{TableName}` format (NOT `[dbo].[TableName]`)
+  - Example: `FROM {SWCPeriod} p` instead of `FROM [dbo].[SWCPeriod] p`
+  - This is OutSystems convention for table references
 - Use standard T-SQL syntax
 - Avoid features from newer versions unless specified
 - Test compatibility when using advanced features

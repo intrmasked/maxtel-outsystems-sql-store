@@ -59,7 +59,7 @@ SELECT
     (FinalGT - InitialGT) as GTDifference,
     NetAmount,
     TaxAmount
-FROM [dbo].[SWCPosTerminal]
+FROM {SWCPosTerminal}
 WHERE OperatingPeriodId = @PeriodId
 ```
 

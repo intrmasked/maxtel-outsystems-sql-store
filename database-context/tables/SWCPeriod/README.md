@@ -86,7 +86,7 @@ SELECT
     FinalGT,
     NetAmount,
     TaxAmount
-FROM [dbo].[SWCPeriod]
+FROM {SWCPeriod}
 WHERE SiteId = @SiteId
     AND BusDate = @Date
 ```
@@ -99,8 +99,8 @@ SELECT
     cd.PosId,
     cd.InitialGT,
     cd.FinalGT
-FROM [dbo].[SWCPeriod] p
-INNER JOIN [dbo].[SWCCashDrawer] cd
+FROM {SWCPeriod} p
+INNER JOIN {SWCCashDrawer} cd
     ON p.Id = cd.OperatingPeriodId
 WHERE p.SiteId = @SiteId
     AND p.BusDate = @Date

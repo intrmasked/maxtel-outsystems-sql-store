@@ -83,7 +83,7 @@ SELECT
     TotalCountedCash,
     NetAmount,
     TaxAmount
-FROM [dbo].[SWCCashDrawer]
+FROM {SWCCashDrawer}
 WHERE OperatingPeriodId = @PeriodId
     AND PosId = @PosId
 ```

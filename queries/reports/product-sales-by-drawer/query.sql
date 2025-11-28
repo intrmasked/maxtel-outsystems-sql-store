@@ -36,23 +36,23 @@ SELECT
     0 AS NonProdSales,                   -- Field doesn't exist yet, blank for now
     (0 - 0) AS ProductSales              -- NetSales - NonProdSales (both 0 for now)
 
-FROM [dbo].[SWCPeriod] p
+FROM {SWCPeriod} p
 
 -- Join to Cash Drawer via Operating Period
-INNER JOIN [dbo].[SWCCashDrawer] cd
+INNER JOIN {SWCCashDrawer} cd
     ON p.Id = cd.OperatingPeriodId
 
 -- Join to POS Terminal for Pod/Type
-INNER JOIN [dbo].[SWCPosTerminal] pt
+INNER JOIN {SWCPosTerminal} pt
     ON cd.PosId = pt.PosId
     AND cd.OperatingPeriodId = pt.OperatingPeriodId
 
 -- Join to Cash Drawer Tenders for refund and GC data
-LEFT JOIN [dbo].[SWCCashDrawerTender] cdt
+LEFT JOIN {SWCCashDrawerTender} cdt
     ON cd.Id = cdt.OperatingPeriodCashDrawerId
 
 -- Join to TenderType for Category (TENDER_GIFT_COUPON)
-LEFT JOIN [dbo].[TenderType] tt
+LEFT JOIN {TenderType} tt
     ON cdt.TenderTypeId = tt.Id
 
 -- Aggregate SalesFact for GST
@@ -61,7 +61,7 @@ LEFT JOIN (
     SELECT
         SWCPeriodId,
         SUM(TaxAmount) AS TotalTax
-    FROM [dbo].[SalesFact]
+    FROM {SalesFact}
     WHERE SiteId = @SiteId
         AND CalendarDate = @Date
         AND DatePeriodDimensionId = 15

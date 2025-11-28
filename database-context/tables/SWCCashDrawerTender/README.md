@@ -61,7 +61,7 @@ SELECT
     TenderTypeId,
     SUM(RefundAmount) as TotalRefunds,
     SUM(RefundCount) as RefundCount
-FROM [dbo].[SWCCashDrawerTender]
+FROM {SWCCashDrawerTender}
 WHERE OperatingPeriodCashDrawerId = @CashDrawerId
 GROUP BY TenderTypeId
 ```
@@ -71,7 +71,7 @@ GROUP BY TenderTypeId
 -- For Gift Card/Coupon tenders
 SELECT
     SUM(DrawerAmount) as NetAmount
-FROM [dbo].[SWCCashDrawerTender]
+FROM {SWCCashDrawerTender}
 WHERE OperatingPeriodCashDrawerId = @CashDrawerId
     AND TenderTypeId IN (/* Gift Card Tender IDs */)
 ```

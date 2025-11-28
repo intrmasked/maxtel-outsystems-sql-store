@@ -65,7 +65,7 @@ SELECT
     SWCPeriodId,
     SUM(NetAmount) as TotalNet,
     SUM(TaxAmount) as TotalTax
-FROM [dbo].[SalesFact]
+FROM {SalesFact}
 WHERE SiteId = @SiteId
     AND CalendarDate = @Date
     AND DatePeriodDimensionId = 15
@@ -81,8 +81,8 @@ SELECT
     p.BusDate,
     sf.NetAmount,
     sf.TaxAmount
-FROM [dbo].[SWCPeriod] p
-INNER JOIN [dbo].[SalesFact] sf
+FROM {SWCPeriod} p
+INNER JOIN {SalesFact} sf
     ON p.Id = sf.SWCPeriodId
 WHERE p.SiteId = @SiteId
     AND p.BusDate = @Date
