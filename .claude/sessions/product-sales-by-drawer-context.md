@@ -40,28 +40,38 @@ Product Sales = Net Sales - NonProdSales
 - [X] In Testing (User actively testing)
 - [ ] Needs Review
 
-**Current step**: All equations implemented - User is now testing the query
+**Current step**: Query matches OutSystems structure (13 columns), all calculations implemented, user will continue testing in the morning
+
+**Latest changes (2025-11-29):**
+- Removed Overring column to match OutSystems structure
+- Renamed ProductSales to ProdSales
+- All SalesFact subqueries now group by PosId, Pod for per-POS values
+- Query ready for OutSystems integration
 
 **Complete items**:
-1. ✅ GrossSales equation implemented: Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
-2. ✅ NetSales equation implemented: GrossSales - GST
-3. ✅ NonProdSales implemented: SUM(NetAmount) WHERE ProductSaleTypeId = 2
-4. ✅ ProductSales implemented: NetSales - NonProdSales
-5. ✅ TenderType.Category field verified (exists)
-6. ✅ SiteId filter updated (uses SWCPeriod.SiteId)
-7. ✅ Date filter updated (uses SWCPeriod.BusDate)
-8. ✅ SalesFact usage confirmed (joins via SWCPeriodId)
-9. ✅ GROUP BY clause error fixed (added sfNonProd.NonProdSales)
-10. ✅ DB optimization guidelines added to claude.md
+1. ✅ GrossSales equation: Difference - CashRefund - EftposRefund - GCSold (Overring removed)
+2. ✅ NetSales equation: GrossSales - GST
+3. ✅ NonProdSales: SUM(NetAmount) WHERE ProductSaleTypeId = 2, grouped by PosId, Pod
+4. ✅ ProdSales: SUM(NetAmount) WHERE ProductSaleTypeId = 1, grouped by PosId, Pod
+5. ✅ GST: SUM(TaxAmount) for all ProductSaleTypeId, grouped by PosId, Pod
+6. ✅ TenderType.Category field verified (exists)
+7. ✅ SiteId filter via SWCPeriod.SiteId
+8. ✅ Date filter via SWCPeriod.BusDate
+9. ✅ SalesFact mandatory filters: All dimension IDs set to NULL when not used
+10. ✅ Query structure matches OutSystems (13 columns)
+11. ✅ Test queries organized in tests/ subfolder
+12. ✅ Default SiteId set to 3187
 
 **Testing in progress**:
-- User is actively testing the query with production data
-- Waiting for test results and feedback
-- May need adjustments based on test findings
+- Query structure now matches OutSystems ProductSalesByDrawer (13 columns)
+- User will continue testing in the morning
+- Fixed negative NetSales issue by grouping SalesFact by PosId, Pod
 
 **Pending (after testing)**:
-- GetPodFullName server action validation
-- Index implementation by DBA
+- Validate calculations with production data
+- GetPodFullName server action integration (Type column → Pod value)
+- DBA review and implementation of 5 index recommendations
+- Confirm query performance with production load
 
 ---
 
@@ -117,6 +127,8 @@ Product Sales = Net Sales - NonProdSales
 - **SalesFact JOIN on PosId AND Pod**: All SalesFact subqueries group by PosId, Pod and join on both → Rationale: Each POS-Pod combination needs its own GST/ProductSales/NonProdSales values, not period totals. Period-level totals were causing negative NetSales (each row got the same total GST value)
 - **ProductSales from SalesFact directly**: ProductSales = SUM(NetAmount) WHERE ProductSaleTypeId = 1, NOT NetSales - NonProdSales → Rationale: User corrected - ProductSales comes directly from SalesFact, not calculated from cash drawer values
 - **Test queries location**: All test files in `tests/` subfolder within query directory → Rationale: Keep test/diagnostic queries organized in dedicated subfolder, prefix with `test-`
+- **Removed Overring column**: Query now returns 13 columns (not 14) → Rationale: OutSystems ProductSalesByDrawer structure doesn't include Overring column, simplified GrossSales formula
+- **Column name: ProdSales**: Changed from ProductSales to ProdSales → Rationale: Match OutSystems structure exactly
 
 ---
 

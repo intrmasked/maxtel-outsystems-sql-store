@@ -16,7 +16,6 @@ SELECT
     cd.FinalGT AS [Close],
     cd.InitialGT AS [Open],
     (cd.FinalGT - cd.InitialGT) AS Difference,
-    0 AS Overring,                       -- Always 0 as per requirements
 
     -- Refunds by Tender Type
     SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END) AS CashRefund,
@@ -25,12 +24,11 @@ SELECT
     -- Gift Card/Coupon Sold (using CountedAmount for TENDER_GIFT_COUPON category)
     SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END) AS GCSold,
 
-    -- Gross Sales = Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
+    -- Gross Sales = Difference - CashRefund - EftposRefund - GCSold
     (
-        (cd.FinalGT - cd.InitialGT) - 0
+        (cd.FinalGT - cd.InitialGT)
         - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
         - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
-        - 0  -- Other Receipt removed
         - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
     ) AS GrossSales,
 
@@ -39,10 +37,9 @@ SELECT
 
     -- Net Sales = Gross Sales - GST
     (
-        (cd.FinalGT - cd.InitialGT) - 0
+        (cd.FinalGT - cd.InitialGT)
         - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
         - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
-        - 0
         - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
         - ISNULL(sf.TotalTax, 0)
     ) AS NetSales,
@@ -51,7 +48,7 @@ SELECT
     ISNULL(sfNonProd.NonProdSales, 0) AS NonProdSales,
 
     -- Product Sales (ProductSaleTypeId = 1) from SalesFact
-    ISNULL(sfProd.ProdSales, 0) AS ProductSales
+    ISNULL(sfProd.ProdSales, 0) AS ProdSales
 
 FROM {SWCPeriod} p
 
@@ -167,25 +164,29 @@ ORDER BY
 -- SALES CALCULATIONS:
 --
 -- Gross Sales Formula:
---   C - D - E - F - G - H where:
---   C = Difference (FinalGT - InitialGT)
---   D = Overring (always 0)
---   E = Cash Refund
---   F = EFTPOS Refund
---   G = Other Receipt (removed, = 0)
---   H = GC Sold
+--   Difference - CashRefund - EftposRefund - GCSold
+--   Where:
+--     Difference = FinalGT - InitialGT
+--     CashRefund = Refunds for TenderTypeId = 0
+--     EftposRefund = Refunds for TenderTypeIds IN (10,13,16,19,21)
+--     GCSold = Gift Card/Coupon sold
 --
 -- Net Sales:
---   Gross Sales - GST
+--   GrossSales - GST
 --
--- Product Sales:
+-- Product Sales (ProdSales):
 --   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 1
+--   Grouped by PosId, Pod for per-POS values
 --
--- Non-Product Sales:
+-- Non-Product Sales (NonProdSales):
 --   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
+--   Grouped by PosId, Pod for per-POS values
+--
+-- GST:
+--   SUM(TaxAmount) from SalesFact (both product and non-product)
+--   Grouped by PosId, Pod for per-POS values
 --
 -- =============================================
 -- STATUS: IN TESTING
--- All calculations implemented from SalesFact
--- SalesFact joins on SWCPeriodId only (Operating Period level)
+-- Output: 13 columns matching OutSystems ProductSalesByDrawer structure
 -- =============================================
