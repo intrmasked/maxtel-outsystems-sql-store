@@ -32,7 +32,9 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
 
 6. **Add metadata** - Create metadata.json with date/author
 
-**Important**: Each query gets its own folder. No table docs = ask for them first.
+**Important**:
+- Each query gets its own folder. No table docs = ask for them first.
+- **Update session context after EVERY major change** - This is for the team!
 
 **Query Naming**: Always name the query folder using the story name the user provides (e.g., if story is "Daily Sales Summary", folder = "daily-sales-summary").
 
@@ -69,6 +71,8 @@ SELECT ...
 ```
 This allows easy testing by changing values at the top.
 
+**After any query changes**: Update session context with what changed and why.
+
 ### SQL Server Compatibility:
 - **Target**: SQL Server 2014+ by default
 - **Table naming**: Use `{TableName}` format (NOT `[dbo].[TableName]`)
@@ -99,17 +103,45 @@ This allows easy testing by changing values at the top.
 
 ---
 
+## Session Context Updates (CRITICAL!)
+
+### Update Session Context REGULARLY - Not Just at the End!
+
+**When to update `.claude/sessions/[query-name]-context.md`:**
+
+1. **After major decisions** - Document why you chose an approach
+2. **After table changes** - New tables added, filters changed, joins updated
+3. **After user feedback** - User corrections, new requirements, clarifications
+4. **Before complex changes** - Save state before major refactoring
+5. **After query modifications** - JOIN changes, filter updates, new columns
+6. **When user says "update"** - Always update immediately
+
+**IMPORTANT**: Session context is for the TEAM. Keep it updated so anyone can:
+- Pick up where you left off
+- Understand ALL decisions made
+- See the full history of changes
+- Know what's pending vs complete
+
+### Session Update Frequency:
+- **Minimum**: After every significant change
+- **Ideal**: After each user interaction or decision
+- **Required**: When user explicitly says "update" or "finish"
+
+---
+
 ## When User Says "Finish" or "Wrap Up"
 
 ### Automatic Wrap-Up Process:
 
-1. **Create session context** - Save `.claude/sessions/[query-name]-context.md`:
+1. **Final session context update** - Ensure `.claude/sessions/[query-name]-context.md` has:
    - Full story/requirements (exact wording)
    - All tables used + whether they were created new
    - Key decisions with rationale
    - Query locations
    - Current status (complete/in-progress)
    - Next steps if incomplete
+   - All git commits made
+   - Files created and updated
 
 2. **Make it resumable** - Anyone should be able to:
    - Read the context.md
@@ -239,7 +271,9 @@ To continue:
 ---
 
 **Remember**:
-- Simple SQL. Each query = new folder. Always wrap up with context.md.
+- Simple SQL. Each query = new folder.
+- **UPDATE SESSION CONTEXT REGULARLY** - After major changes, user feedback, decisions!
 - No table docs? Ask user for table info first.
 - Use `database-context/tables/template-table/README.md` as template for new tables.
 - Session context.md = resume ticket for anyone to continue your work.
+- Context is for the TEAM - keep it updated throughout development, not just at the end.
