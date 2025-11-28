@@ -1,0 +1,35 @@
+{
+  "query_name": "product-sales-by-drawer",
+  "story_name": "Product Sales By Drawer",
+  "category": "reports",
+  "created_date": "2025-11-28",
+  "status": "in_progress",
+  "author": "MaxTel Team",
+  "description": "Cash drawer reconciliation report showing GT values, refunds, and product sales by tender type",
+  "tables_used": [
+    "SWCCashDrawer",
+    "SWCPosTerminal",
+    "SWCCashDrawerTender",
+    "TenderType",
+    "SalesFact"
+  ],
+  "parameters": [
+    {
+      "name": "@SiteId",
+      "type": "BIGINT",
+      "description": "Site identifier"
+    },
+    {
+      "name": "@Date",
+      "type": "DATE",
+      "description": "Transaction date (YYYY-MM-DD)"
+    }
+  ],
+  "pending_items": [
+    "Confirm GrossSales equation",
+    "Confirm NetSales equation",
+    "Verify TenderType.Category field",
+    "Test and validate with real data"
+  ],
+  "last_updated": "2025-11-28"
+}
