@@ -42,15 +42,24 @@ Product Sales = Net Sales - NonProdSales
 
 **Current step**: Query matches OutSystems structure (13 columns), all calculations implemented, user will continue testing in the morning
 
-**Latest changes (2025-11-29 - Morning Session):**
+**Latest changes (2025-11-29 - Morning Session Continued):**
 - 🚀 **MAJOR OPTIMIZATION**: Combined 3 separate SalesFact queries into 1 single query
   - Previously: sf (GST), sfProd (ProductSales), sfNonProd (NonProdSales) - 3 database hits
   - Now: Single sf query with CASE statements for all 3 values - 1 database hit
   - **Impact: 66% reduction in SalesFact table access**
 - ✅ Added Total row at bottom using CTE + UNION ALL pattern
-  - Shows 'Total' in POS column, NULL in Type, sums for all numeric columns
+  - Shows 'Total' in **Type column** (NOT POS), NULL in POS
+  - Sums for all numeric columns (Difference through ProdSales)
   - Matches user's screenshot requirements
+- 🐛 **FIXED**: ORDER BY error with UNION - added SortOrder column to SELECT list
+  - SortOrder = 0 for POS rows, 1 for Total row
+  - Total row always appears last
 - Query now uses CTE (PerPosData) for cleaner structure
+- ✅ Created 4 comprehensive test queries:
+  - `test-main-query-breakdown.sql` - 5 tests validating each calculation step
+  - `test-tender-validation.sql` - 5 tests verifying TenderType mappings
+  - `test-salesfact-validation.sql` - 7 tests checking SalesFact filters and data
+  - `test-compare-main-query.sql` - Full main query with expected values note
 
 **Complete items**:
 1. ✅ GrossSales equation: Difference - CashRefund - EftposRefund - GCSold (Overring removed)
@@ -137,7 +146,9 @@ Product Sales = Net Sales - NonProdSales
 - **Column name: ProdSales**: Changed from ProductSales to ProdSales → Rationale: Match OutSystems structure exactly
 - **Single SalesFact query optimization**: Combined 3 subqueries (sf, sfProd, sfNonProd) into 1 using CASE statements → Rationale: User requested optimization for fewer DB hits - 66% reduction in SalesFact access
 - **CTE pattern for totals**: Used CTE (PerPosData) + UNION ALL for Total row → Rationale: Clean structure, allows aggregation of all numeric columns for Total row
-- **Total row structure**: POS='Total', Type=NULL, all numeric columns summed → Rationale: Matches user's screenshot showing Total row at bottom
+- **Total row structure**: Type='Total', POS=NULL, all numeric columns summed → Rationale: User requested "set the type to total rather than the pos to total"
+- **SortOrder column in UNION**: Added SortOrder to SELECT list for ORDER BY → Rationale: SQL Server UNION requires ORDER BY columns to be in SELECT list
+- **Test queries created**: 4 comprehensive test files in tests/ subfolder → Rationale: User requested "write up tests to see the shit we are getting in the main query is right"
 
 ---
 

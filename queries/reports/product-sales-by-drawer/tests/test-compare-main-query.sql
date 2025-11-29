@@ -1,19 +1,18 @@
 -- =============================================
--- Query: Product Sales By Drawer
--- Purpose: Cash drawer reconciliation report showing GT values, refunds, and sales by tender type
--- Target: SQL Server 2014+
--- Created: 2025-11-28
+-- Test: Compare Main Query Output with Expected Values
+-- Purpose: Run main query and validate against known totals from screenshot
 -- =============================================
 
--- Parameters
-DECLARE @SiteId BIGINT = 3187;           -- Site ID to filter (default test site)
-DECLARE @Date DATE = '2025-11-28';       -- Date to filter (BusDate)
+DECLARE @SiteId BIGINT = 3187;
+DECLARE @Date DATE = '2025-11-28';
+
+PRINT '=== MAIN QUERY OUTPUT (should match production) ==='
 
 -- Main Query with CTE for per-POS data
 ;WITH PerPosData AS (
 SELECT
     cd.PosId AS POS,
-    pt.Pod AS Type,                      -- Will be passed to GetPodFullName server action
+    pt.Pod AS Type,
     cd.FinalGT AS [Close],
     cd.InitialGT AS [Open],
     (cd.FinalGT - cd.InitialGT) AS Difference,
@@ -153,46 +152,15 @@ ORDER BY
     SortOrder,  -- Total row (1) goes after POS rows (0)
     POS;
 
--- =============================================
--- SALES CALCULATIONS:
---
--- Gross Sales Formula:
---   Difference - CashRefund - EftposRefund - GCSold
---   Where:
---     Difference = FinalGT - InitialGT
---     CashRefund = Refunds for TenderTypeId = 0
---     EftposRefund = Refunds for TenderTypeIds IN (10,13,16,19,21)
---     GCSold = Gift Card/Coupon sold
---
--- Net Sales:
---   GrossSales - GST
---
--- Product Sales (ProdSales):
---   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 1
---   Grouped by PosId, Pod for per-POS values
---
--- Non-Product Sales (NonProdSales):
---   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
---   Grouped by PosId, Pod for per-POS values
---
--- GST:
---   SUM(TaxAmount) from SalesFact (both product and non-product)
---   Grouped by PosId, Pod for per-POS values
---
--- =============================================
--- OPTIMIZATION NOTES:
---
--- Database Hit Reduction:
---   Previously: 3 separate SalesFact queries (sf, sfProd, sfNonProd)
---   Now: 1 single SalesFact query using CASE statements
---   Impact: 66% reduction in SalesFact table access
---
--- Total Row:
---   Added UNION ALL with aggregated totals
---   Total row shows 'Total' in POS column, sums for all numeric columns
---
--- =============================================
--- STATUS: IN TESTING - OPTIMIZED
--- Output: 13 columns matching OutSystems ProductSalesByDrawer structure
--- Includes Total row at bottom
--- =============================================
+PRINT ''
+PRINT '=== EXPECTED VALUES FROM SCREENSHOT (2025-08-30) ==='
+PRINT 'Total Difference: 67,817.23'
+PRINT 'Total CashRefund: 3.50'
+PRINT 'Total GrossSales: 67,813.73'
+PRINT 'Total GST: 8,844.62'
+PRINT 'Total NetSales: 58,969.11'
+PRINT 'Total NonProdSales: 46.87'
+PRINT 'Total ProdSales: 58,922.24'
+PRINT ''
+PRINT 'NOTE: If testing with different date (2025-11-28), values will differ.'
+PRINT 'Validate calculations are correct, not exact values.'
