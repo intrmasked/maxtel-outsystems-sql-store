@@ -2,8 +2,9 @@
 
 **Category**: Reports
 **Created**: 2025-11-28
-**Status**: In Progress - Pending equation confirmations
+**Status**: In Testing - Optimized
 **SQL Server**: 2014+ compatible
+**Optimization**: Single SalesFact query (66% reduction in DB hits)
 
 ---
 
@@ -14,9 +15,15 @@ Cash drawer reconciliation report that shows:
 - Cash and Eftpos refunds by drawer
 - Gift Card/Coupon sales
 - GST/Tax amounts
-- Product sales breakdown (pending equation confirmation)
+- Product and non-product sales breakdown
+- Total row summing all numeric columns
 
 Filtered by site and date for daily reconciliation.
+
+**Query Structure:**
+- Uses CTE (PerPosData) for per-POS calculations
+- UNION ALL for Total row at bottom
+- Single optimized SalesFact query (not 3 separate queries)
 
 ---
 
@@ -24,20 +31,21 @@ Filtered by site and date for daily reconciliation.
 
 | Column | Source | Description |
 |--------|--------|-------------|
-| POS | `SWCCashDrawer.PosId` | POS terminal ID |
-| Type | `SWCPosTerminal.Pod` | Terminal type (pass to GetPodFullName) |
-| Close | `SWCCashDrawer.FinalGT` | Closing Grand Total |
-| Open | `SWCCashDrawer.InitialGT` | Opening Grand Total |
+| POS | `SWCCashDrawer.PosId` | POS terminal ID (or 'Total' for total row) |
+| Type | `SWCPosTerminal.Pod` | Terminal type (pass to GetPodFullName, NULL for total) |
+| Close | `SWCCashDrawer.FinalGT` | Closing Grand Total (NULL for total) |
+| Open | `SWCCashDrawer.InitialGT` | Opening Grand Total (NULL for total) |
 | Difference | Calculated | FinalGT - InitialGT |
-| Overring | Fixed | Always 0 |
 | CashRefund | `SWCCashDrawerTender` | Refunds for TenderTypeId = 0 |
 | EftposRefund | `SWCCashDrawerTender` | Refunds for TenderTypeId IN (10,13,16,19,21) |
-| GCSold | `SWCCashDrawerTender` | Gift Card/Coupon sales (TENDER_GIFT_COUPON) |
-| GrossSales | TODO | Pending equation confirmation |
-| GST | `SalesFact.TaxAmount` | Total tax amount |
-| NetSales | TODO | Pending equation confirmation |
-| NonProdSales | TODO | Field doesn't exist yet (0 for now) |
-| ProductSales | Calculated | NetSales - NonProdSales |
+| GCSold | `SWCCashDrawerTender` | Gift Card/Coupon CountedAmount (TENDER_GIFT_COUPON) |
+| GrossSales | Calculated | Difference - CashRefund - EftposRefund - GCSold |
+| GST | `SalesFact.TaxAmount` | Total tax amount (all ProductSaleTypeId) |
+| NetSales | Calculated | GrossSales - GST |
+| NonProdSales | `SalesFact.NetAmount` | WHERE ProductSaleTypeId = 2 |
+| ProdSales | `SalesFact.NetAmount` | WHERE ProductSaleTypeId = 1 |
+
+**Note:** Total row shows sum of all numeric columns (Difference through ProdSales).
 
 ---
 
@@ -77,16 +85,14 @@ Filtered by site and date for daily reconciliation.
 
 ### Gross Sales Formula:
 ```
-GrossSales = Difference - Overring - CashRefund - EftposRefund - OtherReceipt - GCSold
+GrossSales = Difference - CashRefund - EftposRefund - GCSold
 ```
 
 Where:
 - **Difference** = Close (FinalGT) - Open (InitialGT)
-- **Overring** = Always 0
 - **CashRefund** = Refunds for TenderTypeId = 0
 - **EftposRefund** = Refunds for TenderTypeIds IN (10,13,16,19,21)
-- **OtherReceipt** = 0 (removed as per requirements)
-- **GCSold** = Gift Card/Coupon sales
+- **GCSold** = Gift Card/Coupon CountedAmount (Category = 'TENDER_GIFT_COUPON')
 
 ### Net Sales:
 ```
@@ -100,7 +106,7 @@ NonProdSales = SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
 
 ### Product Sales:
 ```
-ProductSales = NetSales - NonProdSales
+ProdSales = SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 1
 ```
 
 ---
@@ -111,11 +117,13 @@ ProductSales = NetSales - NonProdSales
 - GrossSales equation implemented
 - NetSales equation implemented
 - NonProdSales from SalesFact (ProductSaleTypeId = 2)
-- ProductSales calculation
+- ProdSales from SalesFact (ProductSaleTypeId = 1)
 - TenderType.Category verified
 - SiteId filter via SWCPeriod
 - Date filter via SWCPeriod.BusDate
-- SalesFact joins via SWCPeriodId
+- SalesFact optimized to single query (3 → 1 query)
+- Total row added at bottom
+- Query matches OutSystems structure (13 columns)
 
 ⏳ **Pending**:
 - Testing with production data
@@ -157,10 +165,33 @@ ProductSales = NetSales - NonProdSales
 
 ---
 
+## Performance Optimization
+
+**Database Hit Reduction:**
+- **Before**: 3 separate SalesFact subqueries (sf, sfProd, sfNonProd)
+- **After**: 1 single SalesFact query with CASE statements
+- **Impact**: 66% reduction in SalesFact table access
+
+**Query Pattern:**
+```sql
+-- Single optimized SalesFact query
+LEFT JOIN (
+    SELECT
+        PosId, Pod,
+        SUM(TaxAmount) AS TotalTax,
+        SUM(CASE WHEN ProductSaleTypeId = 1 THEN NetAmount ELSE 0 END) AS ProdSales,
+        SUM(CASE WHEN ProductSaleTypeId = 2 THEN NetAmount ELSE 0 END) AS NonProdSales
+    FROM {SalesFact}
+    WHERE [filters]
+    GROUP BY PosId, Pod
+) sf ON cd.PosId = sf.PosId AND pt.Pod = sf.Pod
+```
+
+---
+
 ## Next Steps
 
-- Confirm GrossSales and NetSales equations
-- Test TenderType.Category field availability
-- Verify date filtering approach
-- Add NonProdSales logic when field becomes available
-- Test with real data
+- Test with production data
+- Validate Total row calculations
+- GetPodFullName server action integration
+- DBA review and implement index recommendations

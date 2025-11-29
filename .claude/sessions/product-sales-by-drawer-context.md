@@ -42,11 +42,15 @@ Product Sales = Net Sales - NonProdSales
 
 **Current step**: Query matches OutSystems structure (13 columns), all calculations implemented, user will continue testing in the morning
 
-**Latest changes (2025-11-29):**
-- Removed Overring column to match OutSystems structure
-- Renamed ProductSales to ProdSales
-- All SalesFact subqueries now group by PosId, Pod for per-POS values
-- Query ready for OutSystems integration
+**Latest changes (2025-11-29 - Morning Session):**
+- 🚀 **MAJOR OPTIMIZATION**: Combined 3 separate SalesFact queries into 1 single query
+  - Previously: sf (GST), sfProd (ProductSales), sfNonProd (NonProdSales) - 3 database hits
+  - Now: Single sf query with CASE statements for all 3 values - 1 database hit
+  - **Impact: 66% reduction in SalesFact table access**
+- ✅ Added Total row at bottom using CTE + UNION ALL pattern
+  - Shows 'Total' in POS column, NULL in Type, sums for all numeric columns
+  - Matches user's screenshot requirements
+- Query now uses CTE (PerPosData) for cleaner structure
 
 **Complete items**:
 1. ✅ GrossSales equation: Difference - CashRefund - EftposRefund - GCSold (Overring removed)
@@ -61,6 +65,8 @@ Product Sales = Net Sales - NonProdSales
 10. ✅ Query structure matches OutSystems (13 columns)
 11. ✅ Test queries organized in tests/ subfolder
 12. ✅ Default SiteId set to 3187
+13. ✅ **Database optimization: Single SalesFact query instead of 3**
+14. ✅ **Total row added at bottom**
 
 **Testing in progress**:
 - Query structure now matches OutSystems ProductSalesByDrawer (13 columns)
@@ -129,6 +135,9 @@ Product Sales = Net Sales - NonProdSales
 - **Test queries location**: All test files in `tests/` subfolder within query directory → Rationale: Keep test/diagnostic queries organized in dedicated subfolder, prefix with `test-`
 - **Removed Overring column**: Query now returns 13 columns (not 14) → Rationale: OutSystems ProductSalesByDrawer structure doesn't include Overring column, simplified GrossSales formula
 - **Column name: ProdSales**: Changed from ProductSales to ProdSales → Rationale: Match OutSystems structure exactly
+- **Single SalesFact query optimization**: Combined 3 subqueries (sf, sfProd, sfNonProd) into 1 using CASE statements → Rationale: User requested optimization for fewer DB hits - 66% reduction in SalesFact access
+- **CTE pattern for totals**: Used CTE (PerPosData) + UNION ALL for Total row → Rationale: Clean structure, allows aggregation of all numeric columns for Total row
+- **Total row structure**: POS='Total', Type=NULL, all numeric columns summed → Rationale: Matches user's screenshot showing Total row at bottom
 
 ---
 
