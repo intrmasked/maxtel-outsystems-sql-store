@@ -1,0 +1,52 @@
+{
+  "query_name": "product-sales-by-pos-type-hourly",
+  "display_name": "Product Sales By POS Type Hourly",
+  "category": "reports",
+  "created_date": "2025-11-29",
+  "author": "Claude Code",
+  "status": "in_development",
+  "sql_server_version": "2014+",
+  "description": "Hourly sales breakdown by POS Type (Pod) with YoY comparison for a single day",
+  "output_format": "long_format",
+  "expected_rows": "~100 (24 hours × N pods + N Total Day rows)",
+  "parameters": {
+    "SiteId": {
+      "type": "BIGINT",
+      "required": true,
+      "default": 3187,
+      "description": "Site identifier"
+    },
+    "Date": {
+      "type": "DATE",
+      "required": true,
+      "default": "2025-11-29",
+      "description": "NZ Date for the report (single day)"
+    },
+    "SelectedView": {
+      "type": "VARCHAR(1)",
+      "required": true,
+      "default": "D",
+      "options": ["D", "G", "A"],
+      "description": "View type: D=Dollar Sales, G=Guest Count, A=Average Check"
+    }
+  },
+  "tables_used": [
+    "SalesFact"
+  ],
+  "key_features": [
+    "Hourly breakdown (00-01 through 23-24)",
+    "NZ timezone conversion from UTC",
+    "Pod filtering and grouping",
+    "YoY comparison (364 days back)",
+    "Scaffold pattern for complete output",
+    "Total Day row per pod",
+    "Three view modes (Sales, GC, Av Chq)"
+  ],
+  "related_queries": [
+    "product-sales-by-drawer",
+    "product-sales-by-day-part"
+  ],
+  "outsystems_screen": "ProductSalesByRegisterTypeHoursScreen",
+  "parent_screen": "Product Sales By Register Type List",
+  "notes": "Pod codes will be converted to full names using GetPODFullName server action in OutSystems"
+}

@@ -18,7 +18,13 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
 
 1. **Understand the story** - Clarify requirements briefly
 
-2. **Check for table docs** - For each table needed:
+2. **🚨 ALWAYS CHECK TABLE DOCS FIRST** - Before asking ANY questions:
+   - **READ** existing table docs in `database-context/tables/[table-name]/README.md`
+   - Check if columns, types, and relationships are already documented
+   - **ONLY ask user for table info if docs don't exist or are incomplete**
+   - If table docs exist → Use them, don't ask user to repeat information
+
+3. **Check for missing table docs** - For each table needed:
    - Check if `database-context/tables/[table-name]/` exists
    - If NOT exists → **Ask user for table info** (columns, types, relationships)
    - Create `database-context/tables/[table-name]/README.md` with full table docs
@@ -85,6 +91,10 @@ This allows easy testing by changing values at the top.
 **Default Values:**
 - `@SiteId` = 3187 (standard test site)
 - `@Date` = Current or test date in 'YYYY-MM-DD' format
+- `@SelectedView` = 'D' (if query uses view parameter)
+  - 'D' = Dollar Sales (NetAmount)
+  - 'G' = Guest Count (TransactionCount)
+  - 'A' = Average Check (NetAmount / TransactionCount)
 
 **After any query changes**: Update session context with what changed and why.
 

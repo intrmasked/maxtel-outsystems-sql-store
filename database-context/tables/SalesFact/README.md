@@ -3,7 +3,7 @@
 **OutSystems Entity**: SalesFact
 **Database Table**: [dbo].[SalesFact]
 **Purpose**: Stores sales transaction data including tenders, amounts, and tax information
-**Last Updated**: 2025-11-28
+**Last Updated**: 2025-11-29
 
 ---
 
@@ -35,15 +35,16 @@ The SalesFact table is the main fact table for sales transactions in the MaxTel 
 | `NetBeforeDiscount` | Decimal | Amount before discounts applied |
 | `TaxBeforeDiscount` | Decimal | Tax before discounts |
 | `RoundingAmount` | Decimal | Rounding adjustment |
-| `TransactionCount` | Integer | Number of transactions |
-| `DateTime` | Date Time | Transaction timestamp |
+| `TransactionCount` | Integer | Number of transactions (guest count) |
+| `DateTime` | Date Time | Transaction timestamp (UTC timezone) |
 | `ProductMenuId` | Long Integer | Product menu reference |
 | `OperationId` | Long Integer | Operation reference |
 | `OperationKindId` | Long Integer | Kind of operation |
-| `ProductSaleTypeId` | Long Integer | Product sale type |
+| `ProductSaleTypeId` | Long Integer | Product sale type (1 = product sales, 2 = non-product sales) |
 | `SaleTypeId` | Long Integer | Sale type |
 | `SourceFileId` | Long Integer | Source file reference |
 | `SWCPeriodId` | Long Integer | Operating period reference |
+| `DatePeriodDimensionId` | Long Integer | Date period dimension (15 = 15-min intervals, 1440 = daily) |
 
 ---
 
@@ -127,12 +128,66 @@ WHERE SiteId = @SiteId
 
 ---
 
+## Timezone and DateTime Handling
+
+**🚨 CRITICAL: Database stores DateTime in UTC, reports need NZ timezone**
+
+### UTC to NZ Timezone Conversion Pattern:
+```sql
+-- Convert UTC DateTime to NZ timezone
+CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')
+
+-- Extract hour in NZ timezone (for hourly reports)
+DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time'))
+
+-- Extract date in NZ timezone
+CAST(CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time') AS DATE)
+```
+
+**Why timezone conversion matters:**
+- Database stores all DateTime values in UTC
+- Business operates in NZ timezone (NZDT = UTC+13, NZST = UTC+12)
+- Without conversion, hourly reports would show UTC hours, not NZ hours
+- AT TIME ZONE automatically handles daylight saving transitions
+
+**Example - Hourly Sales:**
+```sql
+-- Get sales grouped by NZ hour
+SELECT
+    DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS Hour,
+    SUM(NetAmount) AS Sales
+FROM {SalesFact}
+WHERE SiteId = @SiteId
+    AND CalendarDate = @Date
+    AND DatePeriodDimensionId = 15
+    -- ... other mandatory filters
+GROUP BY DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time'))
+ORDER BY Hour
+```
+
+---
+
+## DatePeriodDimensionId Values
+
+| Value | Interval | Use Case |
+|-------|----------|----------|
+| 15 | 15-minute intervals | Hourly reports, detailed time analysis |
+| 1440 | Daily (24 hours × 60 mins) | Daily aggregation reports |
+
+**Standard Usage**: Use `DatePeriodDimensionId = 15` for most queries to get granular time data
+
+---
+
 ## Notes for OutSystems
 - **Join via SWCPeriodId** - Links to SWCPeriod.Id (OperatingPeriodId)
-- **DatePeriodDimensionId = 15** - Standard dimension filter
+- **DatePeriodDimensionId = 15** - Standard dimension filter for 15-min intervals
 - **Filter out empty strings** - PosId <> '' AND Pod <> ''
-- Use CalendarDate for date filtering
-- TaxAmount contains GST
-- NetAmount is pre-tax amount
+- **CalendarDate** - Use for date filtering (stored in UTC, but represents calendar day)
+- **DateTime** - Transaction timestamp (UTC), convert to NZ for hourly analysis
+- **TaxAmount** - Contains GST
+- **NetAmount** - Pre-tax sales amount
+- **TransactionCount** - Guest count (number of transactions)
+- **ProductSaleTypeId** - 1 = product sales, 2 = non-product sales
+- **Pod codes** - 2-3 letter codes (e.g., CO, DT, KI, DL) - convert with GetPODFullName
 - Large table - always use indexed filters (SiteId, CalendarDate, DatePeriodDimensionId)
 - **ALWAYS set unused dimension IDs to NULL** - See Mandatory Filter Rules above
