@@ -18,8 +18,8 @@ DECLARE @SelectedView VARCHAR(1) = 'D';     -- 'D' = Sales (NetAmount), 'G' = GC
 
 -- =============================================
 -- MAIN QUERY: HOURLY SALES BY POS TYPE
--- Returns one row per Hour-Pod combination
--- Output: Long format (24 hours x N pods = ~96 rows for 4 pods)
+-- Returns one row per Hour-Pod combination + Total row per hour
+-- Output: Long format (24 hours x (N pods + 1 Total) = ~120 rows for 4 pods)
 -- =============================================
 
 WITH
@@ -175,100 +175,130 @@ TotalDayTotals AS (
     FROM TotalDayData
 ),
 
--- [STEP 9]: Combine Hourly Data with Total Day
+-- [STEP 9]: Calculate Hourly Total Rows (sum all pods per hour)
+HourlyTotalRows AS (
+    SELECT
+        Hour,
+        'Total' AS Pod,
+        SortOrder - 0.5 AS SortOrder,  -- Sort Total before individual pods
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount
+    FROM MergedData
+    GROUP BY Hour, SortOrder
+),
+
+-- [STEP 10]: Combine Hourly Data with Hourly Totals and Total Day
 CombinedData AS (
+    -- Hourly Total rows (one per hour)
+    SELECT
+        Hour, Pod, SortOrder, CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount
+    FROM HourlyTotalRows
+    UNION ALL
+    -- Individual pod rows per hour
     SELECT
         Hour, Pod, SortOrder, CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount
     FROM MergedData
     UNION ALL
+    -- Total Day Total row
+    SELECT
+        'Total Day' AS Hour,
+        'Total' AS Pod,
+        9998.5 AS SortOrder,  -- Sort Total Day Total before individual pods
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount
+    FROM TotalDayData
+    UNION ALL
+    -- Total Day individual pod rows
     SELECT
         Hour, Pod, SortOrder, CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount
     FROM TotalDayData
 ),
 
--- [STEP 10]: Add Totals for % Calculation
+-- [STEP 11]: Add Totals for % Calculation
 AllTotals AS (
     SELECT Hour, Total_CY_NetAmount, Total_CY_TransactionCount FROM HourlyTotals
     UNION ALL
     SELECT Hour, Total_CY_NetAmount, Total_CY_TransactionCount FROM TotalDayTotals
 )
 
--- [STEP 11]: Final Output with Calculations
+-- [STEP 12]: Final Output with Calculations
 SELECT
-    cd.Hour,
-    cd.Pod,
+      cd.Hour,
+      cd.Pod,
 
-    -- [CALC 1: Sales Value based on View]
-    CASE @SelectedView
-        WHEN 'D' THEN cd.CY_NetAmount  -- Dollar Sales
-        WHEN 'G' THEN CAST(cd.CY_TransactionCount AS DECIMAL(18,2))  -- Guest Count
-        WHEN 'A' THEN
-            CASE
-                WHEN cd.CY_TransactionCount = 0 THEN 0
-                ELSE cd.CY_NetAmount / cd.CY_TransactionCount
-            END  -- Average Check
-        ELSE 0
-    END AS Sales,
+      -- Sales based on view
+      CASE
+          WHEN (@SelectedView) = 'D' THEN cd.CY_NetAmount
+          WHEN (@SelectedView) = 'G' THEN CAST(cd.CY_TransactionCount AS DECIMAL(18,2))
+          WHEN (@SelectedView) = 'A' THEN
+              CASE WHEN cd.CY_TransactionCount = 0 THEN 0
+              ELSE cd.CY_NetAmount / cd.CY_TransactionCount END
+          ELSE 0
+      END AS Sales,
 
-    -- [CALC 2: % Total (Pod Sales / Total Sales for that hour)]
-    CASE @SelectedView
-        WHEN 'D' THEN
-            CASE
-                WHEN ISNULL(t.Total_CY_NetAmount, 0) = 0 THEN 0
-                ELSE cd.CY_NetAmount * 100.0 / NULLIF(t.Total_CY_NetAmount, 0)
-            END
-        WHEN 'G' THEN
-            CASE
-                WHEN ISNULL(t.Total_CY_TransactionCount, 0) = 0 THEN 0
-                ELSE CAST(cd.CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(t.Total_CY_TransactionCount, 0)
-            END
-        WHEN 'A' THEN 0  -- % Total doesn't make sense for Average Check
-        ELSE 0
-    END AS PercentTotal,
+      -- PercentTotal (for individual pods only, 0 for Total rows)
+      CASE
+          WHEN cd.Pod = 'Total' THEN 0  -- Total rows don't show % Total
+          WHEN (@SelectedView) = 'D' THEN
+              CASE WHEN ISNULL(t.Total_CY_NetAmount, 0) = 0 THEN 0
+              ELSE cd.CY_NetAmount * 100.0 / NULLIF(t.Total_CY_NetAmount, 0) END
+          WHEN (@SelectedView) = 'G' THEN
+              CASE WHEN ISNULL(t.Total_CY_TransactionCount, 0) = 0 THEN 0
+              ELSE CAST(cd.CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(t.Total_CY_TransactionCount, 0) END
+          WHEN (@SelectedView) = 'A' THEN 0
+          ELSE 0
+      END AS PercentTotal,
 
-    -- [CALC 3: % Inc (YoY Growth %)]
-    CASE @SelectedView
-        WHEN 'D' THEN
-            CASE
-                WHEN cd.PY_NetAmount = 0 THEN 0
-                ELSE (cd.CY_NetAmount - cd.PY_NetAmount) * 100.0 / cd.PY_NetAmount
-            END
-        WHEN 'G' THEN
-            CASE
-                WHEN cd.PY_TransactionCount = 0 THEN 0
-                ELSE (CAST(cd.CY_TransactionCount AS DECIMAL(18,2)) - cd.PY_TransactionCount) * 100.0 / cd.PY_TransactionCount
-            END
-        WHEN 'A' THEN
-            CASE
-                WHEN cd.PY_TransactionCount = 0 OR cd.CY_TransactionCount = 0 THEN 0
-                WHEN (cd.PY_NetAmount / cd.PY_TransactionCount) = 0 THEN 0
-                ELSE ((cd.CY_NetAmount / cd.CY_TransactionCount) - (cd.PY_NetAmount / cd.PY_TransactionCount)) * 100.0 / (cd.PY_NetAmount / cd.PY_TransactionCount)
-            END
-        ELSE 0
-    END AS PercentInc
+      -- PercentInc
+      CASE
+          WHEN (@SelectedView) = 'D' THEN
+              CASE WHEN cd.PY_NetAmount = 0 THEN 0
+              ELSE (cd.CY_NetAmount - cd.PY_NetAmount) * 100.0 / cd.PY_NetAmount END
+          WHEN (@SelectedView) = 'G' THEN
+              CASE WHEN cd.PY_TransactionCount = 0 THEN 0
+              ELSE (CAST(cd.CY_TransactionCount AS DECIMAL(18,2)) - cd.PY_TransactionCount) * 100.0 / cd.PY_TransactionCount END
+          WHEN (@SelectedView) = 'A' THEN
+              CASE WHEN cd.PY_TransactionCount = 0 OR cd.CY_TransactionCount = 0 THEN 0
+              WHEN (cd.PY_NetAmount / cd.PY_TransactionCount) = 0 THEN 0
+              ELSE ((cd.CY_NetAmount / cd.CY_TransactionCount) - (cd.PY_NetAmount / cd.PY_TransactionCount)) * 100.0 / (cd.PY_NetAmount /
+  cd.PY_TransactionCount) END
+          ELSE 0
+      END AS PercentInc
 
-FROM CombinedData cd
-LEFT JOIN AllTotals t ON cd.Hour = t.Hour
+  FROM CombinedData cd
+  LEFT JOIN AllTotals t ON cd.Hour = t.Hour
 
-ORDER BY
-    cd.SortOrder ASC,  -- Hours 0-23, then Total Day (9999)
-    cd.Pod ASC;        -- Alphabetical by Pod
+  ORDER BY cd.SortOrder ASC,
+           CASE WHEN cd.Pod = 'Total' THEN 0 ELSE 1 END,  -- Total first
+           cd.Pod ASC;                                     -- Then alphabetical
 
 -- =============================================
 -- OUTPUT FORMAT:
 --
--- Hour     | Pod | Sales   | PercentTotal | PercentInc
--- ---------+-----+---------+--------------+-----------
--- 00-01    | CO  | 150.50  | 25.0         | 5.2
--- 00-01    | DT  | 300.00  | 50.0         | -2.1
--- 00-01    | KI  | 100.00  | 16.7         | 10.5
--- 00-01    | DL  | 50.00   | 8.3          | 0.0
--- 01-02    | CO  | 200.00  | 30.0         | ...
+-- Hour     | Pod   | Sales   | PercentTotal | PercentInc
+-- ---------+-------+---------+--------------+-----------
+-- 00-01    | Total | 600.50  | 0.0          | 3.5
+-- 00-01    | CO    | 150.50  | 25.0         | 5.2
+-- 00-01    | DL    | 50.00   | 8.3          | 0.0
+-- 00-01    | DT    | 300.00  | 50.0         | -2.1
+-- 00-01    | KI    | 100.00  | 16.7         | 10.5
+-- 01-02    | Total | 800.00  | 0.0          | 4.2
+-- 01-02    | CO    | 200.00  | 25.0         | ...
+-- 01-02    | DL    | 100.00  | 12.5         | ...
+-- 01-02    | DT    | 400.00  | 50.0         | ...
+-- 01-02    | KI    | 100.00  | 12.5         | ...
 -- ...
--- Total Day| CO  | 5000.00 | 40.0         | 8.5
--- Total Day| DT  | 6000.00 | 48.0         | 12.0
--- Total Day| KI  | 1000.00 | 8.0          | 5.0
--- Total Day| DL  | 500.00  | 4.0          | -1.5
+-- Total Day| Total | 12500.00| 0.0          | 6.8
+-- Total Day| CO    | 5000.00 | 40.0         | 8.5
+-- Total Day| DL    | 500.00  | 4.0          | -1.5
+-- Total Day| DT    | 6000.00 | 48.0         | 12.0
+-- Total Day| KI    | 1000.00 | 8.0          | 5.0
+--
+-- Output: 24 hours × 5 rows (Total + 4 pods) + Total Day × 5 rows = 125 rows
 --
 -- =============================================
 -- OUTSYSTEMS SETUP:
@@ -279,13 +309,14 @@ ORDER BY
 -- - SelectedView (Text) = "D"
 --
 -- Output Structure:
--- - Hour (Text)
--- - Pod (Text)
--- - Sales (Decimal)
--- - PercentTotal (Decimal)
--- - PercentInc (Decimal)
+-- - Hour (Text) - "00-01", "01-02", ..., "23-24", "Total Day"
+-- - Pod (Text) - "Total", "CO", "DL", "DT", "KI" (alphabetical after Total)
+-- - Sales (Decimal) - Based on SelectedView (D/G/A)
+-- - PercentTotal (Decimal) - % of hour total (0 for Total rows)
+-- - PercentInc (Decimal) - YoY % increase
 --
 -- =============================================
 -- STATUS: READY FOR OUTSYSTEMS
 -- Fixed: Using REPLICATE instead of RIGHT for compatibility
+-- Fixed: Added Total rows for each hour and Total Day
 -- =============================================

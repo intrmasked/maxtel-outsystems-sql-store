@@ -112,11 +112,12 @@ This allows easy testing by changing values at the top.
 - ❌ `LEFT()` - Use `SUBSTRING()` instead
 - ❌ `FORMAT()` in SQL Server 2008/2012 - Use `REPLICATE()` + `CAST()` instead
 - ❌ `DECLARE` statements - Use OutSystems Input Parameters instead
+- ❌ `CASE @Variable WHEN 'value' THEN ...` - Use `CASE WHEN (@Variable) = 'value' THEN ...` instead
 
 **✅ ALWAYS USE OutSystems-compatible alternatives:**
 - ✅ `REPLICATE('0', 2 - LEN(CAST(value AS VARCHAR))) + CAST(value AS VARCHAR)` instead of `RIGHT('0' + value, 2)`
 - ✅ `SUBSTRING(text, start, length)` instead of `LEFT()` or `RIGHT()`
-- ✅ `CASE WHEN ... THEN ... END` for conditional logic
+- ✅ `CASE WHEN (@Variable) = 'value' THEN ... END` - wrap parameters in parentheses
 - ✅ `ISNULL()`, `NULLIF()`, `COALESCE()` - all supported
 - ✅ `CAST()`, `CONVERT()` - supported
 - ✅ `AT TIME ZONE` - supported (SQL Server 2016+)
@@ -128,13 +129,30 @@ This allows easy testing by changing values at the top.
   - Set **Expand Inline = No** for all parameters
   - OutSystems automatically converts to `@ParameterName` in SQL
 
-**Example - Hour Formatting (OutSystems compatible):**
+**Example 1 - Hour Formatting (OutSystems compatible):**
 ```sql
 -- ❌ WRONG (uses RIGHT - doesn't work in OutSystems)
 RIGHT('0' + CAST(hour AS VARCHAR), 2)
 
 -- ✅ CORRECT (uses REPLICATE - works in OutSystems)
 REPLICATE('0', 2 - LEN(CAST(hour AS VARCHAR))) + CAST(hour AS VARCHAR)
+```
+
+**Example 2 - CASE with Parameters (OutSystems compatible):**
+```sql
+-- ❌ WRONG (OutSystems doesn't recognize parameter in CASE @Variable syntax)
+CASE @SelectedView
+    WHEN 'D' THEN NetAmount
+    WHEN 'G' THEN TransactionCount
+    ELSE 0
+END
+
+-- ✅ CORRECT (wrap parameter in parentheses and use WHEN condition)
+CASE
+    WHEN (@SelectedView) = 'D' THEN NetAmount
+    WHEN (@SelectedView) = 'G' THEN TransactionCount
+    ELSE 0
+END
 ```
 
 ### Query Performance & Optimization:

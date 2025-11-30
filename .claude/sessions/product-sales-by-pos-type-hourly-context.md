@@ -62,7 +62,15 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 
 **Current step**: Query structure complete, pending testing with production data
 
-**Latest changes (2025-11-29):**
+**Latest changes (2025-11-30):**
+- **MAJOR UPDATE**: Added Total rows for each hour and Total Day
+- Each hour now has 5 rows: Total + 4 individual pods (CO, DL, DT, KI)
+- Total Day also has 5 rows: Total + 4 individual pods
+- Output increased from ~100 rows to ~125 rows (24 hours × 5 + Total Day × 5)
+- Total rows show Pod='Total' with PercentTotal=0
+- Updated sorting to show Total first in each hour group
+
+**Earlier changes (2025-11-29):**
 - Created query folder structure
 - Built main query with hourly breakdown
 - Implemented NZ timezone conversion (UTC → NZ)
@@ -71,6 +79,7 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 - Implemented @SelectedView parameter (D/G/A)
 - Added Total Day row per pod
 - Created README and metadata files
+- Fixed OutSystems compatibility issues (RIGHT → REPLICATE, CASE syntax)
 
 **Complete items**:
 1. ✅ Query folder structure created
@@ -84,8 +93,11 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 9. ✅ PercentInc calculation (YoY growth %)
 10. ✅ Total Day row (sum of all hours per pod)
 11. ✅ Long format output (one row per Hour-Pod)
-12. ✅ README documentation
-13. ✅ metadata.json file
+12. ✅ **Hourly Total rows** (sum of all pods per hour) - NEW
+13. ✅ **Total Day Total row** (sum of all pods for entire day) - NEW
+14. ✅ README documentation
+15. ✅ metadata.json file
+16. ✅ 3 test query files created
 
 **Pending**:
 - Testing with production data
@@ -116,6 +128,11 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 ## Key Decisions
 
 - **Long format output**: One row per Hour-Pod combination → Rationale: User screenshot shows list structure, OutSystems will handle GetPODFullName conversion
+- **Total rows per hour**: Added Pod='Total' for each hour → Rationale: User screenshot shows "Total" column first, represents sum of all pods for that hour
+- **Total Day Total row**: Added Pod='Total' for Total Day → Rationale: Grand total for entire day across all pods
+- **PercentTotal = 0 for Total rows**: Total rows don't show % Total → Rationale: Total represents 100% already, individual pods show their % of Total
+- **Sorting**: Total first (SortOrder - 0.5), then alphabetical pods → Rationale: User screenshot shows Total column on left side
+- **Output structure**: 24 hours × 5 rows + Total Day × 5 rows = 125 rows → Rationale: Total + CO + DL + DT + KI per hour
 - **Scaffold pattern**: Cross join Hours × Pods → Rationale: Ensures no missing rows (all hours show for all pods, even with 0 sales)
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours
 - **Hour extraction after TZ conversion**: DATEPART(HOUR, CONVERT(DATETIME, [...TZ conversion...])) → Rationale: Extract hour in NZ timezone, not UTC
