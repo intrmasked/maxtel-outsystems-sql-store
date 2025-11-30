@@ -98,14 +98,44 @@ This allows easy testing by changing values at the top.
 
 **After any query changes**: Update session context with what changed and why.
 
-### SQL Server Compatibility:
-- **Target**: SQL Server 2014+ by default
+### SQL Server Compatibility & OutSystems Requirements:
+
+**🚨 CRITICAL: ALWAYS use OutSystems-compatible SQL functions ONLY**
+
+- **Target**: SQL Server 2014+ / OutSystems Advanced SQL
 - **Table naming**: Use `{TableName}` format (NOT `[dbo].[TableName]`)
   - Example: `FROM {SWCPeriod} p` instead of `FROM [dbo].[SWCPeriod] p`
   - This is OutSystems convention for table references
-- Use standard T-SQL syntax
-- Avoid features from newer versions unless specified
-- Test compatibility when using advanced features
+
+**❌ NEVER USE these functions (OutSystems doesn't support them):**
+- ❌ `RIGHT()` - Use `SUBSTRING()` or `REPLICATE()` instead
+- ❌ `LEFT()` - Use `SUBSTRING()` instead
+- ❌ `FORMAT()` in SQL Server 2008/2012 - Use `REPLICATE()` + `CAST()` instead
+- ❌ `DECLARE` statements - Use OutSystems Input Parameters instead
+
+**✅ ALWAYS USE OutSystems-compatible alternatives:**
+- ✅ `REPLICATE('0', 2 - LEN(CAST(value AS VARCHAR))) + CAST(value AS VARCHAR)` instead of `RIGHT('0' + value, 2)`
+- ✅ `SUBSTRING(text, start, length)` instead of `LEFT()` or `RIGHT()`
+- ✅ `CASE WHEN ... THEN ... END` for conditional logic
+- ✅ `ISNULL()`, `NULLIF()`, `COALESCE()` - all supported
+- ✅ `CAST()`, `CONVERT()` - supported
+- ✅ `AT TIME ZONE` - supported (SQL Server 2016+)
+
+**OutSystems Input Parameters:**
+- Remove ALL `DECLARE @Variable` statements from query
+- Add parameters in OutSystems Advanced SQL block:
+  - Name matches SQL variable name (without @)
+  - Set **Expand Inline = No** for all parameters
+  - OutSystems automatically converts to `@ParameterName` in SQL
+
+**Example - Hour Formatting (OutSystems compatible):**
+```sql
+-- ❌ WRONG (uses RIGHT - doesn't work in OutSystems)
+RIGHT('0' + CAST(hour AS VARCHAR), 2)
+
+-- ✅ CORRECT (uses REPLICATE - works in OutSystems)
+REPLICATE('0', 2 - LEN(CAST(hour AS VARCHAR))) + CAST(hour AS VARCHAR)
+```
 
 ### Query Performance & Optimization:
 - **Minimize database hits** - Optimize for fewer queries to the database

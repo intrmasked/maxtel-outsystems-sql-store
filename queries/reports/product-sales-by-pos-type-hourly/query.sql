@@ -1,11 +1,17 @@
 -- =============================================
 -- Query: Product Sales By POS Type Hourly
 -- Purpose: Hourly sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with YoY comparison
--- Target: SQL Server 2014+
+-- Target: SQL Server 2014+ / OutSystems Advanced SQL
 -- Created: 2025-11-29
+-- Updated: 2025-11-30
 -- =============================================
 
--- Parameters
+-- ⚠️ NOTE: When using in OutSystems Advanced SQL Block:
+-- 1. REMOVE all DECLARE statements below (they don't work in OutSystems)
+-- 2. Add Input Parameters in OutSystems: SiteId (Long Integer), Date (Date), SelectedView (Text)
+-- 3. Set all parameters to Expand Inline = No
+
+-- Parameters (for local SQL Server testing only - comment out for OutSystems)
 DECLARE @SiteId BIGINT = 3187;              -- Site ID to filter
 DECLARE @Date DATE = '2025-11-29';          -- NZ Date (single day)
 DECLARE @SelectedView VARCHAR(1) = 'D';     -- 'D' = Sales (NetAmount), 'G' = GC (TransactionCount), 'A' = Av Chq (NetAmount/TransactionCount)
@@ -31,7 +37,6 @@ Hours AS (
 
 -- [STEP 2]: Get All Distinct Pods from Current Day
 -- Ensures we include all pods that have data for this site/date
--- Falls back to common pods if no data exists
 AllPods AS (
     SELECT DISTINCT Pod
     FROM {SalesFact}
@@ -51,11 +56,13 @@ AllPods AS (
 
 -- [STEP 3]: Build Scaffold (Hour x Pod Grid)
 -- Cross join ensures every hour has every pod, even with 0 sales
--- Prevents missing rows in the output
+-- FIXED: Using REPLICATE instead of RIGHT for OutSystems compatibility
 Scaffold AS (
     SELECT
         h.HourStart,
-        RIGHT('0' + CAST(h.HourStart AS VARCHAR(2)), 2) + '-' + RIGHT('0' + CAST((h.HourStart + 1) % 24 AS VARCHAR(2)), 2) AS Hour,
+        -- Format hour as "00-01", "01-02", etc. (OutSystems compatible)
+        REPLICATE('0', 2 - LEN(CAST(h.HourStart AS VARCHAR))) + CAST(h.HourStart AS VARCHAR) + '-' +
+        REPLICATE('0', 2 - LEN(CAST((h.HourStart + 1) % 24 AS VARCHAR))) + CAST((h.HourStart + 1) % 24 AS VARCHAR) AS Hour,
         p.Pod,
         h.HourStart AS SortOrder
     FROM Hours h
@@ -264,7 +271,21 @@ ORDER BY
 -- Total Day| DL  | 500.00  | 4.0          | -1.5
 --
 -- =============================================
--- STATUS: IN DEVELOPMENT
--- Output: Long format - one row per Hour-Pod combination
--- Includes Total Day row at bottom per pod
+-- OUTSYSTEMS SETUP:
+--
+-- Input Parameters (Expand Inline = No):
+-- - SiteId (Long Integer) = 3187
+-- - Date (Date) = #2025-11-29#
+-- - SelectedView (Text) = "D"
+--
+-- Output Structure:
+-- - Hour (Text)
+-- - Pod (Text)
+-- - Sales (Decimal)
+-- - PercentTotal (Decimal)
+-- - PercentInc (Decimal)
+--
+-- =============================================
+-- STATUS: READY FOR OUTSYSTEMS
+-- Fixed: Using REPLICATE instead of RIGHT for compatibility
 -- =============================================
