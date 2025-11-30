@@ -37,10 +37,16 @@ Product Sales = Net Sales - NonProdSales
 ## Status
 
 - [ ] Complete
-- [X] In Testing (User actively testing)
-- [ ] Needs Review
+- [ ] In Testing
+- [X] Migrated to OutSystems Aggregates
 
-**Current step**: Query matches OutSystems structure (13 columns), all calculations implemented, user will continue testing in the morning
+**Current step**: Requirements updated, migrating from Advanced SQL to OutSystems Aggregates
+
+**MAJOR CHANGE (2025-11-30)**:
+- ⚠️ **Implementation approach changed from Advanced SQL to OutSystems Aggregates**
+- SQL query files archived for reference only
+- Simpler data structure makes Aggregates the better choice
+- README updated with Aggregate implementation guide
 
 **Latest changes (2025-11-29 - Morning Session Continued):**
 - 🚀 **MAJOR OPTIMIZATION**: Combined 3 separate SalesFact queries into 1 single query
@@ -104,13 +110,13 @@ Product Sales = Net Sales - NonProdSales
 
 ## Queries Created
 
-- `queries/reports/product-sales-by-drawer/` - [IN TESTING]
+- `queries/reports/product-sales-by-drawer/` - [MIGRATED TO AGGREGATES]
   - Purpose: Cash drawer reconciliation with GT values, refunds, and sales
-  - Tables used: SWCPeriod, SWCCashDrawer, SWCPosTerminal, SWCCashDrawerTender, TenderType, SalesFact
-  - Output: POS, Type, GT values, refunds, GC sold, GST, sales calculations (GrossSales, NetSales, ProductSales)
-  - Parameters: @SiteId (via SWCPeriod), @Date (BusDate)
-  - Index recommendations: 5 indexes documented (3 High/Critical impact)
-  - Status: All equations implemented, GROUP BY fixed, user is testing with production data
+  - **Implementation**: OutSystems Aggregates (SQL files archived for reference)
+  - Tables used: SWCCashDrawer, SWCCashDrawerTender, SWCPosTerminal, TenderType
+  - Output: 11 columns (removed Overring and Other Receipt)
+  - Parameters: SiteId, Date (passed to Server Action)
+  - Status: README updated with Aggregate implementation guide, awaiting OutSystems implementation
 
 ---
 

@@ -107,6 +107,19 @@ This allows easy testing by changing values at the top.
   - Example: `FROM {SWCPeriod} p` instead of `FROM [dbo].[SWCPeriod] p`
   - This is OutSystems convention for table references
 
+**🔥 CRITICAL OutSystems Quirk - "Lazy Parser" Parameter Bug:**
+- **Issue**: Long queries with parameters used only at the end fail with "Must declare scalar variable"
+- **Root Cause**: OutSystems scans queries top-down; if parameter isn't seen early, it stops tracking it
+- **REQUIRED FIX**: Always add InputVar CTE as FIRST CTE in WITH clause
+- **Pattern**:
+  ```sql
+  WITH
+  InputVar AS (SELECT @ParameterName AS Val),  -- MUST be first CTE
+  OtherCTEs AS (...)
+  SELECT ... WHERE Col = (SELECT Val FROM InputVar)
+  ```
+- **When to use**: ANY query with input parameters used in CASE/WHERE statements
+
 **❌ NEVER USE these functions (OutSystems doesn't support them):**
 - ❌ `RIGHT()` - Use `SUBSTRING()` or `REPLICATE()` instead
 - ❌ `LEFT()` - Use `SUBSTRING()` instead

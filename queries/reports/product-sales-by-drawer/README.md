@@ -2,9 +2,24 @@
 
 **Category**: Reports
 **Created**: 2025-11-28
-**Status**: In Testing - Optimized
-**SQL Server**: 2014+ compatible
-**Optimization**: Single SalesFact query (66% reduction in DB hits)
+**Updated**: 2025-11-30
+**Status**: Migrated to OutSystems Aggregates
+**Implementation**: OutSystems Aggregates (not Advanced SQL)
+
+---
+
+## ⚠️ IMPORTANT: Implementation Change
+
+**This query is now implemented using OutSystems Aggregates instead of Advanced SQL.**
+
+The SQL query files in this folder are **archived for reference only**. The active implementation is in OutSystems using the visual query builder (Aggregates).
+
+**Reason for change**:
+- Simpler data structure (straightforward joins and aggregations)
+- No complex CTEs, window functions, or timezone conversions needed
+- Easier maintenance with visual query builder
+- Type safety and validation built into OutSystems
+- Direct integration with GetPodFullName server action
 
 ---
 
@@ -20,64 +35,82 @@ Cash drawer reconciliation report that shows:
 
 Filtered by site and date for daily reconciliation.
 
-**Query Structure:**
-- Uses CTE (PerPosData) for per-POS calculations
-- UNION ALL for Total row at bottom
-- Single optimized SalesFact query (not 3 separate queries)
-
 ---
 
-## Output Columns
+## Updated Requirements (2025-11-30)
+
+### Output Columns
 
 | Column | Source | Description |
 |--------|--------|-------------|
-| POS | `SWCCashDrawer.PosId` | POS terminal ID (or 'Total' for total row) |
-| Type | `SWCPosTerminal.Pod` | Terminal type (pass to GetPodFullName, NULL for total) |
-| Close | `SWCCashDrawer.FinalGT` | Closing Grand Total (NULL for total) |
-| Open | `SWCCashDrawer.InitialGT` | Opening Grand Total (NULL for total) |
-| Difference | Calculated | FinalGT - InitialGT |
-| CashRefund | `SWCCashDrawerTender` | Refunds for TenderTypeId = 0 |
-| EftposRefund | `SWCCashDrawerTender` | Refunds for TenderTypeId IN (10,13,16,19,21) |
-| GCSold | `SWCCashDrawerTender` | Gift Card/Coupon CountedAmount (TENDER_GIFT_COUPON) |
-| GrossSales | Calculated | Difference - CashRefund - EftposRefund - GCSold |
-| GST | `SalesFact.TaxAmount` | Total tax amount (all ProductSaleTypeId) |
-| NetSales | Calculated | GrossSales - GST |
-| NonProdSales | `SalesFact.NetAmount` | WHERE ProductSaleTypeId = 2 |
-| ProdSales | `SalesFact.NetAmount` | WHERE ProductSaleTypeId = 1 |
+| POS | `SWCCashDrawer.POSId` | POS terminal ID |
+| Type | `SalesFact.Pod` or `SWCPosTerminal.Pod` | Pass to GetPodFullName server action |
+| Close | `SWCCashDrawer.GTFinal` | Closing Grand Total |
+| Open | `SWCCashDrawer.GTInitial` | Opening Grand Total |
+| Difference | Calculated | Close - Open |
+| ~~Overring~~ | Removed | Always 0, not needed |
+| Cash Refund | `SWCCashDrawerTender.RefundAmount` | TenderType = Cash |
+| Eftpos Refund | `SWCCashDrawerTender.RefundAmount` | TenderType = Eftpos, Doordash, MOP, Ubereats, Delivereasy |
+| ~~Other Receipt~~ | Removed | Not needed |
+| GC Sold | `SWCCashDrawerTender.NetAmount` | TenderType.Category = TENDER_GIFT_COUPON |
+| Gross Sales | Calculated | See equation below |
+| GST | `SWCCashDrawer.TaxAmount` | Total tax amount |
+| Net Sales | Calculated | See equation below |
+| Non Prod Sales | Placeholder | Field doesn't exist yet, leave blank |
+| Product Sales | Calculated | Net Sales - Non Prod Sales |
 
-**Note:** Total row shows sum of all numeric columns (Difference through ProdSales).
-
----
-
-## Parameters
-
-- **@SiteId**: Site identifier (BIGINT)
-- **@Date**: Transaction date (DATE format: 'YYYY-MM-DD')
-
-**To change parameters**: Edit the DECLARE statements at the top of query.sql
+### Total Row
+- Sum all numeric columns (Difference through Product Sales)
+- POS = NULL or 'Total'
+- Type = 'Total'
+- Close/Open = NULL
 
 ---
 
-## Tables Used
+## Implementation in OutSystems (Aggregates)
 
-- `SWCPeriod` - Operating period (primary filter by SiteId and BusDate)
-- `SWCCashDrawer` - Main drawer session data (GT values)
-- `SWCPosTerminal` - POS terminal info (Pod/Type)
-- `SWCCashDrawerTender` - Tender-specific refunds and amounts
-- `TenderType` - Tender categories (for TENDER_GIFT_COUPON)
-- `SalesFact` - Tax/GST amounts (joins via SWCPeriodId)
+### Main Aggregate Structure
+
+**Entities to Join**:
+1. `SWCCashDrawer` (main entity)
+2. `SWCCashDrawerTender` (for refunds and GC sold)
+3. `SWCPosTerminal` (for Pod/Type) OR use `SalesFact.Pod`
+4. `TenderType` (for Category filtering)
+
+**Group By**:
+- POSId
+- Pod
+
+**Aggregations**:
+- `SUM(RefundAmount)` WHERE TenderType = Cash → Cash Refund
+- `SUM(RefundAmount)` WHERE TenderType IN (Eftpos, Doordash, MOP, Ubereats, Delivereasy) → Eftpos Refund
+- `SUM(NetAmount)` WHERE TenderType.Category = 'TENDER_GIFT_COUPON' → GC Sold
+- `GTFinal`, `GTInitial`, `TaxAmount` from SWCCashDrawer
+
+**Calculated Attributes** (in Aggregate or Server Action):
+- `Difference = Close - Open`
+- `GrossSales = Difference - CashRefund - EftposRefund - GCSold`
+- `NetSales = GrossSales - GST`
+- `ProductSales = NetSales - NonProdSales` (NonProdSales currently 0)
+
+**Total Row**:
+- Create separate aggregate or use `List_Sum()` in server action to calculate totals
+- Add Total row to output list
+
+**GetPodFullName Integration**:
+- Loop through results in Server Action
+- Call `GetPodFullName(Pod)` for each row
+- Map result to Type column
 
 ---
 
 ## TenderType Mapping
 
-| Tender | TenderTypeId(s) | Used For |
-|--------|----------------|----------|
-| Cash | 0 | CashRefund |
-| Eftpos Group | 10, 13, 16, 19, 21 | EftposRefund |
-| Gift Card/Coupon | Category = 'TENDER_GIFT_COUPON' | GCSold |
-
-**Note**: Eftpos group includes: Eftpos, Doordash, MOP, Ubereats, Delivereasy
+| Tender | Identifier | Used For |
+|--------|-----------|----------|
+| Cash | TenderType = 'Cash' | Cash Refund |
+| Eftpos Group | TenderType IN ('Eftpos', 'Doordash', 'MOP', 'Ubereats', 'Delivereasy') | Eftpos Refund |
+| Gift Card/Coupon | TenderType.Category = 'TENDER_GIFT_COUPON' | GC Sold |
 
 ---
 
@@ -89,109 +122,93 @@ GrossSales = Difference - CashRefund - EftposRefund - GCSold
 ```
 
 Where:
-- **Difference** = Close (FinalGT) - Open (InitialGT)
-- **CashRefund** = Refunds for TenderTypeId = 0
-- **EftposRefund** = Refunds for TenderTypeIds IN (10,13,16,19,21)
-- **GCSold** = Gift Card/Coupon CountedAmount (Category = 'TENDER_GIFT_COUPON')
+- **Difference** = Close (GTFinal) - Open (GTInitial)
+- **CashRefund** = RefundAmount for TenderType = Cash
+- **EftposRefund** = RefundAmount for Eftpos group
+- **GCSold** = NetAmount where Category = TENDER_GIFT_COUPON
 
 ### Net Sales:
 ```
 NetSales = GrossSales - GST
 ```
 
-### Non-Product Sales:
-```
-NonProdSales = SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
-```
-
 ### Product Sales:
 ```
-ProdSales = SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 1
+ProductSales = NetSales - NonProdSales
 ```
+*(NonProdSales currently blank/0 until field exists)*
 
 ---
 
-## Implementation Status
+## Parameters
 
-✅ **Complete**:
-- GrossSales equation implemented
-- NetSales equation implemented
-- NonProdSales from SalesFact (ProductSaleTypeId = 2)
-- ProdSales from SalesFact (ProductSaleTypeId = 1)
-- TenderType.Category verified
-- SiteId filter via SWCPeriod
-- Date filter via SWCPeriod.BusDate
-- SalesFact optimized to single query (3 → 1 query)
-- Total row added at bottom
-- Query matches OutSystems structure (13 columns)
+- **SiteId**: Site identifier (Long Integer)
+- **Date**: Transaction date (Date)
 
-⏳ **Pending**:
-- Testing with production data
-- GetPodFullName server action validation
-- DBA review of index recommendations
+Pass these as Input Parameters to the Server Action containing the Aggregate.
 
 ---
 
-## Index Recommendations
+## Archived SQL Files
 
-**Status**: Recommended (Pending DBA review)
+The following SQL files are kept for reference but are **NOT USED** in production:
 
-1. **IX_SWCPeriod_SiteId_BusDate** (SiteId, BusDate)
-   - Impact: **High** - Primary query filter
-   - Reason: WHERE clause filtering
+- `query.sql` - Original SQL implementation
+- `tests/` - SQL test queries
 
-2. **IX_SWCCashDrawer_OperatingPeriodId** (OperatingPeriodId)
-   - Impact: **High** - JOIN performance
-   - Reason: Main JOIN to SWCPeriod
-
-3. **IX_SWCPosTerminal_OperatingPeriodId_PosId** (OperatingPeriodId, PosId)
-   - Impact: Medium - JOIN and grouping
-
-4. **IX_SalesFact_SiteId_CalendarDate_DatePeriodDimensionId** (SiteId, CalendarDate, DatePeriodDimensionId, SWCPeriodId)
-   - Impact: **Critical** - Large fact table with multiple filters
-   - Reason: Subquery filtering on large table
-
-5. **IX_SWCCashDrawerTender_OperatingPeriodCashDrawerId** (OperatingPeriodCashDrawerId)
-   - Impact: Medium - Tender JOIN performance
+**Do not use these files** - they represent an older implementation approach.
 
 ---
 
-## How to Use in OutSystems
+## Implementation Checklist
 
-1. Copy query to Advanced SQL Block
-2. Update @SiteId and @Date parameter values (or pass from OutSystems inputs)
-3. For the "Type" column, pass the Pod value to **GetPodFullName** server action
-4. Review output structure with pending equations before finalizing
-
----
-
-## Performance Optimization
-
-**Database Hit Reduction:**
-- **Before**: 3 separate SalesFact subqueries (sf, sfProd, sfNonProd)
-- **After**: 1 single SalesFact query with CASE statements
-- **Impact**: 66% reduction in SalesFact table access
-
-**Query Pattern:**
-```sql
--- Single optimized SalesFact query
-LEFT JOIN (
-    SELECT
-        PosId, Pod,
-        SUM(TaxAmount) AS TotalTax,
-        SUM(CASE WHEN ProductSaleTypeId = 1 THEN NetAmount ELSE 0 END) AS ProdSales,
-        SUM(CASE WHEN ProductSaleTypeId = 2 THEN NetAmount ELSE 0 END) AS NonProdSales
-    FROM {SalesFact}
-    WHERE [filters]
-    GROUP BY PosId, Pod
-) sf ON cd.PosId = sf.PosId AND pt.Pod = sf.Pod
-```
+- [x] Requirements updated (2025-11-30)
+- [ ] OutSystems Aggregate created
+  - [ ] Join SWCCashDrawer + SWCCashDrawerTender + SWCPosTerminal
+  - [ ] Filter by SiteId and Date
+  - [ ] Group by POSId, Pod
+  - [ ] Aggregate RefundAmount for Cash and Eftpos
+  - [ ] Aggregate NetAmount for GC Sold
+- [ ] Server Action logic
+  - [ ] Calculate Difference, GrossSales, NetSales, ProductSales
+  - [ ] Loop through results
+  - [ ] Call GetPodFullName for each Pod
+  - [ ] Add Total row (sum of all numeric columns)
+- [ ] Testing
+  - [ ] Validate calculations match expected values
+  - [ ] Verify Total row sums correctly
+  - [ ] Test with production data
 
 ---
 
 ## Next Steps
 
-- Test with production data
-- Validate Total row calculations
-- GetPodFullName server action integration
-- DBA review and implement index recommendations
+1. Create OutSystems Aggregate following structure above
+2. Build Server Action to:
+   - Execute Aggregate
+   - Calculate derived fields (Difference, GrossSales, NetSales, ProductSales)
+   - Call GetPodFullName for Type column
+   - Generate Total row
+3. Test with production data
+4. Validate against business requirements
+5. Archive SQL query files once Aggregate implementation is confirmed working
+
+---
+
+## Why Aggregates Instead of SQL?
+
+**Advantages**:
+- ✅ Visual query builder - easier to understand and maintain
+- ✅ Type safety - OutSystems validates data types
+- ✅ No SQL compatibility issues (RIGHT, CASE syntax, etc.)
+- ✅ Direct Server Action integration (GetPodFullName)
+- ✅ Simpler for this use case (basic joins and aggregations)
+
+**When to use SQL instead**:
+- ❌ Complex CTEs with 10+ steps
+- ❌ Window functions (SUM() OVER PARTITION BY)
+- ❌ Timezone conversions (AT TIME ZONE)
+- ❌ Scaffold patterns (CROSS JOIN for complete grids)
+- ❌ Single-scan optimizations with conditional SUM
+
+For Product Sales By Drawer, Aggregates are the right choice.
