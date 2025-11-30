@@ -24,6 +24,12 @@ DECLARE @SelectedView VARCHAR(1) = 'D';     -- 'D' = Sales (NetAmount), 'G' = GC
 
 WITH
 
+-- [STEP 0]: Force Parameter Binding (Fixes the "Must declare variable" error)
+-- This CTE forces OutSystems to recognize @SelectedView parameter
+InputVar AS (
+    SELECT @SelectedView AS Val
+),
+
 -- [STEP 1]: Generate 24 Hours (00-01 through 23-24)
 -- Uses CTE to generate all 24 hour buckets
 Hours AS (
@@ -35,16 +41,26 @@ Hours AS (
     UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23
 ),
 
--- [STEP 2]: Get All Distinct Pods from Current Day
--- Ensures we include all pods that have data for this site/date
-AllPods AS (
-    SELECT DISTINCT Pod
+-- [STEP 2]: Single Scan of SalesFact (OPTIMIZED)
+-- Fetches both CY and PY data in ONE scan instead of two separate queries
+-- This is much more efficient than separate CY_RawData and PY_RawData CTEs
+RawData AS (
+    SELECT
+        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourStart,
+        Pod,
+        -- Conditional Sum for Current Year (CY)
+        SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END) AS CY_NetAmount,
+        SUM(CASE WHEN CalendarDate = @Date THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
+        -- Conditional Sum for Previous Year (PY)
+        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN NetAmount ELSE 0 END) AS PY_NetAmount,
+        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN TransactionCount ELSE 0 END) AS PY_TransactionCount,
+        -- Check if Pod was active Today (used to filter list)
+        MAX(CASE WHEN CalendarDate = @Date THEN 1 ELSE 0 END) AS IsActiveToday
     FROM {SalesFact}
     WHERE SiteId = @SiteId
-        AND CalendarDate = @Date
+        AND (CalendarDate = @Date OR CalendarDate = DATEADD(DAY, -364, @Date))
         AND DatePeriodDimensionId = 15
-        AND Pod IS NOT NULL
-        AND Pod <> ''
+        AND Pod IS NOT NULL AND Pod <> ''
         AND ProductSaleTypeId = 1
         AND ProductMenuId IS NULL
         AND TenderTypeId IS NULL
@@ -52,11 +68,21 @@ AllPods AS (
         AND OperationKindId IS NULL
         AND SWCCashDrawerId IS NULL
         AND SaleTypeId IS NULL
+    GROUP BY
+        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')),
+        Pod
 ),
 
--- [STEP 3]: Build Scaffold (Hour x Pod Grid)
+-- [STEP 3]: Get Distinct Pods (Only those active Today)
+-- Filters to only pods that have data for the current day
+ActivePods AS (
+    SELECT DISTINCT Pod
+    FROM RawData
+    WHERE IsActiveToday = 1
+),
+
+-- [STEP 4]: Build Scaffold (Hour x Pod Grid)
 -- Cross join ensures every hour has every pod, even with 0 sales
--- FIXED: Using REPLICATE instead of RIGHT for OutSystems compatibility
 Scaffold AS (
     SELECT
         h.HourStart,
@@ -66,64 +92,10 @@ Scaffold AS (
         p.Pod,
         h.HourStart AS SortOrder
     FROM Hours h
-    CROSS JOIN AllPods p
+    CROSS JOIN ActivePods p
 ),
 
--- [STEP 4a]: CURRENT YEAR DATA (CY)
--- Fetches current day data with NZ timezone conversion
--- Groups by Hour and Pod for per-hour-per-pod breakdown
-CY_RawData AS (
-    SELECT
-        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourStart,
-        Pod,
-        SUM(NetAmount) AS CY_NetAmount,
-        SUM(TransactionCount) AS CY_TransactionCount
-    FROM {SalesFact}
-    WHERE SiteId = @SiteId
-        AND CalendarDate = @Date
-        AND DatePeriodDimensionId = 15
-        AND Pod IS NOT NULL
-        AND Pod <> ''
-        AND ProductSaleTypeId = 1
-        AND ProductMenuId IS NULL
-        AND TenderTypeId IS NULL
-        AND OperationId IS NULL
-        AND OperationKindId IS NULL
-        AND SWCCashDrawerId IS NULL
-        AND SaleTypeId IS NULL
-    GROUP BY
-        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')),
-        Pod
-),
-
--- [STEP 4b]: PREVIOUS YEAR DATA (PY) - 364 days back
--- Fetches prior year data for YoY comparison
--- 364 days = 52 weeks, keeps same day of week
-PY_RawData AS (
-    SELECT
-        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourStart,
-        Pod,
-        SUM(NetAmount) AS PY_NetAmount,
-        SUM(TransactionCount) AS PY_TransactionCount
-    FROM {SalesFact}
-    WHERE SiteId = @SiteId
-        AND CalendarDate = DATEADD(DAY, -364, @Date)
-        AND DatePeriodDimensionId = 15
-        AND Pod IS NOT NULL
-        AND Pod <> ''
-        AND ProductSaleTypeId = 1
-        AND ProductMenuId IS NULL
-        AND TenderTypeId IS NULL
-        AND OperationId IS NULL
-        AND OperationKindId IS NULL
-        AND SWCCashDrawerId IS NULL
-        AND SaleTypeId IS NULL
-    GROUP BY
-        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')),
-        Pod
-),
-
--- [STEP 5]: Merge Scaffold with CY and PY Data
+-- [STEP 5]: Merge Scaffold with Raw Data
 -- Left joins ensure every Hour-Pod combination exists
 -- ISNULL converts NULL to 0 for hours with no sales
 MergedData AS (
@@ -131,150 +103,116 @@ MergedData AS (
         s.Hour,
         s.Pod,
         s.SortOrder,
-        ISNULL(cy.CY_NetAmount, 0) AS CY_NetAmount,
-        ISNULL(cy.CY_TransactionCount, 0) AS CY_TransactionCount,
-        ISNULL(py.PY_NetAmount, 0) AS PY_NetAmount,
-        ISNULL(py.PY_TransactionCount, 0) AS PY_TransactionCount
+        ISNULL(rd.CY_NetAmount, 0) AS CY_NetAmount,
+        ISNULL(rd.CY_TransactionCount, 0) AS CY_TransactionCount,
+        ISNULL(rd.PY_NetAmount, 0) AS PY_NetAmount,
+        ISNULL(rd.PY_TransactionCount, 0) AS PY_TransactionCount
     FROM Scaffold s
-    LEFT JOIN CY_RawData cy ON s.HourStart = cy.HourStart AND s.Pod = cy.Pod
-    LEFT JOIN PY_RawData py ON s.HourStart = py.HourStart AND s.Pod = py.Pod
+    LEFT JOIN RawData rd ON s.HourStart = rd.HourStart AND s.Pod = rd.Pod
 ),
 
--- [STEP 6]: Calculate Total Sales Per Hour (all pods combined)
--- Used for calculating % Total for each pod
-HourlyTotals AS (
+-- [STEP 6]: Pre-calculate Denominators for % Math (OPTIMIZED)
+-- Uses window functions to attach totals to every row
+-- This avoids complex joins later in the final SELECT
+EnrichedData AS (
     SELECT
-        Hour,
-        SUM(CY_NetAmount) AS Total_CY_NetAmount,
-        SUM(CY_TransactionCount) AS Total_CY_TransactionCount
-    FROM MergedData
-    GROUP BY Hour
+        m.*,
+        SUM(CY_NetAmount) OVER(PARTITION BY Hour) as Hourly_Total_Net,
+        SUM(CY_TransactionCount) OVER(PARTITION BY Hour) as Hourly_Total_Trans,
+        SUM(CY_NetAmount) OVER() as Day_Total_Net,
+        SUM(CY_TransactionCount) OVER() as Day_Total_Trans
+    FROM MergedData m
 ),
 
--- [STEP 7]: Calculate Total Day Row (sum of all hours, all pods)
--- This row should match the parent screen's total
-TotalDayData AS (
+-- [STEP 7]: Generate Final Rows
+-- Combines individual pod rows, hourly totals, and Total Day rows
+FinalRows AS (
+    -- 1. Individual Pod Rows (Standard Hour)
     SELECT
-        'Total Day' AS Hour,
-        Pod,
-        9999 AS SortOrder,  -- Ensures Total Day appears last
-        SUM(CY_NetAmount) AS CY_NetAmount,
-        SUM(CY_TransactionCount) AS CY_TransactionCount,
-        SUM(PY_NetAmount) AS PY_NetAmount,
-        SUM(PY_TransactionCount) AS PY_TransactionCount
-    FROM MergedData
-    GROUP BY Pod
-),
+        Hour, Pod, SortOrder,
+        CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount,
+        Hourly_Total_Net as Denom_Net, Hourly_Total_Trans as Denom_Trans
+    FROM EnrichedData
 
--- [STEP 8]: Add Total Day Totals for % Total calculation
-TotalDayTotals AS (
-    SELECT
-        'Total Day' AS Hour,
-        SUM(CY_NetAmount) AS Total_CY_NetAmount,
-        SUM(CY_TransactionCount) AS Total_CY_TransactionCount
-    FROM TotalDayData
-),
+    UNION ALL
 
--- [STEP 9]: Calculate Hourly Total Rows (sum all pods per hour)
-HourlyTotalRows AS (
+    -- 2. Hourly Total Rows (Sum of the Hour)
     SELECT
-        Hour,
-        'Total' AS Pod,
-        SortOrder - 0.5 AS SortOrder,  -- Sort Total before individual pods
-        SUM(CY_NetAmount) AS CY_NetAmount,
-        SUM(CY_TransactionCount) AS CY_TransactionCount,
-        SUM(PY_NetAmount) AS PY_NetAmount,
-        SUM(PY_TransactionCount) AS PY_TransactionCount
-    FROM MergedData
+        Hour, 'Total', SortOrder - 0.5,
+        SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
+        NULL, NULL -- Totals don't show % (denominator set to NULL)
+    FROM EnrichedData
     GROUP BY Hour, SortOrder
-),
 
--- [STEP 10]: Combine Hourly Data with Hourly Totals and Total Day
-CombinedData AS (
-    -- Hourly Total rows (one per hour)
-    SELECT
-        Hour, Pod, SortOrder, CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount
-    FROM HourlyTotalRows
     UNION ALL
-    -- Individual pod rows per hour
-    SELECT
-        Hour, Pod, SortOrder, CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount
-    FROM MergedData
-    UNION ALL
-    -- Total Day Total row
-    SELECT
-        'Total Day' AS Hour,
-        'Total' AS Pod,
-        9998.5 AS SortOrder,  -- Sort Total Day Total before individual pods
-        SUM(CY_NetAmount) AS CY_NetAmount,
-        SUM(CY_TransactionCount) AS CY_TransactionCount,
-        SUM(PY_NetAmount) AS PY_NetAmount,
-        SUM(PY_TransactionCount) AS PY_TransactionCount
-    FROM TotalDayData
-    UNION ALL
-    -- Total Day individual pod rows
-    SELECT
-        Hour, Pod, SortOrder, CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount
-    FROM TotalDayData
-),
 
--- [STEP 11]: Add Totals for % Calculation
-AllTotals AS (
-    SELECT Hour, Total_CY_NetAmount, Total_CY_TransactionCount FROM HourlyTotals
+    -- 3. Grand Total Row (Sum of the Day)
+    SELECT
+        'Total Day', 'Total', 9998.5,
+        SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
+        NULL, NULL
+    FROM EnrichedData
+
     UNION ALL
-    SELECT Hour, Total_CY_NetAmount, Total_CY_TransactionCount FROM TotalDayTotals
+
+    -- 4. Total Day per Pod Rows
+    SELECT
+        'Total Day', Pod, 9999,
+        SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
+        MAX(Day_Total_Net), MAX(Day_Total_Trans) -- Use the Day Total as Denominator
+    FROM EnrichedData
+    GROUP BY Pod
 )
 
--- [STEP 12]: Final Output with Calculations
+-- [STEP 8]: Final Output with Calculations
 SELECT
-      cd.Hour,
-      cd.Pod,
+      fr.Hour,
+      fr.Pod,
 
       -- Sales based on view
-      CASE
-          WHEN (@SelectedView) = 'D' THEN cd.CY_NetAmount
-          WHEN (@SelectedView) = 'G' THEN CAST(cd.CY_TransactionCount AS DECIMAL(18,2))
-          WHEN (@SelectedView) = 'A' THEN
-              CASE WHEN cd.CY_TransactionCount = 0 THEN 0
-              ELSE cd.CY_NetAmount / cd.CY_TransactionCount END
+      -- Uses subquery (SELECT Val FROM InputVar) to reference parameter
+      -- This is required for OutSystems parameter binding
+      CASE (SELECT Val FROM InputVar)
+          WHEN 'D' THEN fr.CY_NetAmount
+          WHEN 'G' THEN CAST(fr.CY_TransactionCount AS DECIMAL(18,2))
+          WHEN 'A' THEN
+              CASE WHEN fr.CY_TransactionCount = 0 THEN 0
+              ELSE fr.CY_NetAmount / fr.CY_TransactionCount END
           ELSE 0
       END AS Sales,
 
       -- PercentTotal (for individual pods only, 0 for Total rows)
       CASE
-          WHEN cd.Pod = 'Total' THEN 0  -- Total rows don't show % Total
-          WHEN (@SelectedView) = 'D' THEN
-              CASE WHEN ISNULL(t.Total_CY_NetAmount, 0) = 0 THEN 0
-              ELSE cd.CY_NetAmount * 100.0 / NULLIF(t.Total_CY_NetAmount, 0) END
-          WHEN (@SelectedView) = 'G' THEN
-              CASE WHEN ISNULL(t.Total_CY_TransactionCount, 0) = 0 THEN 0
-              ELSE CAST(cd.CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(t.Total_CY_TransactionCount, 0) END
-          WHEN (@SelectedView) = 'A' THEN 0
+          WHEN fr.Pod = 'Total' THEN 0  -- Total rows don't show % Total
+          WHEN (SELECT Val FROM InputVar) = 'D' THEN
+              CASE WHEN ISNULL(fr.Denom_Net, 0) = 0 THEN 0
+              ELSE fr.CY_NetAmount * 100.0 / NULLIF(fr.Denom_Net, 0) END
+          WHEN (SELECT Val FROM InputVar) = 'G' THEN
+              CASE WHEN ISNULL(fr.Denom_Trans, 0) = 0 THEN 0
+              ELSE CAST(fr.CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(fr.Denom_Trans, 0) END
+          WHEN (SELECT Val FROM InputVar) = 'A' THEN 0
           ELSE 0
       END AS PercentTotal,
 
-      -- PercentInc
-      CASE
-          WHEN (@SelectedView) = 'D' THEN
-              CASE WHEN cd.PY_NetAmount = 0 THEN 0
-              ELSE (cd.CY_NetAmount - cd.PY_NetAmount) * 100.0 / cd.PY_NetAmount END
-          WHEN (@SelectedView) = 'G' THEN
-              CASE WHEN cd.PY_TransactionCount = 0 THEN 0
-              ELSE (CAST(cd.CY_TransactionCount AS DECIMAL(18,2)) - cd.PY_TransactionCount) * 100.0 / cd.PY_TransactionCount END
-          WHEN (@SelectedView) = 'A' THEN
-              CASE WHEN cd.PY_TransactionCount = 0 OR cd.CY_TransactionCount = 0 THEN 0
-              WHEN (cd.PY_NetAmount / cd.PY_TransactionCount) = 0 THEN 0
-              ELSE ((cd.CY_NetAmount / cd.CY_TransactionCount) - (cd.PY_NetAmount / cd.PY_TransactionCount)) * 100.0 / (cd.PY_NetAmount /
-  cd.PY_TransactionCount) END
+      -- PercentInc (YoY growth %)
+      CASE (SELECT Val FROM InputVar)
+          WHEN 'D' THEN
+              CASE WHEN fr.PY_NetAmount = 0 THEN 0
+              ELSE (fr.CY_NetAmount - fr.PY_NetAmount) * 100.0 / fr.PY_NetAmount END
+          WHEN 'G' THEN
+              CASE WHEN fr.PY_TransactionCount = 0 THEN 0
+              ELSE (CAST(fr.CY_TransactionCount AS DECIMAL(18,2)) - fr.PY_TransactionCount) * 100.0 / fr.PY_TransactionCount END
+          WHEN 'A' THEN
+              CASE WHEN fr.PY_TransactionCount = 0 OR fr.CY_TransactionCount = 0 THEN 0
+              WHEN (fr.PY_NetAmount / fr.PY_TransactionCount) = 0 THEN 0
+              ELSE ((fr.CY_NetAmount / fr.CY_TransactionCount) - (fr.PY_NetAmount / fr.PY_TransactionCount)) * 100.0 / (fr.PY_NetAmount / fr.PY_TransactionCount) END
           ELSE 0
       END AS PercentInc
 
-  FROM CombinedData cd
-  LEFT JOIN AllTotals t ON cd.Hour = t.Hour
-
-  ORDER BY cd.SortOrder ASC,
-           CASE WHEN cd.Pod = 'Total' THEN 0 ELSE 1 END,  -- Total first
-           cd.Pod ASC;                                     -- Then alphabetical
+  FROM FinalRows fr
+  ORDER BY fr.SortOrder ASC,
+           CASE WHEN fr.Pod = 'Total' THEN 0 ELSE 1 END,  -- Total first
+           fr.Pod ASC;                                     -- Then alphabetical
 
 -- =============================================
 -- OUTPUT FORMAT:
@@ -316,7 +254,11 @@ SELECT
 -- - PercentInc (Decimal) - YoY % increase
 --
 -- =============================================
+-- OPTIMIZATIONS:
+-- 1. Single scan of SalesFact (RawData CTE fetches CY and PY in one pass)
+-- 2. Window functions for totals (EnrichedData CTE pre-calculates denominators)
+-- 3. InputVar CTE forces OutSystems parameter binding
+-- 4. Subquery pattern (SELECT Val FROM InputVar) for parameter reference
+-- =============================================
 -- STATUS: READY FOR OUTSYSTEMS
--- Fixed: Using REPLICATE instead of RIGHT for compatibility
--- Fixed: Added Total rows for each hour and Total Day
 -- =============================================

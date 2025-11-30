@@ -112,15 +112,21 @@ This allows easy testing by changing values at the top.
 - ❌ `LEFT()` - Use `SUBSTRING()` instead
 - ❌ `FORMAT()` in SQL Server 2008/2012 - Use `REPLICATE()` + `CAST()` instead
 - ❌ `DECLARE` statements - Use OutSystems Input Parameters instead
-- ❌ `CASE @Variable WHEN 'value' THEN ...` - Use `CASE WHEN (@Variable) = 'value' THEN ...` instead
+- ❌ Direct parameter in CASE/WHERE - OutSystems may not bind parameters correctly
 
 **✅ ALWAYS USE OutSystems-compatible alternatives:**
 - ✅ `REPLICATE('0', 2 - LEN(CAST(value AS VARCHAR))) + CAST(value AS VARCHAR)` instead of `RIGHT('0' + value, 2)`
 - ✅ `SUBSTRING(text, start, length)` instead of `LEFT()` or `RIGHT()`
-- ✅ `CASE WHEN (@Variable) = 'value' THEN ... END` - wrap parameters in parentheses
+- ✅ **InputVar CTE pattern** for parameter binding:
+  ```sql
+  InputVar AS (SELECT @ParameterName AS Val)
+  -- Then use: (SELECT Val FROM InputVar) in CASE/WHERE
+  ```
 - ✅ `ISNULL()`, `NULLIF()`, `COALESCE()` - all supported
 - ✅ `CAST()`, `CONVERT()` - supported
 - ✅ `AT TIME ZONE` - supported (SQL Server 2016+)
+- ✅ **Window functions** - Use for totals instead of joins (e.g., `SUM() OVER(PARTITION BY ...)`)
+- ✅ **Conditional SUM** - Combine multiple queries into one scan (e.g., `SUM(CASE WHEN ... THEN ... ELSE 0 END)`)
 
 **OutSystems Input Parameters:**
 - Remove ALL `DECLARE @Variable` statements from query
@@ -140,19 +146,48 @@ REPLICATE('0', 2 - LEN(CAST(hour AS VARCHAR))) + CAST(hour AS VARCHAR)
 
 **Example 2 - CASE with Parameters (OutSystems compatible):**
 ```sql
--- ❌ WRONG (OutSystems doesn't recognize parameter in CASE @Variable syntax)
+-- ❌ WRONG (OutSystems may not bind parameters correctly)
 CASE @SelectedView
     WHEN 'D' THEN NetAmount
     WHEN 'G' THEN TransactionCount
     ELSE 0
 END
 
--- ✅ CORRECT (wrap parameter in parentheses and use WHEN condition)
-CASE
-    WHEN (@SelectedView) = 'D' THEN NetAmount
-    WHEN (@SelectedView) = 'G' THEN TransactionCount
-    ELSE 0
-END
+-- ✅ CORRECT (use InputVar CTE pattern for reliable parameter binding)
+WITH InputVar AS (
+    SELECT @SelectedView AS Val
+)
+SELECT
+    CASE (SELECT Val FROM InputVar)
+        WHEN 'D' THEN NetAmount
+        WHEN 'G' THEN TransactionCount
+        ELSE 0
+    END AS Sales
+FROM Table
+```
+
+**Example 3 - Optimization with Conditional SUM (Single Scan):**
+```sql
+-- ❌ INEFFICIENT (Two separate scans of SalesFact)
+CY_Data AS (
+    SELECT SUM(NetAmount) AS CY_Sales
+    FROM {SalesFact}
+    WHERE CalendarDate = @Date
+),
+PY_Data AS (
+    SELECT SUM(NetAmount) AS PY_Sales
+    FROM {SalesFact}
+    WHERE CalendarDate = DATEADD(DAY, -364, @Date)
+)
+
+-- ✅ EFFICIENT (Single scan with conditional SUM)
+RawData AS (
+    SELECT
+        SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END) AS CY_Sales,
+        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN NetAmount ELSE 0 END) AS PY_Sales
+    FROM {SalesFact}
+    WHERE CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))
+)
 ```
 
 ### Query Performance & Optimization:
