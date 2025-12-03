@@ -83,7 +83,10 @@ SELECT
     NonProdSales,
 
     -- ProductSales = NetSales - NonProdSales
-    (((Difference - CashRefund - EftposRefund - GCSold) - GST) - NonProdSales) AS ProductSales
+    (((Difference - CashRefund - EftposRefund - GCSold) - GST) - NonProdSales) AS ProductSales,
+
+    -- Sort helper column (must be in SELECT for ORDER BY with UNION)
+    CASE WHEN POS IS NULL THEN 1 ELSE 0 END AS SortOrder
 
 FROM DrawerData
 
@@ -103,21 +106,22 @@ SELECT
     SUM(GST) AS GST,
     SUM((Difference - CashRefund - EftposRefund - GCSold) - GST) AS NetSales,
     SUM(NonProdSales) AS NonProdSales,
-    SUM(((Difference - CashRefund - EftposRefund - GCSold) - GST) - NonProdSales) AS ProductSales
+    SUM(((Difference - CashRefund - EftposRefund - GCSold) - GST) - NonProdSales) AS ProductSales,
+    1 AS SortOrder  -- Total row sorts last
 FROM DrawerData
 
 ORDER BY
-    CASE WHEN POS IS NULL THEN 1 ELSE 0 END,  -- Total row last
+    SortOrder,  -- Total row last (SortOrder = 1)
     POS;
 
 -- =============================================
 -- OUTPUT FORMAT:
 --
--- POS  | Pod | Close | Open | Difference | CashRefund | EftposRefund | GCSold | GrossSales | GST | NetSales | NonProdSales | ProductSales
--- -----+-----+-------+------+------------+------------+--------------+--------+------------+-----+----------+--------------+-------------
--- 1    | FC  | 5000  | 1000 | 4000       | 50         | 100          | 200    | 3650       | 365 | 3285     | 100          | 3185
--- 2    | DT  | 6000  | 2000 | 4000       | 30         | 80           | 150    | 3740       | 374 | 3366     | 50           | 3316
--- NULL | Total | NULL | NULL | 8000      | 80         | 180          | 350    | 7390       | 739 | 6651     | 150          | 6501
+-- POS  | Pod   | Close | Open | Difference | CashRefund | EftposRefund | GCSold | GrossSales | GST | NetSales | NonProdSales | ProductSales | SortOrder
+-- -----+-------+-------+------+------------+------------+--------------+--------+------------+-----+----------+--------------+--------------+-----------
+-- 1    | FC    | 5000  | 1000 | 4000       | 50         | 100          | 200    | 3650       | 365 | 3285     | 0            | 3285         | 0
+-- 2    | DT    | 6000  | 2000 | 4000       | 30         | 80           | 150    | 3740       | 374 | 3366     | 0            | 3366         | 0
+-- NULL | Total | NULL  | NULL | 8000       | 80         | 180          | 350    | 7390       | 739 | 6651     | 0            | 6651         | 1
 --
 -- =============================================
 -- OUTSYSTEMS SETUP:
@@ -129,17 +133,18 @@ ORDER BY
 -- Output Structure:
 -- - POS (Long Integer) - POSId, NULL for Total row
 -- - Pod (Text) - Pass to GetPODFullName for Type column, "Total" for total row
--- - Close (Decimal) - GTFinal
--- - Open (Decimal) - GTInitial
+-- - Close (Decimal) - FinalGT
+-- - Open (Decimal) - InitialGT
 -- - Difference (Decimal) - Close - Open
 -- - CashRefund (Decimal) - Sum of RefundAmount for Cash
 -- - EftposRefund (Decimal) - Sum of RefundAmount for Eftpos group
--- - GCSold (Decimal) - Sum of NetAmount for Gift Card/Coupon
+-- - GCSold (Decimal) - Sum of DrawerAmount for Gift Card/Coupon
 -- - GrossSales (Decimal) - Difference - CashRefund - EftposRefund - GCSold
 -- - GST (Decimal) - TaxAmount
 -- - NetSales (Decimal) - GrossSales - GST
--- - NonProdSales (Decimal) - NonProductSalesAmount
+-- - NonProdSales (Decimal) - Currently 0 (field doesn't exist yet)
 -- - ProductSales (Decimal) - NetSales - NonProdSales
+-- - SortOrder (Integer) - 0 for POS rows, 1 for Total row (for sorting)
 --
 -- In Server Action:
 -- - Call GetPODFullName(Pod) to convert Pod code to full name for Type column
