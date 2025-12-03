@@ -24,6 +24,13 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
    - **ONLY ask user for table info if docs don't exist or are incomplete**
    - If table docs exist → Use them, don't ask user to repeat information
 
+3. **🔥 ALWAYS REFER TO TABLE DOCS WHEN WRITING QUERIES** - Before writing ANY SQL:
+   - **NEVER assume column names** - Always check table documentation first
+   - **VERIFY every column name** against the table README before using it
+   - **CHECK data types** to ensure correct handling
+   - If unsure about a column name → Read the table docs again
+   - **Wrong column names = query errors** - Always double-check!
+
 3. **Check for missing table docs** - For each table needed:
    - Check if `database-context/tables/[table-name]/` exists
    - If NOT exists → **Ask user for table info** (columns, types, relationships)
