@@ -1,198 +1,156 @@
 -- =============================================
 -- Query: Product Sales By Drawer
--- Purpose: Cash drawer reconciliation report showing GT values, refunds, and sales by tender type
--- Target: SQL Server 2014+
+-- Purpose: Cash drawer reconciliation report with conditional tender aggregations
+-- Target: SQL Server 2014+ / OutSystems Advanced SQL
 -- Created: 2025-11-28
+-- Updated: 2025-12-03
 -- =============================================
 
--- Parameters
-DECLARE @SiteId BIGINT = 3187;           -- Site ID to filter (default test site)
-DECLARE @Date DATE = '2025-11-28';       -- Date to filter (BusDate)
+-- ⚠️ NOTE: When using in OutSystems Advanced SQL Block:
+-- 1. REMOVE all DECLARE statements below (they don't work in OutSystems)
+-- 2. Add Input Parameters in OutSystems: SiteId (Long Integer), Date (Date)
+-- 3. Set all parameters to Expand Inline = No
 
--- Main Query with CTE for per-POS data
-;WITH PerPosData AS (
-SELECT
-    cd.PosId AS POS,
-    pt.Pod AS Type,                      -- Will be passed to GetPodFullName server action
-    cd.FinalGT AS [Close],
-    cd.InitialGT AS [Open],
-    (cd.FinalGT - cd.InitialGT) AS Difference,
+-- Parameters (for local SQL Server testing only - comment out for OutSystems)
+DECLARE @SiteId BIGINT = 3187;
+DECLARE @Date DATE = '2025-11-29';
 
-    -- Refunds by Tender Type
-    SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END) AS CashRefund,
-    SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END) AS EftposRefund,
+-- =============================================
+-- MAIN QUERY: CASH DRAWER RECONCILIATION
+-- Single optimized query with conditional aggregations
+-- =============================================
 
-    -- Gift Card/Coupon Sold (using CountedAmount for TENDER_GIFT_COUPON category)
-    SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END) AS GCSold,
-
-    -- Gross Sales = Difference - CashRefund - EftposRefund - GCSold
-    (
-        (cd.FinalGT - cd.InitialGT)
-        - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
-        - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
-        - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
-    ) AS GrossSales,
-
-    -- GST from SalesFact (optimized single query)
-    ISNULL(sf.TotalTax, 0) AS GST,
-
-    -- Net Sales = Gross Sales - GST
-    (
-        (cd.FinalGT - cd.InitialGT)
-        - SUM(CASE WHEN cdt.TenderTypeId = 0 THEN cdt.RefundAmount ELSE 0 END)
-        - SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END)
-        - SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON' THEN cdt.CountedAmount ELSE 0 END)
-        - ISNULL(sf.TotalTax, 0)
-    ) AS NetSales,
-
-    -- Non-Product Sales from SalesFact (optimized single query)
-    ISNULL(sf.NonProdSales, 0) AS NonProdSales,
-
-    -- Product Sales from SalesFact (optimized single query)
-    ISNULL(sf.ProdSales, 0) AS ProdSales
-
-FROM {SWCPeriod} p
-
--- Join to Cash Drawer via Operating Period
-INNER JOIN {SWCCashDrawer} cd
-    ON p.Id = cd.OperatingPeriodId
-
--- Join to POS Terminal for Pod/Type
-INNER JOIN {SWCPosTerminal} pt
-    ON cd.PosId = pt.PosId
-    AND cd.OperatingPeriodId = pt.OperatingPeriodId
-
--- Join to Cash Drawer Tenders for refund and GC data
-LEFT JOIN {SWCCashDrawerTender} cdt
-    ON cd.Id = cdt.OperatingPeriodCashDrawerId
-
--- Join to TenderType for Category (TENDER_GIFT_COUPON)
-LEFT JOIN {TenderType} tt
-    ON cdt.TenderTypeId = tt.Id
-
--- OPTIMIZED: Single SalesFact query for ALL sales data (GST, ProductSales, NonProdSales)
--- Reduces 3 separate database hits to 1
-LEFT JOIN (
+WITH DrawerData AS (
     SELECT
-        PosId,
-        Pod,
-        SUM(TaxAmount) AS TotalTax,
-        SUM(CASE WHEN ProductSaleTypeId = 1 THEN NetAmount ELSE 0 END) AS ProdSales,
-        SUM(CASE WHEN ProductSaleTypeId = 2 THEN NetAmount ELSE 0 END) AS NonProdSales
-    FROM {SalesFact}
-    WHERE SiteId = @SiteId
-        AND CalendarDate = @Date
-        AND DatePeriodDimensionId = 15
-        AND PosId <> ''
-        AND Pod <> ''
-        AND PosId IS NOT NULL
-        AND ProductSaleTypeId IS NOT NULL  -- Include both product (1) and non-product (2)
-        AND ProductMenuId IS NULL
-        AND TenderTypeId IS NULL
-        AND OperationId IS NULL
-        AND OperationKindId IS NULL
-        AND SWCCashDrawerId IS NULL
-        AND SaleTypeId IS NULL
-    GROUP BY PosId, Pod
-) sf ON cd.PosId = sf.PosId AND pt.Pod = sf.Pod
+        cd.PosId AS POS,
+        pt.Pod,
+        cd.GTFinal AS [Close],
+        cd.GTInitial AS [Open],
+        (cd.GTFinal - cd.GTInitial) AS Difference,
 
-WHERE
-    -- Filter by site and date via SWCPeriod
-    p.SiteId = @SiteId
-    AND p.BusDate = @Date
+        -- Cash Refund (conditional sum)
+        SUM(CASE WHEN tt.Name = 'Cash' THEN cdt.RefundAmount ELSE 0 END) AS CashRefund,
 
-GROUP BY
-    cd.PosId,
-    pt.Pod,
-    cd.FinalGT,
-    cd.InitialGT,
-    sf.TotalTax,
-    sf.ProdSales,
-    sf.NonProdSales
+        -- Eftpos Refund (conditional sum for multiple tender types)
+        SUM(CASE WHEN tt.Name IN ('Eftpos', 'Doordash', 'MOP', 'Ubereats', 'Delivereasy')
+             THEN cdt.RefundAmount ELSE 0 END) AS EftposRefund,
+
+        -- GC Sold (conditional sum by category)
+        SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON'
+             THEN cdt.NetAmount ELSE 0 END) AS GCSold,
+
+        cd.TaxAmount AS GST,
+        cd.NonProductSalesAmount AS NonProdSales
+
+    FROM {SWCPeriod} p
+    INNER JOIN {SWCCashDrawer} cd ON p.Id = cd.OperatingPeriodId
+    INNER JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId
+                                   AND cd.PosId = pt.PosId
+    LEFT JOIN {SWCCashDrawerTender} cdt ON cd.Id = cdt.OperatingPeriodCashDrawerId
+    LEFT JOIN {TenderType} tt ON cdt.TenderTypeId = tt.Id
+
+    WHERE p.SiteId = @SiteId
+      AND p.BusDate = @Date
+
+    GROUP BY
+        cd.PosId,
+        pt.Pod,
+        cd.GTFinal,
+        cd.GTInitial,
+        cd.TaxAmount,
+        cd.NonProductSalesAmount
 )
 
--- Combine per-POS data with Total row
+-- Main output with calculated fields
 SELECT
     POS,
-    Type,
+    Pod,  -- Pass this to GetPODFullName in OutSystems for Type column
     [Close],
     [Open],
     Difference,
     CashRefund,
     EftposRefund,
     GCSold,
-    GrossSales,
+
+    -- GrossSales = Difference - CashRefund - EftposRefund - GCSold
+    (Difference - CashRefund - EftposRefund - GCSold) AS GrossSales,
+
     GST,
-    NetSales,
+
+    -- NetSales = GrossSales - GST
+    ((Difference - CashRefund - EftposRefund - GCSold) - GST) AS NetSales,
+
     NonProdSales,
-    ProdSales,
-    CASE WHEN Type = 'Total' THEN 1 ELSE 0 END AS SortOrder
-FROM PerPosData
+
+    -- ProductSales = NetSales - NonProdSales
+    (((Difference - CashRefund - EftposRefund - GCSold) - GST) - NonProdSales) AS ProductSales
+
+FROM DrawerData
 
 UNION ALL
 
--- Total row: Sum all numeric columns
+-- Total Row (sum of all numeric columns)
 SELECT
     NULL AS POS,
-    'Total' AS Type,
+    'Total' AS Pod,
     NULL AS [Close],
     NULL AS [Open],
     SUM(Difference) AS Difference,
     SUM(CashRefund) AS CashRefund,
     SUM(EftposRefund) AS EftposRefund,
     SUM(GCSold) AS GCSold,
-    SUM(GrossSales) AS GrossSales,
+    SUM(Difference - CashRefund - EftposRefund - GCSold) AS GrossSales,
     SUM(GST) AS GST,
-    SUM(NetSales) AS NetSales,
+    SUM((Difference - CashRefund - EftposRefund - GCSold) - GST) AS NetSales,
     SUM(NonProdSales) AS NonProdSales,
-    SUM(ProdSales) AS ProdSales,
-    1 AS SortOrder  -- Total row goes last
-FROM PerPosData
+    SUM(((Difference - CashRefund - EftposRefund - GCSold) - GST) - NonProdSales) AS ProductSales
+FROM DrawerData
 
 ORDER BY
-    SortOrder,  -- Total row (1) goes after POS rows (0)
+    CASE WHEN POS IS NULL THEN 1 ELSE 0 END,  -- Total row last
     POS;
 
 -- =============================================
--- SALES CALCULATIONS:
+-- OUTPUT FORMAT:
 --
--- Gross Sales Formula:
---   Difference - CashRefund - EftposRefund - GCSold
---   Where:
---     Difference = FinalGT - InitialGT
---     CashRefund = Refunds for TenderTypeId = 0
---     EftposRefund = Refunds for TenderTypeIds IN (10,13,16,19,21)
---     GCSold = Gift Card/Coupon sold
---
--- Net Sales:
---   GrossSales - GST
---
--- Product Sales (ProdSales):
---   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 1
---   Grouped by PosId, Pod for per-POS values
---
--- Non-Product Sales (NonProdSales):
---   SUM(NetAmount) from SalesFact WHERE ProductSaleTypeId = 2
---   Grouped by PosId, Pod for per-POS values
---
--- GST:
---   SUM(TaxAmount) from SalesFact (both product and non-product)
---   Grouped by PosId, Pod for per-POS values
+-- POS  | Pod | Close | Open | Difference | CashRefund | EftposRefund | GCSold | GrossSales | GST | NetSales | NonProdSales | ProductSales
+-- -----+-----+-------+------+------------+------------+--------------+--------+------------+-----+----------+--------------+-------------
+-- 1    | FC  | 5000  | 1000 | 4000       | 50         | 100          | 200    | 3650       | 365 | 3285     | 100          | 3185
+-- 2    | DT  | 6000  | 2000 | 4000       | 30         | 80           | 150    | 3740       | 374 | 3366     | 50           | 3316
+-- NULL | Total | NULL | NULL | 8000      | 80         | 180          | 350    | 7390       | 739 | 6651     | 150          | 6501
 --
 -- =============================================
--- OPTIMIZATION NOTES:
+-- OUTSYSTEMS SETUP:
 --
--- Database Hit Reduction:
---   Previously: 3 separate SalesFact queries (sf, sfProd, sfNonProd)
---   Now: 1 single SalesFact query using CASE statements
---   Impact: 66% reduction in SalesFact table access
+-- Input Parameters (Expand Inline = No):
+-- - SiteId (Long Integer) = 3187
+-- - Date (Date) = #2025-11-29#
 --
--- Total Row:
---   Added UNION ALL with aggregated totals
---   Total row shows 'Total' in POS column, sums for all numeric columns
+-- Output Structure:
+-- - POS (Long Integer) - POSId, NULL for Total row
+-- - Pod (Text) - Pass to GetPODFullName for Type column, "Total" for total row
+-- - Close (Decimal) - GTFinal
+-- - Open (Decimal) - GTInitial
+-- - Difference (Decimal) - Close - Open
+-- - CashRefund (Decimal) - Sum of RefundAmount for Cash
+-- - EftposRefund (Decimal) - Sum of RefundAmount for Eftpos group
+-- - GCSold (Decimal) - Sum of NetAmount for Gift Card/Coupon
+-- - GrossSales (Decimal) - Difference - CashRefund - EftposRefund - GCSold
+-- - GST (Decimal) - TaxAmount
+-- - NetSales (Decimal) - GrossSales - GST
+-- - NonProdSales (Decimal) - NonProductSalesAmount
+-- - ProductSales (Decimal) - NetSales - NonProdSales
+--
+-- In Server Action:
+-- - Call GetPODFullName(Pod) to convert Pod code to full name for Type column
+-- - Total row already included (Pod = "Total", POS = NULL)
 --
 -- =============================================
--- STATUS: IN TESTING - OPTIMIZED
--- Output: 13 columns matching OutSystems ProductSalesByDrawer structure
--- Includes Total row at bottom
+-- OPTIMIZATIONS:
+-- 1. Single DB query with conditional SUM (no multiple aggregates)
+-- 2. All calculations done in SQL (minimal OutSystems processing)
+-- 3. Total row generated in SQL using UNION ALL
+-- 4. Grouped by PosId and Pod for accurate per-drawer calculations
+-- =============================================
+-- STATUS: READY FOR OUTSYSTEMS
 -- =============================================
