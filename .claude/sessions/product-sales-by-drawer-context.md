@@ -52,8 +52,9 @@ Product Sales = Net Sales - NonProdSales
 - ✅ **Complete query rewrite** - Single DrawerData CTE with conditional SUM
   - Uses SWCCashDrawer, SWCPosTerminal, SWCCashDrawerTender, TenderType
   - No SalesFact needed - all data from cash drawer entities
-  - Filters by TenderType.Name ('Cash', 'Eftpos', etc.)
-  - Filters by TenderType.Category ('TENDER_GIFT_COUPON')
+  - Filters by TenderType.IsCash = 1 for cash tenders
+  - Filters by TenderType.TenderTypeId IN (10, 13, 16, 19, 21) for Eftpos group
+  - Filters by TenderType.Category = 'TENDER_GIFT_COUPON' for gift cards
 - 🐛 **FIXED: Column name errors** - Verified all columns against table docs
   - cd.GTFinal → cd.FinalGT
   - cd.GTInitial → cd.InitialGT
@@ -63,6 +64,7 @@ Product Sales = Net Sales - NonProdSales
   - SortOrder = 0 for POS rows, 1 for Total row
   - Required for ORDER BY with UNION ALL
 - ✅ **Added NonProductSalesAmount to SWCCashDrawer table docs**
+- ✅ **Created TenderType table documentation** - IsCash flag, TenderTypeId values, Category field
 - ✅ **Query ready for OutSystems** - Removed DECLARE statements, added setup instructions
 - 📝 **Updated claude.md** - Added mandatory rule to always check table docs before writing SQL
 
@@ -72,8 +74,8 @@ Product Sales = Net Sales - NonProdSales
 3. ✅ ProductSales equation: NetSales - NonProdSales
 4. ✅ NonProdSales: cd.NonProductSalesAmount from SWCCashDrawer
 5. ✅ GST: cd.TaxAmount from SWCCashDrawer
-6. ✅ CashRefund: Conditional SUM by TenderType.Name = 'Cash'
-7. ✅ EftposRefund: Conditional SUM by TenderType.Name IN ('Eftpos', 'Doordash', 'MOP', 'Ubereats', 'Delivereasy')
+6. ✅ CashRefund: Conditional SUM by TenderType.IsCash = 1
+7. ✅ EftposRefund: Conditional SUM by TenderType.TenderTypeId IN (10, 13, 16, 19, 21)
 8. ✅ GCSold: Conditional SUM by TenderType.Category = 'TENDER_GIFT_COUPON'
 9. ✅ SiteId filter via SWCPeriod.SiteId
 10. ✅ Date filter via SWCPeriod.BusDate
@@ -101,11 +103,12 @@ Product Sales = Net Sales - NonProdSales
 
 ## Tables Documentation Created
 
-- `database-context/tables/SalesFact/` - [NEW] - Sales transaction fact table
-- `database-context/tables/SWCPosTerminal/` - [NEW] - POS terminal session data
-- `database-context/tables/SWCCashDrawerTender/` - [NEW] - Tender-specific drawer data
-- `database-context/tables/SWCCashDrawer/` - [NEW] - Main cash drawer session table
-- `database-context/tables/SWCPeriod/` - [NEW] - Operating period with SiteId and BusDate
+- `database-context/tables/SalesFact/` - [EXISTING] - Sales transaction fact table
+- `database-context/tables/SWCPosTerminal/` - [EXISTING] - POS terminal session data
+- `database-context/tables/SWCCashDrawerTender/` - [EXISTING] - Tender-specific drawer data
+- `database-context/tables/SWCCashDrawer/` - [EXISTING] - Main cash drawer session table (updated with NonProductSalesAmount)
+- `database-context/tables/SWCPeriod/` - [EXISTING] - Operating period with SiteId and BusDate
+- `database-context/tables/TenderType/` - [NEW - 2025-12-03] - Payment tender types with IsCash flag
 
 **Note**: All table docs are universal and can be reused by other queries
 
@@ -155,7 +158,7 @@ Product Sales = Net Sales - NonProdSales
 - **Reverted from Aggregates to SQL (2025-12-03)**: User built Aggregates but couldn't filter conditionally in loops → Rationale: SQL with conditional SUM is more efficient than 4 separate aggregates (1 DB hit vs 4)
 - **Single DrawerData CTE**: One CTE with conditional SUM for all tender types → Rationale: Cleaner than multiple CTEs, single scan of cash drawer data
 - **Conditional SUM pattern**: `SUM(CASE WHEN tt.Name = 'Cash' THEN ... ELSE 0 END)` → Rationale: Aggregates all tender types in one pass without separate filters
-- **TenderType filtering**: Uses TenderType.Name and TenderType.Category → Rationale: More maintainable than hardcoded TenderTypeId values
+- **TenderType filtering**: Uses TenderType.IsCash flag and TenderType.TenderTypeId values → Rationale: IsCash flag is more reliable than Name matching; specific TenderTypeId values provide explicit control over Eftpos group (10, 13, 16, 19, 21)
 - **Column name verification**: All columns checked against table docs before use → Rationale: Prevents errors like GTFinal vs FinalGT, NetAmount vs DrawerAmount
 - **SortOrder column in UNION**: Added SortOrder to SELECT list for ORDER BY → Rationale: SQL Server UNION requires ORDER BY columns to be in SELECT list
 - **NonProductSalesAmount added**: Field added to SWCCashDrawer table docs → Rationale: User confirmed field exists, updated docs and query to use it
@@ -254,6 +257,8 @@ Product Sales = Net Sales - NonProdSales
 2. `e0089e1` - Fix: ORDER BY with UNION requires columns in SELECT list (added SortOrder)
 3. `f03a0f2` - Add NonProductSalesAmount field to SWCCashDrawer and update query
 4. `b910388` - Add mandatory table reference rule to claude.md
-5. (pending) - Update session context with all changes
+5. `19cf8be` - Update session context for Product Sales By Drawer - 2025-12-03
+6. `d687f5b` - Update tender filtering: Use IsCash flag and TenderTypeId values
+7. (pending) - Final session context update
 
 **Current State**: Query COMPLETE, ready for OutSystems Advanced SQL Block testing
