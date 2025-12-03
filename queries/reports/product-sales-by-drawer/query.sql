@@ -29,11 +29,11 @@ WITH DrawerData AS (
         cd.InitialGT AS [Open],
         (cd.FinalGT - cd.InitialGT) AS Difference,
 
-        -- Cash Refund (conditional sum)
-        SUM(CASE WHEN tt.Name = 'Cash' THEN cdt.RefundAmount ELSE 0 END) AS CashRefund,
+        -- Cash Refund (conditional sum using IsCash flag)
+        SUM(CASE WHEN tt.IsCash = 1 THEN cdt.RefundAmount ELSE 0 END) AS CashRefund,
 
-        -- Eftpos Refund (conditional sum for multiple tender types)
-        SUM(CASE WHEN tt.Name IN ('Eftpos', 'Doordash', 'MOP', 'Ubereats', 'Delivereasy')
+        -- Eftpos Refund (conditional sum for specific tender type IDs)
+        SUM(CASE WHEN tt.TenderTypeId IN (10, 13, 16, 19, 21)
              THEN cdt.RefundAmount ELSE 0 END) AS EftposRefund,
 
         -- GC Sold (conditional sum by category)
@@ -137,8 +137,8 @@ ORDER BY
 -- - Close (Decimal) - FinalGT
 -- - Open (Decimal) - InitialGT
 -- - Difference (Decimal) - Close - Open
--- - CashRefund (Decimal) - Sum of RefundAmount for Cash
--- - EftposRefund (Decimal) - Sum of RefundAmount for Eftpos group
+-- - CashRefund (Decimal) - Sum of RefundAmount where TenderType.IsCash = 1
+-- - EftposRefund (Decimal) - Sum of RefundAmount for TenderTypeId IN (10, 13, 16, 19, 21)
 -- - GCSold (Decimal) - Sum of DrawerAmount for Gift Card/Coupon
 -- - GrossSales (Decimal) - Difference - CashRefund - EftposRefund - GCSold
 -- - GST (Decimal) - TaxAmount
