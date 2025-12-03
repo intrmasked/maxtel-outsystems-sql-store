@@ -6,14 +6,15 @@
 -- Updated: 2025-12-03
 -- =============================================
 
--- ⚠️ NOTE: When using in OutSystems Advanced SQL Block:
--- 1. REMOVE all DECLARE statements below (they don't work in OutSystems)
--- 2. Add Input Parameters in OutSystems: SiteId (Long Integer), Date (Date)
--- 3. Set all parameters to Expand Inline = No
-
--- Parameters (for local SQL Server testing only - comment out for OutSystems)
-DECLARE @SiteId BIGINT = 3187;
-DECLARE @Date DATE = '2025-11-29';
+-- ⚠️ OUTSYSTEMS SETUP REQUIRED:
+-- 1. Add Input Parameters in OutSystems Advanced SQL Block:
+--    - SiteId (Data Type: Long Integer, Expand Inline = No)
+--    - Date (Data Type: Date, Expand Inline = No)
+-- 2. OutSystems will automatically provide @SiteId and @Date parameters to this query
+-- 3. For local testing in SQL Server, uncomment the DECLARE statements below:
+--
+-- DECLARE @SiteId BIGINT = 3187;
+-- DECLARE @Date DATE = '2025-11-29';
 
 -- =============================================
 -- MAIN QUERY: CASH DRAWER RECONCILIATION
@@ -24,9 +25,9 @@ WITH DrawerData AS (
     SELECT
         cd.PosId AS POS,
         pt.Pod,
-        cd.GTFinal AS [Close],
-        cd.GTInitial AS [Open],
-        (cd.GTFinal - cd.GTInitial) AS Difference,
+        cd.FinalGT AS [Close],
+        cd.InitialGT AS [Open],
+        (cd.FinalGT - cd.InitialGT) AS Difference,
 
         -- Cash Refund (conditional sum)
         SUM(CASE WHEN tt.Name = 'Cash' THEN cdt.RefundAmount ELSE 0 END) AS CashRefund,
@@ -37,10 +38,10 @@ WITH DrawerData AS (
 
         -- GC Sold (conditional sum by category)
         SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON'
-             THEN cdt.NetAmount ELSE 0 END) AS GCSold,
+             THEN cdt.DrawerAmount ELSE 0 END) AS GCSold,
 
         cd.TaxAmount AS GST,
-        cd.NonProductSalesAmount AS NonProdSales
+        0 AS NonProdSales  -- Field doesn't exist yet per requirements
 
     FROM {SWCPeriod} p
     INNER JOIN {SWCCashDrawer} cd ON p.Id = cd.OperatingPeriodId
@@ -55,10 +56,9 @@ WITH DrawerData AS (
     GROUP BY
         cd.PosId,
         pt.Pod,
-        cd.GTFinal,
-        cd.GTInitial,
-        cd.TaxAmount,
-        cd.NonProductSalesAmount
+        cd.FinalGT,
+        cd.InitialGT,
+        cd.TaxAmount
 )
 
 -- Main output with calculated fields
