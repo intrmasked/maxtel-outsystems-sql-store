@@ -41,7 +41,7 @@ WITH DrawerData AS (
              THEN cdt.DrawerAmount ELSE 0 END) AS GCSold,
 
         cd.TaxAmount AS GST,
-        0 AS NonProdSales  -- Field doesn't exist yet per requirements
+        cd.NonProductSalesAmount AS NonProdSales
 
     FROM {SWCPeriod} p
     INNER JOIN {SWCCashDrawer} cd ON p.Id = cd.OperatingPeriodId
@@ -58,7 +58,8 @@ WITH DrawerData AS (
         pt.Pod,
         cd.FinalGT,
         cd.InitialGT,
-        cd.TaxAmount
+        cd.TaxAmount,
+        cd.NonProductSalesAmount
 )
 
 -- Main output with calculated fields
@@ -142,7 +143,7 @@ ORDER BY
 -- - GrossSales (Decimal) - Difference - CashRefund - EftposRefund - GCSold
 -- - GST (Decimal) - TaxAmount
 -- - NetSales (Decimal) - GrossSales - GST
--- - NonProdSales (Decimal) - Currently 0 (field doesn't exist yet)
+-- - NonProdSales (Decimal) - NonProductSalesAmount from SWCCashDrawer
 -- - ProductSales (Decimal) - NetSales - NonProdSales
 -- - SortOrder (Integer) - 0 for POS rows, 1 for Total row (for sorting)
 --
