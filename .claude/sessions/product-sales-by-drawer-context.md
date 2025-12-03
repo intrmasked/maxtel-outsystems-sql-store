@@ -36,63 +36,66 @@ Product Sales = Net Sales - NonProdSales
 
 ## Status
 
-- [ ] Complete
+- [X] Complete
 - [ ] In Testing
-- [X] Migrated to OutSystems Aggregates
+- [ ] Ready for OutSystems
 
-**Current step**: Requirements updated, migrating from Advanced SQL to OutSystems Aggregates
+**Current step**: Query complete and ready for OutSystems Advanced SQL Block
 
-**MAJOR CHANGE (2025-11-30)**:
-- ⚠️ **Implementation approach changed from Advanced SQL to OutSystems Aggregates**
-- SQL query files archived for reference only
-- Simpler data structure makes Aggregates the better choice
-- README updated with Aggregate implementation guide
+**MAJOR CHANGE (2025-12-03)**:
+- ⚠️ **Reverted from Aggregates back to SQL** - Conditional aggregation needs SQL
+- User built Aggregates but encountered filtering limitations in loops
+- Single optimized SQL query with conditional SUM more efficient than 4 aggregates
+- Query uses correct column names verified against table documentation
 
-**Latest changes (2025-11-29 - Morning Session Continued):**
-- 🚀 **MAJOR OPTIMIZATION**: Combined 3 separate SalesFact queries into 1 single query
-  - Previously: sf (GST), sfProd (ProductSales), sfNonProd (NonProdSales) - 3 database hits
-  - Now: Single sf query with CASE statements for all 3 values - 1 database hit
-  - **Impact: 66% reduction in SalesFact table access**
-- ✅ Added Total row at bottom using CTE + UNION ALL pattern
-  - Shows 'Total' in **Type column** (NOT POS), NULL in POS
-  - Sums for all numeric columns (Difference through ProdSales)
-  - Matches user's screenshot requirements
-- 🐛 **FIXED**: ORDER BY error with UNION - added SortOrder column to SELECT list
+**Latest changes (2025-12-03 - Current Session):**
+- ✅ **Complete query rewrite** - Single DrawerData CTE with conditional SUM
+  - Uses SWCCashDrawer, SWCPosTerminal, SWCCashDrawerTender, TenderType
+  - No SalesFact needed - all data from cash drawer entities
+  - Filters by TenderType.Name ('Cash', 'Eftpos', etc.)
+  - Filters by TenderType.Category ('TENDER_GIFT_COUPON')
+- 🐛 **FIXED: Column name errors** - Verified all columns against table docs
+  - cd.GTFinal → cd.FinalGT
+  - cd.GTInitial → cd.InitialGT
+  - cdt.NetAmount → cdt.DrawerAmount
+  - cd.NonProductSalesAmount → Added to table docs and query
+- 🐛 **FIXED: ORDER BY with UNION error** - Added SortOrder column to SELECT list
   - SortOrder = 0 for POS rows, 1 for Total row
-  - Total row always appears last
-- Query now uses CTE (PerPosData) for cleaner structure
-- ✅ Created 4 comprehensive test queries:
-  - `test-main-query-breakdown.sql` - 5 tests validating each calculation step
-  - `test-tender-validation.sql` - 5 tests verifying TenderType mappings
-  - `test-salesfact-validation.sql` - 7 tests checking SalesFact filters and data
-  - `test-compare-main-query.sql` - Full main query with expected values note
+  - Required for ORDER BY with UNION ALL
+- ✅ **Added NonProductSalesAmount to SWCCashDrawer table docs**
+- ✅ **Query ready for OutSystems** - Removed DECLARE statements, added setup instructions
+- 📝 **Updated claude.md** - Added mandatory rule to always check table docs before writing SQL
 
 **Complete items**:
 1. ✅ GrossSales equation: Difference - CashRefund - EftposRefund - GCSold (Overring removed)
 2. ✅ NetSales equation: GrossSales - GST
-3. ✅ NonProdSales: SUM(NetAmount) WHERE ProductSaleTypeId = 2, grouped by PosId, Pod
-4. ✅ ProdSales: SUM(NetAmount) WHERE ProductSaleTypeId = 1, grouped by PosId, Pod
-5. ✅ GST: SUM(TaxAmount) for all ProductSaleTypeId, grouped by PosId, Pod
-6. ✅ TenderType.Category field verified (exists)
-7. ✅ SiteId filter via SWCPeriod.SiteId
-8. ✅ Date filter via SWCPeriod.BusDate
-9. ✅ SalesFact mandatory filters: All dimension IDs set to NULL when not used
-10. ✅ Query structure matches OutSystems (13 columns)
-11. ✅ Test queries organized in tests/ subfolder
-12. ✅ Default SiteId set to 3187
-13. ✅ **Database optimization: Single SalesFact query instead of 3**
-14. ✅ **Total row added at bottom**
+3. ✅ ProductSales equation: NetSales - NonProdSales
+4. ✅ NonProdSales: cd.NonProductSalesAmount from SWCCashDrawer
+5. ✅ GST: cd.TaxAmount from SWCCashDrawer
+6. ✅ CashRefund: Conditional SUM by TenderType.Name = 'Cash'
+7. ✅ EftposRefund: Conditional SUM by TenderType.Name IN ('Eftpos', 'Doordash', 'MOP', 'Ubereats', 'Delivereasy')
+8. ✅ GCSold: Conditional SUM by TenderType.Category = 'TENDER_GIFT_COUPON'
+9. ✅ SiteId filter via SWCPeriod.SiteId
+10. ✅ Date filter via SWCPeriod.BusDate
+11. ✅ Query structure: 14 columns (including SortOrder)
+12. ✅ Total row via UNION ALL with SortOrder
+13. ✅ All column names verified against table documentation
+14. ✅ OutSystems-ready format (DECLARE statements commented out)
+15. ✅ Single optimized query with conditional SUM
 
-**Testing in progress**:
-- Query structure now matches OutSystems ProductSalesByDrawer (13 columns)
-- User will continue testing in the morning
-- Fixed negative NetSales issue by grouping SalesFact by PosId, Pod
+**Ready for OutSystems**:
+- Query complete with correct column names
+- All calculations implemented
+- Total row included
+- OutSystems setup instructions documented
+- Input Parameters: SiteId (Long Integer), Date (Date)
+- Output Structure: 14 columns documented
 
-**Pending (after testing)**:
-- Validate calculations with production data
+**Pending (after OutSystems implementation)**:
+- User testing in OutSystems Advanced SQL Block
 - GetPodFullName server action integration (Type column → Pod value)
-- DBA review and implementation of 5 index recommendations
-- Confirm query performance with production load
+- Validate calculations with production data
+- DBA review for index recommendations if needed
 
 ---
 
@@ -110,13 +113,13 @@ Product Sales = Net Sales - NonProdSales
 
 ## Queries Created
 
-- `queries/reports/product-sales-by-drawer/` - [MIGRATED TO AGGREGATES]
+- `queries/reports/product-sales-by-drawer/` - [COMPLETE - READY FOR OUTSYSTEMS]
   - Purpose: Cash drawer reconciliation with GT values, refunds, and sales
-  - **Implementation**: OutSystems Aggregates (SQL files archived for reference)
-  - Tables used: SWCCashDrawer, SWCCashDrawerTender, SWCPosTerminal, TenderType
-  - Output: 11 columns (removed Overring and Other Receipt)
-  - Parameters: SiteId, Date (passed to Server Action)
-  - Status: README updated with Aggregate implementation guide, awaiting OutSystems implementation
+  - **Implementation**: SQL Advanced Query (reverted from Aggregates)
+  - Tables used: SWCPeriod, SWCCashDrawer, SWCCashDrawerTender, SWCPosTerminal, TenderType
+  - Output: 14 columns (including SortOrder for proper Total row sorting)
+  - Parameters: SiteId (Long Integer), Date (Date)
+  - Status: Query complete, all column names verified, ready for OutSystems testing
 
 ---
 
@@ -148,30 +151,34 @@ Product Sales = Net Sales - NonProdSales
 - **SalesFact JOIN on PosId AND Pod**: All SalesFact subqueries group by PosId, Pod and join on both → Rationale: Each POS-Pod combination needs its own GST/ProductSales/NonProdSales values, not period totals. Period-level totals were causing negative NetSales (each row got the same total GST value)
 - **ProductSales from SalesFact directly**: ProductSales = SUM(NetAmount) WHERE ProductSaleTypeId = 1, NOT NetSales - NonProdSales → Rationale: User corrected - ProductSales comes directly from SalesFact, not calculated from cash drawer values
 - **Test queries location**: All test files in `tests/` subfolder within query directory → Rationale: Keep test/diagnostic queries organized in dedicated subfolder, prefix with `test-`
-- **Removed Overring column**: Query now returns 13 columns (not 14) → Rationale: OutSystems ProductSalesByDrawer structure doesn't include Overring column, simplified GrossSales formula
-- **Column name: ProdSales**: Changed from ProductSales to ProdSales → Rationale: Match OutSystems structure exactly
-- **Single SalesFact query optimization**: Combined 3 subqueries (sf, sfProd, sfNonProd) into 1 using CASE statements → Rationale: User requested optimization for fewer DB hits - 66% reduction in SalesFact access
-- **CTE pattern for totals**: Used CTE (PerPosData) + UNION ALL for Total row → Rationale: Clean structure, allows aggregation of all numeric columns for Total row
-- **Total row structure**: Type='Total', POS=NULL, all numeric columns summed → Rationale: User requested "set the type to total rather than the pos to total"
+- **Removed Overring column**: Query now returns 14 columns (13 data + 1 SortOrder) → Rationale: User requirements removed Overring and Other Receipt columns
+- **Reverted from Aggregates to SQL (2025-12-03)**: User built Aggregates but couldn't filter conditionally in loops → Rationale: SQL with conditional SUM is more efficient than 4 separate aggregates (1 DB hit vs 4)
+- **Single DrawerData CTE**: One CTE with conditional SUM for all tender types → Rationale: Cleaner than multiple CTEs, single scan of cash drawer data
+- **Conditional SUM pattern**: `SUM(CASE WHEN tt.Name = 'Cash' THEN ... ELSE 0 END)` → Rationale: Aggregates all tender types in one pass without separate filters
+- **TenderType filtering**: Uses TenderType.Name and TenderType.Category → Rationale: More maintainable than hardcoded TenderTypeId values
+- **Column name verification**: All columns checked against table docs before use → Rationale: Prevents errors like GTFinal vs FinalGT, NetAmount vs DrawerAmount
 - **SortOrder column in UNION**: Added SortOrder to SELECT list for ORDER BY → Rationale: SQL Server UNION requires ORDER BY columns to be in SELECT list
-- **Test queries created**: 4 comprehensive test files in tests/ subfolder → Rationale: User requested "write up tests to see the shit we are getting in the main query is right"
+- **NonProductSalesAmount added**: Field added to SWCCashDrawer table docs → Rationale: User confirmed field exists, updated docs and query to use it
+- **OutSystems format**: DECLARE statements commented out, setup instructions added → Rationale: Ready to paste into OutSystems Advanced SQL Block
+- **Claude.md update**: Added mandatory rule to always check table docs → Rationale: Prevent column name errors by verifying against documentation first
 
 ---
 
 ## Next Steps
 
-**Currently**: User is testing the query
+**Currently**: Query complete and ready for OutSystems
 
-**Waiting for**:
-1. Test results from production data
-2. User feedback on any issues or adjustments needed
-3. Confirmation that query is working as expected
+**User to do**:
+1. Paste query into OutSystems Advanced SQL Block
+2. Add Input Parameters: SiteId (Long Integer), Date (Date), both with Expand Inline = No
+3. Define Output Structure with 14 columns (see query documentation)
+4. Test with production data
+5. Integrate GetPodFullName server action for Type column
 
-**After testing passes**:
-1. Mark query as COMPLETE
-2. GetPodFullName server action integration
-3. DBA review - Submit 5 index recommendations for implementation
-4. Performance monitoring
+**After OutSystems testing**:
+1. Validate calculations match business requirements
+2. Performance testing with production load
+3. DBA review for index recommendations if needed
 
 ---
 
@@ -242,13 +249,11 @@ Product Sales = Net Sales - NonProdSales
 - `database-context/tables/SalesFact/README.md` - Added proper join patterns with SWCPeriodId, updated to {TableName} format
 - All table docs - Updated example queries to use {TableName} format
 
-**Git Commits**:
-1. `09ace3a` - Initial commit: Repository setup with initial query
-2. `0845458` - SQL 2014 compatible, SWCPeriod integration, index recommendations
-3. `50611d9` - OutSystems {TableName} format throughout
-4. `2442a5b` - Session context update
-5. `5c3367d` - Session context must be updated REGULARLY (claude.md update)
-6. `c8c6393` - COMPLETE: All sales equations implemented
-7. `96f0bdc` - Fix GROUP BY clause error, add DB optimization guidelines
+**Git Commits (2025-12-03 Session)**:
+1. `158c5ef` - Fix: Corrected column names (FinalGT, InitialGT, DrawerAmount)
+2. `e0089e1` - Fix: ORDER BY with UNION requires columns in SELECT list (added SortOrder)
+3. `f03a0f2` - Add NonProductSalesAmount field to SWCCashDrawer and update query
+4. `b910388` - Add mandatory table reference rule to claude.md
+5. (pending) - Update session context with all changes
 
-**Current State**: Query development complete, IN TESTING - waiting for user feedback
+**Current State**: Query COMPLETE, ready for OutSystems Advanced SQL Block testing
