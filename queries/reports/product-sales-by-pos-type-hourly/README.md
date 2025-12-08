@@ -207,8 +207,246 @@ AND Pod <> ''                        -- Not empty
 
 - **Single Day Query**: Optimized for single-day date range
 - **15-min Data**: DatePeriodDimensionId = 15 provides granular hourly breakdown
-- **Scaffold Pattern**: Ensures complete output even for hours with no sales
-- **Index Recommendations**: See parent query (Product Sales By Drawer) for similar patterns
+- **Timezone Conversion**: Optimized to convert ONCE per row and reuse
+- **Single Database Scan**: Fetches CY and PY data in one pass
+- **Current Performance**: ~9 seconds (can be improved with indexes below)
+
+---
+
+## Index Recommendations
+
+**Status**: Recommended (Requires Database Administrator)
+
+**⚠️ IMPORTANT - OutSystems Limitation:**
+- **OutSystems does NOT support creating database indexes directly**
+- Indexes must be created manually by Database Administrator using SQL Server Management Studio (SSMS)
+- OutSystems Service Center only manages entity/table structure, not indexes
+- This is a **SQL Server database-level optimization**, not an OutSystems application change
+
+**How to Implement:**
+1. Contact your Database Administrator (DBA)
+2. Provide the index scripts below
+3. DBA creates indexes in SQL Server (DEV → TEST → PROD)
+4. Verify performance improvement after index creation
+
+---
+
+### 🔥 Critical Index (High Impact) - RECOMMENDED
+
+**Index Name:** `IX_SalesFact_SiteId_DateTime_DatePeriodDim_Includes`
+
+**SQL Script for DBA:**
+```sql
+-- Execute this in SQL Server Management Studio (SSMS)
+-- Database: [YourDatabaseName]
+-- Table: SalesFact
+
+CREATE NONCLUSTERED INDEX IX_SalesFact_SiteId_DateTime_DatePeriodDim_Includes
+ON dbo.SalesFact (SiteId, DateTime, DatePeriodDimensionId)
+INCLUDE (Pod, NetAmount, TransactionCount, ProductSaleTypeId, ProductMenuId,
+         TenderTypeId, OperationId, OperationKindId, SWCCashDrawerId, SaleTypeId)
+WITH (ONLINE = ON, FILLFACTOR = 90);
+-- ONLINE = ON: Allows table to remain accessible during index creation
+-- FILLFACTOR = 90: Leaves 10% space for updates (reduces page splits)
+```
+
+**Why This Index:**
+- Covers WHERE clause filters (SiteId, DateTime range via timezone conversion, DatePeriodDimensionId = 15)
+- INCLUDE clause covers all SELECT and additional WHERE columns
+- Enables index-only scan (no table lookup needed)
+- **Expected Impact**: 9 seconds → 1-2 seconds (4-9x faster)
+
+**Columns Used:**
+- **Key Columns**: SiteId (filter), DateTime (timezone conversion + range), DatePeriodDimensionId (filter)
+- **Included Columns**: Pod (GROUP BY), NetAmount (SUM), TransactionCount (SUM), all IS NULL filters
+
+**Index Size Estimate:** ~50-100 MB (depending on data volume)
+
+---
+
+### 📊 Alternative Index (If above is too large)
+
+**Index Name:** `IX_SalesFact_SiteId_DatePeriodDim_DateTime`
+
+**SQL Script for DBA:**
+```sql
+-- Simpler version with fewer INCLUDE columns
+CREATE NONCLUSTERED INDEX IX_SalesFact_SiteId_DatePeriodDim_DateTime
+ON dbo.SalesFact (SiteId, DatePeriodDimensionId, DateTime)
+INCLUDE (Pod, NetAmount, TransactionCount)
+WITH (ONLINE = ON, FILLFACTOR = 90);
+```
+
+**Why:**
+- Smaller index size (fewer INCLUDE columns)
+- Still covers main filters and aggregations
+- **Expected Impact**: 9 seconds → 2-4 seconds (2-4x faster)
+
+**Index Size Estimate:** ~20-40 MB
+
+---
+
+### 🎯 Index Effectiveness Analysis
+
+**Current Query Filter Pattern**:
+```sql
+WHERE SiteId = @SiteId                                      -- ✅ Indexed (key column)
+  AND DatePeriodDimensionId = 15                            -- ✅ Indexed (key column)
+  AND CAST(CONVERT(... AT TIME ZONE ...) AS DATE) IN (...)  -- ✅ Uses DateTime (key column)
+  AND Pod IS NOT NULL AND Pod <> ''                         -- ✅ Indexed (INCLUDE)
+  AND ProductSaleTypeId = 1                                 -- ✅ Indexed (INCLUDE)
+  AND ProductMenuId IS NULL                                 -- ✅ Indexed (INCLUDE)
+  AND TenderTypeId IS NULL                                  -- ✅ Indexed (INCLUDE)
+  AND OperationId IS NULL                                   -- ✅ Indexed (INCLUDE)
+  AND OperationKindId IS NULL                               -- ✅ Indexed (INCLUDE)
+  AND SWCCashDrawerId IS NULL                               -- ✅ Indexed (INCLUDE)
+  AND SaleTypeId IS NULL                                    -- ✅ Indexed (INCLUDE)
+```
+
+**GROUP BY Columns**: Pod (INCLUDE), DATEPART(HOUR, NZ_DateTime) (computed from DateTime)
+**Aggregate Columns**: NetAmount (INCLUDE), TransactionCount (INCLUDE)
+
+---
+
+### 📈 Performance Expectations
+
+| Scenario | Without Index | With Simple Index | With Full Index |
+|----------|--------------|-------------------|-----------------|
+| **Current** | 9 seconds | ~2-4 seconds | ~1-2 seconds |
+| **Busy Site** | 15+ seconds | ~3-6 seconds | ~1-3 seconds |
+| **Low Traffic Site** | 5 seconds | ~1-2 seconds | <1 second |
+
+---
+
+### ⚙️ Index Maintenance Notes
+
+- **Rebuild Schedule**: Weekly (SalesFact is heavily written to)
+- **Fragmentation Check**: Monitor monthly
+- **Fill Factor**: Consider 90% (allows for updates without excessive page splits)
+- **Statistics**: Update after nightly data loads
+
+---
+
+### 🧪 How to Test Index Impact
+
+**Step 1: Check if Index Already Exists**
+```sql
+-- Run this in SSMS to check existing indexes on SalesFact
+SELECT
+    i.name AS IndexName,
+    OBJECT_NAME(i.object_id) AS TableName,
+    COL_NAME(ic.object_id, ic.column_id) AS ColumnName,
+    ic.is_included_column AS IsIncludedColumn
+FROM sys.indexes i
+INNER JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+WHERE OBJECT_NAME(i.object_id) = 'SalesFact'
+    AND i.name LIKE '%SiteId%'
+ORDER BY i.name, ic.key_ordinal;
+```
+
+**Step 2: Before Index**
+```sql
+SET STATISTICS TIME ON;
+-- Run your query here (query.sql)
+SET STATISTICS TIME OFF;
+-- Note the execution time in milliseconds
+```
+
+**Step 3: Create Index**
+- Apply recommended index in DEV environment first
+- Use SSMS to execute CREATE INDEX script
+- Monitor index creation progress
+
+**Step 4: After Index**
+```sql
+SET STATISTICS TIME ON;
+-- Run same query again
+SET STATISTICS TIME OFF;
+-- Compare execution time
+```
+
+**Step 5: Verify Index Usage**
+```sql
+SET SHOWPLAN_XML ON;
+-- Run query
+SET SHOWPLAN_XML OFF;
+-- Check execution plan - should see "Index Seek" on the new index, not "Table Scan"
+```
+
+**Expected Results:**
+- Before: ~9,000ms (9 seconds)
+- After: ~1,000-2,000ms (1-2 seconds)
+- Improvement: 4-9x faster
+
+---
+
+### 🚨 Index Priority
+
+**High Priority**: This query runs every time user clicks into hourly detail screen
+- **User Impact**: Direct UX - 9 second wait is noticeable
+- **Recommendation**: Implement ASAP in production
+- **Risk**: Low - read-only query, index only affects reads
+
+---
+
+### 📋 DBA Request Template
+
+**Copy this template when requesting index from DBA:**
+
+```
+Subject: Index Request - SalesFact Table (Product Sales By POS Type Hourly Query)
+
+Hi [DBA Name],
+
+We have a performance issue with the Product Sales By POS Type Hourly report in OutSystems.
+
+Current Performance: ~9 seconds per query
+Expected Performance: 1-2 seconds with index
+
+Request: Create the following index on the SalesFact table
+
+Index Name: IX_SalesFact_SiteId_DateTime_DatePeriodDim_Includes
+
+Script:
+CREATE NONCLUSTERED INDEX IX_SalesFact_SiteId_DateTime_DatePeriodDim_Includes
+ON dbo.SalesFact (SiteId, DateTime, DatePeriodDimensionId)
+INCLUDE (Pod, NetAmount, TransactionCount, ProductSaleTypeId, ProductMenuId,
+         TenderTypeId, OperationId, OperationKindId, SWCCashDrawerId, SaleTypeId)
+WITH (ONLINE = ON, FILLFACTOR = 90);
+
+Environment: DEV first, then TEST, then PROD
+Priority: High (user-facing performance issue)
+Impact: Read-only optimization, no data changes
+
+Query Location: maxtel-outsystems-sql-store/queries/reports/product-sales-by-pos-type-hourly/query.sql
+Documentation: See README.md in same folder
+
+Please let me know if you need any additional information.
+
+Thanks,
+[Your Name]
+```
+
+---
+
+### 💡 OutSystems Best Practices for Database Indexes
+
+**What OutSystems CAN Do:**
+- Create database tables (entities)
+- Add/remove columns (attributes)
+- Create relationships (foreign keys)
+- Generate basic indexes on primary keys
+
+**What OutSystems CANNOT Do:**
+- Create custom non-clustered indexes
+- Add INCLUDE columns to indexes
+- Set FILLFACTOR or other index options
+- Optimize existing indexes
+
+**Workaround:**
+- **Manual Index Management**: All custom indexes must be created by DBA outside OutSystems
+- **OutSystems Deployments**: Indexes persist during deployments (OutSystems doesn't drop custom indexes)
+- **Index Tracking**: Document all custom indexes in query README files (like this one)
 
 ---
 

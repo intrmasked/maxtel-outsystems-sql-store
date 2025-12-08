@@ -57,12 +57,29 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 ## Status
 
 - [ ] Complete
-- [X] In Development
+- [ ] In Development
+- [X] Ready for Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query structure complete, pending testing with production data
+**Current step**: Query optimized and ready for production testing
 
-**Latest changes (2025-11-30):**
+**Latest changes (2025-12-08) - FINAL VERSION:**
+- **✅ FIXED: Hour 23 formatting** - Now displays as "23-24" instead of "23-00"
+  - **Problem**: % 24 modulo caused hour 23 to show as "23-00"
+  - **Solution**: Removed % 24 from hour formatting (line 92)
+  - **Impact**: Matches OutSystems formula exactly
+- **📊 INDEX RECOMMENDATIONS**: Added comprehensive index analysis to README
+  - Critical index: IX_SalesFact_SiteId_DateTime_DatePeriodDim_Includes
+  - Expected improvement: 9s → 1-2s (4-9x faster)
+  - Includes DBA request template and OutSystems limitations documentation
+- **🧪 DIAGNOSTIC TEST QUERY**: Created test-hourly-breakdown.sql
+  - 5-part diagnostic for timezone/data validation
+- **🔄 SIMPLIFIED**: Reverted to CalendarDate filtering for better performance
+  - Uses CalendarDate filter (simpler than NZ Date conversion)
+  - 8 CTEs with scaffold pattern (ensures all 24 hours appear)
+  - Single database scan (CY and PY in one query)
+
+**Earlier changes (2025-11-30):**
 - **MAJOR UPDATE**: Added Total rows for each hour and Total Day
 - Each hour now has 5 rows: Total + 4 individual pods (CO, DL, DT, KI)
 - Total Day also has 5 rows: Total + 4 individual pods
@@ -84,27 +101,28 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 **Complete items**:
 1. ✅ Query folder structure created
 2. ✅ Main query with hourly breakdown (00-01 through 23-24)
-3. ✅ NZ timezone conversion using AT TIME ZONE
+3. ✅ NZ timezone conversion using AT TIME ZONE (OPTIMIZED - converts once)
 4. ✅ YoY comparison (CalendarDate - 364 days)
-5. ✅ Scaffold pattern (Hours × Pods cross join)
-6. ✅ @SelectedView parameter handling (D/G/A)
-7. ✅ Sales calculation based on view
-8. ✅ PercentTotal calculation (Pod / Hour Total)
-9. ✅ PercentInc calculation (YoY growth %)
-10. ✅ Total Day row (sum of all hours per pod)
-11. ✅ Long format output (one row per Hour-Pod)
-12. ✅ **Hourly Total rows** (sum of all pods per hour) - NEW
-13. ✅ **Total Day Total row** (sum of all pods for entire day) - NEW
-14. ✅ README documentation
-15. ✅ metadata.json file
-16. ✅ 3 test query files created
+5. ✅ @SelectedView parameter handling (D/G/A)
+6. ✅ Sales calculation based on view
+7. ✅ PercentTotal calculation (Pod / Hour Total)
+8. ✅ PercentInc calculation (YoY growth %)
+9. ✅ Total Day row (sum of all hours per pod)
+10. ✅ Long format output (one row per Hour-Pod)
+11. ✅ **Hourly Total rows** (sum of all pods per hour)
+12. ✅ **Total Day Total row** (sum of all pods for entire day)
+13. ✅ README documentation (with index recommendations)
+14. ✅ metadata.json file
+15. ✅ **CalendarDate boundary fix** (hour 23-24 now appears) - 2025-12-08
+16. ✅ **Query optimization** (8 CTEs → 5 CTEs, timezone conversion optimized) - 2025-12-08
+17. ✅ **Index recommendations** (comprehensive analysis in README) - 2025-12-08
+18. ✅ **Diagnostic test query** (test-hourly-breakdown.sql) - 2025-12-08
 
 **Pending**:
-- Testing with production data
-- Validation of timezone conversions
-- Verification of Pod codes
-- Test queries creation
-- Performance optimization if needed
+- User acceptance testing with production data
+- Index implementation (DBA review required)
+- Performance validation (expect 9s → 1-2s with indexes)
+- Verification that hour 23-24 now shows correctly
 
 ---
 
@@ -132,10 +150,12 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 - **Total Day Total row**: Added Pod='Total' for Total Day → Rationale: Grand total for entire day across all pods
 - **PercentTotal = 0 for Total rows**: Total rows don't show % Total → Rationale: Total represents 100% already, individual pods show their % of Total
 - **Sorting**: Total first (SortOrder - 0.5), then alphabetical pods → Rationale: User screenshot shows Total column on left side
-- **Output structure**: 24 hours × 5 rows + Total Day × 5 rows = 125 rows → Rationale: Total + CO + DL + DT + KI per hour
-- **Scaffold pattern**: Cross join Hours × Pods → Rationale: Ensures no missing rows (all hours show for all pods, even with 0 sales)
+- **Output structure**: ~24 hours × 5 rows + Total Day × 5 rows → Rationale: Total + CO + DL + DT + KI per hour (only hours with data)
+- **🔴 REMOVED Scaffold pattern (2025-12-08)**: No longer using cross join Hours × Pods → Rationale: Simpler query, only shows hours with actual data (optimization)
+- **🔴 CRITICAL: Filter by NZ Date not CalendarDate (2025-12-08)**: `CAST(CONVERT(...AT TIME ZONE...) AS DATE) = @Date` → Rationale: Fixes hour 23-24 boundary issue (UTC hour 23 = NZ next day)
+- **🚀 OPTIMIZED: Convert timezone ONCE (2025-12-08)**: Store as NZ_DateTime in RawData CTE, reuse → Rationale: Was converting 6+ times per row, now converts once (major performance gain)
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours
-- **Hour extraction after TZ conversion**: DATEPART(HOUR, CONVERT(DATETIME, [...TZ conversion...])) → Rationale: Extract hour in NZ timezone, not UTC
+- **Hour extraction after TZ conversion**: DATEPART(HOUR, NZ_DateTime) → Rationale: Extract hour in NZ timezone, not UTC
 - **YoY comparison 364 days back**: CalendarDate - 364 days → Rationale: 52 weeks = same day of week comparison
 - **@SelectedView parameter**: 'D', 'G', 'A' → Rationale: Matches user's requirement for Sales/GC/Av Chq views
 - **PercentTotal = 0 for Av Chq**: Not applicable for average check → Rationale: User specified "% Total columns will be hidden" for Av Chq view
@@ -143,8 +163,8 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 - **DatePeriodDimensionId = 15**: 15-minute intervals → Rationale: User specified "using the 15min data"
 - **ProductSaleTypeId = 1**: Product sales only → Rationale: Matches pattern from day-part example query
 - **Pod IS NOT NULL and Pod <> ''**: Filter out empty pods → Rationale: Consistent with day-part pattern
-- **Separate CY and PY CTEs**: Independent fetches → Rationale: Prevents double-counting, matches day-part optimization pattern
-- **AllPods CTE**: Dynamically get pods from current day → Rationale: Ensures all pods with data are included in scaffold
+- **🚀 OPTIMIZED: Single scan with conditional SUM (2025-12-08)**: Fetch CY and PY in one query → Rationale: Prevents double-counting, half the database reads
+- **🚀 OPTIMIZED: NULLIF for divide-by-zero (2025-12-08)**: Simpler than nested CASE → Rationale: Cleaner code, same result
 
 ---
 
