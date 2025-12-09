@@ -3,7 +3,7 @@
 -- Purpose: Cash drawer reconciliation report with conditional tender aggregations
 -- Target: SQL Server 2014+ / OutSystems Advanced SQL
 -- Created: 2025-11-28
--- Updated: 2025-12-03
+-- Updated: 2025-12-08 - Changed GCSold to use SWCCashDrawer.GiftCouponSales
 -- =============================================
 
 -- ⚠️ OUTSYSTEMS SETUP REQUIRED:
@@ -36,9 +36,8 @@ WITH DrawerData AS (
         SUM(CASE WHEN tt.TenderTypeId IN (10, 13, 16, 19, 21)
              THEN cdt.RefundAmount ELSE 0 END) AS EftposRefund,
 
-        -- GC Sold (conditional sum by category)
-        SUM(CASE WHEN tt.Category = 'TENDER_GIFT_COUPON'
-             THEN cdt.DrawerAmount ELSE 0 END) AS GCSold,
+        -- GC Sold (from SWCCashDrawer.GiftCouponSales)
+        cd.GiftCouponSales AS GCSold,
 
         cd.TaxAmount AS GST,
         cd.NonProductSalesAmount AS NonProdSales
@@ -59,7 +58,8 @@ WITH DrawerData AS (
         cd.FinalGT,
         cd.InitialGT,
         cd.TaxAmount,
-        cd.NonProductSalesAmount
+        cd.NonProductSalesAmount,
+        cd.GiftCouponSales
 )
 
 -- Main output with calculated fields
@@ -139,7 +139,7 @@ ORDER BY
 -- - Difference (Decimal) - Close - Open
 -- - CashRefund (Decimal) - Sum of RefundAmount where TenderType.IsCash = 1
 -- - EftposRefund (Decimal) - Sum of RefundAmount for TenderTypeId IN (10, 13, 16, 19, 21)
--- - GCSold (Decimal) - Sum of DrawerAmount for Gift Card/Coupon
+-- - GCSold (Decimal) - GiftCouponSales from SWCCashDrawer
 -- - GrossSales (Decimal) - Difference - CashRefund - EftposRefund - GCSold
 -- - GST (Decimal) - TaxAmount
 -- - NetSales (Decimal) - GrossSales - GST

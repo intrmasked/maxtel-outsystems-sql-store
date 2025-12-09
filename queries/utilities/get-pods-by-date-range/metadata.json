@@ -1,0 +1,50 @@
+{
+  "query_name": "Get Available PODs for Date Range",
+  "category": "utilities",
+  "created_date": "2025-12-09",
+  "author": "Claude",
+  "description": "Retrieve distinct POD values active in a date range (lightning fast)",
+  "input_parameters": [
+    {
+      "name": "SiteId",
+      "type": "Long Integer",
+      "required": true,
+      "default": 3187
+    },
+    {
+      "name": "StartDate",
+      "type": "Date",
+      "required": true
+    },
+    {
+      "name": "EndDate",
+      "type": "Date",
+      "required": true
+    }
+  ],
+  "output_columns": [
+    {
+      "name": "podid",
+      "type": "Text",
+      "description": "POD code (FC, DT, CSO, etc.) or 'Total'"
+    },
+    {
+      "name": "podname",
+      "type": "Text",
+      "description": "POD display name (Counter, Drive-Thru, etc.) or 'Total'"
+    },
+    {
+      "name": "SortOrder",
+      "type": "Integer",
+      "description": "Sequential sort order (0 = Total, 1,2,3... = PODs alphabetically)"
+    }
+  ],
+  "tables_used": [
+    "SalesFact"
+  ],
+  "status": "complete",
+  "performance": {
+    "expected_time": "< 100ms",
+    "optimization_level": "high"
+  }
+}

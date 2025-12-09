@@ -59,6 +59,7 @@ SWCCashDrawer is the primary table for cash drawer sessions. Tracks opening/clos
 | `ReductionCount` | Integer | Reduction count |
 | `NonProductSalesAmount` | Decimal | Non-product sales total |
 | `NonProductSalesCount` | Integer | Non-product sales count |
+| `GiftCouponSales` | Decimal | Gift coupon sales total |
 
 ---
 

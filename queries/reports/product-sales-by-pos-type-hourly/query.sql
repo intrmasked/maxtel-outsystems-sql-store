@@ -84,6 +84,8 @@ ActivePods AS (
 -- [STEP 4]: Build Scaffold (Hour x Pod Grid)
 -- Cross join ensures every hour has every pod, even with 0 sales
 -- FIXED: Removed % 24 modulo so hour 23 displays as "23-24" instead of "23-00"
+-- Pod ordering matches get-pods-by-date-range for consistent UI display
+-- Total appears first (0.01), then PODs (0.02, 0.03, 0.04...)
 Scaffold AS (
     SELECT
         h.HourStart,
@@ -91,7 +93,8 @@ Scaffold AS (
         REPLICATE('0', 2 - LEN(CAST(h.HourStart AS VARCHAR))) + CAST(h.HourStart AS VARCHAR) + '-' +
         REPLICATE('0', 2 - LEN(CAST((h.HourStart + 1) AS VARCHAR))) + CAST((h.HourStart + 1) AS VARCHAR) AS Hour,
         p.Pod,
-        h.HourStart AS SortOrder
+        -- Sort order: Hour (0-23) + Pod sequence (0.02, 0.03, 0.04...) - Total will be 0.01
+        h.HourStart + ((ROW_NUMBER() OVER (PARTITION BY h.HourStart ORDER BY p.Pod) + 1) * 0.01) AS SortOrder
     FROM Hours h
     CROSS JOIN ActivePods p
 ),
@@ -101,6 +104,7 @@ Scaffold AS (
 -- ISNULL converts NULL to 0 for hours with no sales
 MergedData AS (
     SELECT
+        s.HourStart,
         s.Hour,
         s.Pod,
         s.SortOrder,
@@ -138,27 +142,30 @@ FinalRows AS (
     UNION ALL
 
     -- 2. Hourly Total Rows (Sum of the Hour)
+    -- Total row appears FIRST in each hour (HourStart + 0.01)
     SELECT
-        Hour, 'Total', SortOrder - 0.5,
+        Hour, 'Total', HourStart + 0.01,
         SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
         NULL, NULL -- Totals don't show % (denominator set to NULL)
     FROM EnrichedData
-    GROUP BY Hour, SortOrder
+    GROUP BY Hour, HourStart
 
     UNION ALL
 
-    -- 3. Grand Total Row (Sum of the Day)
+    -- 3. Grand Total Row (Sum of the Day) - appears FIRST in Total Day section
     SELECT
-        'Total Day', 'Total', 9998.5,
+        'Total Day', 'Total', 9999.01,
         SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
         NULL, NULL
     FROM EnrichedData
 
     UNION ALL
 
-    -- 4. Total Day per Pod Rows
+    -- 4. Total Day per Pod Rows (ordered to match get-pods-by-date-range)
+    -- Total appears first, then PODs (0.02, 0.03, 0.04...)
     SELECT
-        'Total Day', Pod, 9999,
+        'Total Day', Pod,
+        9999 + ((ROW_NUMBER() OVER (ORDER BY Pod) + 1) * 0.01),
         SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
         MAX(Day_Total_Net), MAX(Day_Total_Trans) -- Use the Day Total as Denominator
     FROM EnrichedData

@@ -1,0 +1,72 @@
+{
+  "query_name": "Product Sales By POS Type (Date Range)",
+  "category": "reports",
+  "created_date": "2025-12-09",
+  "author": "Claude",
+  "description": "Daily sales breakdown by Pod with YoY comparison and date range support",
+  "input_parameters": [
+    {
+      "name": "SiteId",
+      "type": "Long Integer",
+      "required": true,
+      "default": 3187
+    },
+    {
+      "name": "StartDate",
+      "type": "Date",
+      "required": true
+    },
+    {
+      "name": "EndDate",
+      "type": "Date",
+      "required": true
+    },
+    {
+      "name": "SelectedView",
+      "type": "Text",
+      "required": true,
+      "default": "D",
+      "description": "D = Sales, G = Guest Count, A = Average Check"
+    }
+  ],
+  "output_columns": [
+    {
+      "name": "Date",
+      "type": "Date",
+      "description": "Report date"
+    },
+    {
+      "name": "Pod",
+      "type": "Text",
+      "description": "POD code (Total, CSO, DT, FC)"
+    },
+    {
+      "name": "Value",
+      "type": "Decimal",
+      "description": "Main metric based on SelectedView"
+    },
+    {
+      "name": "PercentTotal",
+      "type": "Decimal",
+      "description": "Percentage of daily total"
+    },
+    {
+      "name": "PercentInc",
+      "type": "Decimal",
+      "description": "Year-over-year growth percentage"
+    },
+    {
+      "name": "SortOrder",
+      "type": "Integer",
+      "description": "Sequential sort order (0 = Total, 1,2,3... = PODs)"
+    }
+  ],
+  "tables_used": [
+    "SalesFact"
+  ],
+  "status": "complete",
+  "performance": {
+    "expected_time": "< 500ms (7-day range)",
+    "optimization_level": "high"
+  }
+}
