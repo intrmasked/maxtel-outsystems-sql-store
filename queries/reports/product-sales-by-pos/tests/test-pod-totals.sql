@@ -9,6 +9,7 @@ DECLARE @SiteId BIGINT = 3187;
 DECLARE @StartDate DATE = '2025-12-01';
 DECLARE @EndDate DATE = '2025-12-07';
 DECLARE @SelectedView VARCHAR(1) = 'D';  -- 'D' = Sales, 'G' = Guest Count, 'A' = Average Check
+DECLARE @Pod VARCHAR(50) = NULL;  -- NULL = All Pods, 'CSO' = Kiosk only, 'FC' = Counter only, 'DT' = Drive-Thru only, 'Total' = Total only
 
 -- =============================================
 -- TEST 1: Pod Totals by Date
@@ -100,6 +101,7 @@ FROM (
     SELECT * FROM TotalData
 ) Combined
 WHERE ReportDate <= @EndDate
+  AND (@Pod IS NULL OR Pod = @Pod)  -- Filter by pod if specified
 ORDER BY Date ASC, PodSequence ASC
 OPTION (MAXRECURSION 1000);
 
@@ -132,6 +134,7 @@ WHERE SiteId = @SiteId
   AND PosId IS NOT NULL
   AND Pod IN ('FC', 'DT', 'CSO')
   AND Pod IS NOT NULL AND Pod <> ''
+  AND (@Pod IS NULL OR Pod = @Pod)  -- Filter by pod if specified
 GROUP BY Pod
 ORDER BY Pod;
 

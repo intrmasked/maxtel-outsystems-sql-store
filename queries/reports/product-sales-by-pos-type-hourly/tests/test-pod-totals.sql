@@ -7,6 +7,7 @@
 -- Test Parameters
 DECLARE @SiteId BIGINT = 3187;
 DECLARE @Date DATE = '2025-12-08';
+DECLARE @Pod VARCHAR(50) = NULL;  -- NULL = All Pods, 'CSO' = Kiosk only, 'FC' = Counter only, 'DT' = Drive-Thru only, 'Total' = Total only
 
 -- =============================================
 -- TEST 1: Pod Totals by Hour
@@ -101,6 +102,7 @@ FROM (
     UNION ALL
     SELECT * FROM TotalData
 ) Combined
+WHERE (@Pod IS NULL OR Pod = @Pod)  -- Filter by pod if specified
 ORDER BY Hour ASC, PodSequence ASC;
 
 -- =============================================
@@ -130,6 +132,7 @@ WHERE SiteId = @SiteId
   AND SWCCashDrawerId IS NULL
   AND SaleTypeId IS NULL
   AND Pod IS NOT NULL AND Pod <> ''
+  AND (@Pod IS NULL OR Pod = @Pod)  -- Filter by pod if specified
 GROUP BY Pod
 ORDER BY Pod;
 
