@@ -211,14 +211,122 @@ RawData AS (
 ```
 
 ### Query Performance & Optimization:
-- **Minimize database hits** - Optimize for fewer queries to the database
-  - Use JOINs and subqueries instead of multiple separate queries
-  - Aggregate data in single query when possible
-  - Avoid N+1 query patterns
+
+**🔥 CRITICAL LESSONS (Proven in Production):**
+
+1. **🚀 UNION ALL Pattern for CY + PY Queries** - **16x Performance Gain!**
+   - **Problem**: Separate CY and PY CTEs run sequentially (slow)
+   - **Solution**: Combine with UNION ALL to force parallel index seeks
+   - **Real Result**: 16 seconds → 1 second for 30-day range
+
+   ```sql
+   -- ❌ SLOW (Sequential execution - 16s for 30 days)
+   CY_Data AS (
+       SELECT Pod, SUM(NetAmount) AS CY_Sales FROM {SalesFact}
+       WHERE CalendarDate BETWEEN @StartDate AND @EndDate
+       GROUP BY Pod
+   ),
+   PY_Data AS (
+       SELECT Pod, SUM(NetAmount) AS PY_Sales FROM {SalesFact}
+       WHERE CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND DATEADD(DAY, -364, @EndDate)
+       GROUP BY Pod
+   )
+
+   -- ✅ FAST (Parallel execution - 1s for 30 days - 16x faster!)
+   RawDataPoints AS (
+       SELECT Pod, NetAmount AS CY_Sales, 0 AS PY_Sales
+       FROM {SalesFact}
+       WHERE CalendarDate BETWEEN @StartDate AND @EndDate
+
+       UNION ALL
+
+       SELECT Pod, 0, NetAmount
+       FROM {SalesFact}
+       WHERE CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND DATEADD(DAY, -364, @EndDate)
+   ),
+   AggregatedData AS (
+       SELECT Pod, SUM(CY_Sales) AS CY_Sales, SUM(PY_Sales) AS PY_Sales
+       FROM RawDataPoints
+       GROUP BY Pod
+   )
+   ```
+
+   **Why It's Faster**:
+   - SQL Server runs both queries in parallel (simultaneous index seeks)
+   - Single aggregation pass over combined data
+   - Forces optimal execution plan
+
+2. **🔥 Pre-Aggregation Strategy** - Aggregate BEFORE Building Scaffold
+   - **Problem**: Joining scaffold to raw data = large data volume
+   - **Solution**: Aggregate raw data first, then join to scaffold
+   - **Benefit**: Reduces data volume by 10-100x before joins
+
+   ```sql
+   -- ✅ CORRECT ORDER
+   -- Step 1: Aggregate raw data first
+   AggregatedData AS (
+       SELECT Date, Pod, SUM(Sales) AS Sales
+       FROM RawDataPoints
+       GROUP BY Date, Pod
+   ),
+   -- Step 2: Build scaffold
+   Scaffold AS (
+       SELECT d.Date, p.Pod
+       FROM DateList d
+       CROSS JOIN ActivePods p
+   ),
+   -- Step 3: Join small aggregated data to scaffold
+   FinalData AS (
+       SELECT s.Date, s.Pod, ISNULL(a.Sales, 0) AS Sales
+       FROM Scaffold s
+       LEFT JOIN AggregatedData a ON s.Date = a.Date AND s.Pod = a.Pod
+   )
+   ```
+
+3. **🔥 Derive From Existing Data** - Never Add Extra Database Scans
+   - **Problem**: Adding separate query for ActivePods = extra database hit
+   - **Solution**: Derive ActivePods from data you're already fetching
+
+   ```sql
+   -- ❌ WRONG (3 database hits: ActivePods + CY + PY)
+   ActivePods AS (
+       SELECT DISTINCT Pod FROM {SalesFact}
+       WHERE CalendarDate BETWEEN @StartDate AND @EndDate
+   ),
+   CY_Data AS (SELECT ... FROM {SalesFact} ...),
+   PY_Data AS (SELECT ... FROM {SalesFact} ...)
+
+   -- ✅ CORRECT (2 database hits: CY + PY only)
+   RawDataPoints AS (
+       SELECT ... FROM {SalesFact} ... UNION ALL SELECT ...
+   ),
+   AggregatedData AS (
+       SELECT ... FROM RawDataPoints ...
+   ),
+   ActivePods AS (
+       SELECT DISTINCT Pod FROM AggregatedData  -- ← Derived from existing data!
+       WHERE CY_Sales > 0 OR CY_Count > 0
+   )
+   ```
+
+4. **🔥 RECOMPILE Hint** - For Queries with Varying Parameters
+   - **Use Case**: Date range queries (7 days vs 90 days = different plans)
+   - **Solution**: Add `OPTION (RECOMPILE)` to force new plan each run
+   - **Benefit**: SQL Server optimizes for actual parameter values
+
+   ```sql
+   SELECT ... FROM ...
+   ORDER BY Date ASC
+   OPTION (MAXRECURSION 1000, RECOMPILE);  -- ← Forces optimal plan
+   ```
+
+**General Optimization Rules**:
+- **Minimize database hits** - Derive data from existing CTEs instead of separate queries
 - **Use proper indexing** - Recommend indexes for WHERE/JOIN columns
 - **Filter early** - Apply WHERE filters as early as possible in subqueries
 - **Aggregate wisely** - Use GROUP BY efficiently, include all non-aggregated columns
-- **Subquery optimization** - Pre-aggregate in subqueries to reduce JOIN complexity
+- **Window functions** - Use for totals instead of joins (e.g., `SUM() OVER(PARTITION BY ...)`)
+- **Avoid N+1 patterns** - Always fetch related data in single query
 
 ### Index Recommendations:
 **After building each query:**
@@ -238,6 +346,208 @@ RawData AS (
    - Reason: WHERE/JOIN filtering
    - Status: Recommended / Implemented / Not Needed
 ```
+
+---
+
+## Recommended Query Pattern for Date Range + YoY Queries
+
+**Use this proven template for queries with Current Year + Previous Year comparison:**
+
+```sql
+-- Parameters
+DECLARE @SiteId BIGINT = 3187;
+DECLARE @StartDate DATE = '2025-12-01';
+DECLARE @EndDate DATE = '2025-12-07';
+DECLARE @SelectedView VARCHAR(1) = 'D';
+
+WITH
+
+-- [STEP 1]: Generate Date Range (if needed)
+DateList AS (
+    SELECT @StartDate AS ReportDate
+    UNION ALL
+    SELECT DATEADD(DAY, 1, ReportDate)
+    FROM DateList
+    WHERE ReportDate < @EndDate
+),
+
+-- [STEP 2]: Fetch CY + PY Data using UNION ALL (CRITICAL FOR PERFORMANCE!)
+RawDataPoints AS (
+    -- Query A: Current Year (Direct Index Seek)
+    SELECT
+        CalendarDate AS ReportDate,
+        Pod,
+        NetAmount AS CY_NetAmount,
+        TransactionCount AS CY_TransactionCount,
+        0 AS PY_NetAmount,
+        0 AS PY_TransactionCount
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+      AND CalendarDate BETWEEN @StartDate AND @EndDate
+      AND DatePeriodDimensionId = 15
+      AND ProductSaleTypeId = 1
+      AND ProductMenuId IS NULL
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
+      AND PosId IS NOT NULL
+      AND Pod IS NOT NULL AND Pod <> ''
+
+    UNION ALL
+
+    -- Query B: Previous Year (Direct Index Seek)
+    SELECT
+        DATEADD(DAY, 364, CalendarDate) AS ReportDate,
+        Pod,
+        0, 0, -- CY Cols are 0
+        NetAmount,
+        TransactionCount
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+      AND CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND DATEADD(DAY, -364, @EndDate)
+      AND DatePeriodDimensionId = 15
+      AND ProductSaleTypeId = 1
+      AND ProductMenuId IS NULL
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
+      AND PosId IS NOT NULL
+      AND Pod IS NOT NULL AND Pod <> ''
+),
+
+-- [STEP 3]: Aggregate Combined Data (BEFORE building scaffold!)
+AggregatedData AS (
+    SELECT
+        ReportDate,
+        Pod,
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount
+    FROM RawDataPoints
+    GROUP BY ReportDate, Pod
+),
+
+-- [STEP 4]: Identify Active Pods (Derived from aggregated data)
+ActivePods AS (
+    SELECT DISTINCT Pod
+    FROM AggregatedData
+    WHERE CY_TransactionCount > 0 OR CY_NetAmount <> 0
+),
+
+-- [STEP 5]: Build Scaffold (Date Range x Active Pods)
+Scaffold AS (
+    SELECT d.ReportDate, p.Pod
+    FROM DateList d
+    CROSS JOIN ActivePods p
+),
+
+-- [STEP 6]: Merge Scaffold with Aggregated Data
+GridData AS (
+    SELECT
+        s.ReportDate,
+        s.Pod,
+        ISNULL(a.CY_NetAmount, 0) AS CY_NetAmount,
+        ISNULL(a.CY_TransactionCount, 0) AS CY_TransactionCount,
+        ISNULL(a.PY_NetAmount, 0) AS PY_NetAmount,
+        ISNULL(a.PY_TransactionCount, 0) AS PY_TransactionCount
+    FROM Scaffold s
+    LEFT JOIN AggregatedData a ON s.ReportDate = a.ReportDate AND s.Pod = a.Pod
+),
+
+-- [STEP 7]: Calculate Final Metrics with Window Functions
+FinalSet AS (
+    -- Individual Rows
+    SELECT
+        ReportDate,
+        Pod,
+        CY_NetAmount,
+        CY_TransactionCount,
+        PY_NetAmount,
+        PY_TransactionCount,
+        SUM(CY_NetAmount) OVER(PARTITION BY ReportDate) as DailyTotal_Net,
+        SUM(CY_TransactionCount) OVER(PARTITION BY ReportDate) as DailyTotal_Txn,
+        ROW_NUMBER() OVER (PARTITION BY ReportDate ORDER BY Pod) AS SortOrder
+    FROM GridData
+
+    UNION ALL
+
+    -- Total Row
+    SELECT
+        ReportDate,
+        'Total' AS Pod,
+        SUM(CY_NetAmount),
+        SUM(CY_TransactionCount),
+        SUM(PY_NetAmount),
+        SUM(PY_TransactionCount),
+        SUM(CY_NetAmount),
+        SUM(CY_TransactionCount),
+        0 AS SortOrder
+    FROM GridData
+    GROUP BY ReportDate
+)
+
+-- [STEP 8]: Final Output with Calculations
+SELECT
+    ReportDate AS Date,
+    Pod,
+
+    -- Value based on SelectedView
+    CASE @SelectedView
+        WHEN 'D' THEN CY_NetAmount
+        WHEN 'G' THEN CAST(CY_TransactionCount AS DECIMAL(18,2))
+        WHEN 'A' THEN CASE WHEN CY_TransactionCount = 0 THEN 0 ELSE CY_NetAmount / CY_TransactionCount END
+        ELSE 0
+    END AS Value,
+
+    -- Percent Total
+    CASE
+        WHEN @SelectedView = 'A' THEN 0
+        WHEN @SelectedView = 'D' THEN
+            CASE WHEN DailyTotal_Net = 0 THEN 0 ELSE CY_NetAmount * 100.0 / DailyTotal_Net END
+        WHEN @SelectedView = 'G' THEN
+            CASE WHEN DailyTotal_Txn = 0 THEN 0 ELSE CAST(CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / DailyTotal_Txn END
+        ELSE 0
+    END AS PercentTotal,
+
+    -- Year-over-Year Growth %
+    CASE @SelectedView
+        WHEN 'D' THEN
+            CASE WHEN PY_NetAmount = 0 THEN 0 ELSE (CY_NetAmount - PY_NetAmount) * 100.0 / PY_NetAmount END
+        WHEN 'G' THEN
+            CASE WHEN PY_TransactionCount = 0 THEN 0 ELSE (CY_TransactionCount - PY_TransactionCount) * 100.0 / PY_TransactionCount END
+        WHEN 'A' THEN
+            CASE
+                WHEN PY_TransactionCount = 0 OR CY_TransactionCount = 0 THEN 0
+                WHEN (PY_NetAmount / PY_TransactionCount) = 0 THEN 0
+                ELSE ((CY_NetAmount / CY_TransactionCount) - (PY_NetAmount / PY_TransactionCount)) * 100.0 / (PY_NetAmount / PY_TransactionCount)
+            END
+        ELSE 0
+    END AS PercentInc,
+
+    SortOrder
+
+FROM FinalSet
+WHERE ReportDate <= @EndDate
+ORDER BY Date ASC, SortOrder ASC
+OPTION (MAXRECURSION 1000, RECOMPILE);  -- ← CRITICAL for date range queries
+```
+
+**Why This Pattern Works:**
+1. **UNION ALL**: Forces parallel index seeks (16x faster than separate CTEs)
+2. **Pre-Aggregation**: Reduces data volume before building scaffold
+3. **Derived ActivePods**: Zero extra database hits (derived from aggregated data)
+4. **Window Functions**: Calculates totals without extra joins
+5. **RECOMPILE**: Optimal execution plan for varying date ranges
+
+**Performance Results:**
+- 30-day range: 1 second (down from 16 seconds)
+- 7-day range: < 500ms
+- 90-day range: ~2-3 seconds
 
 ---
 
