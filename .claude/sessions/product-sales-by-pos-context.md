@@ -23,9 +23,21 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [X] In Development
 - [ ] Needs Review
 
-**Current step**: Query complete with DELIVERY pod support, test suite created, ready for user testing
+**Current step**: Query complete with dynamic pod detection, test suite created, ready for user testing
 
-**Latest changes (2025-12-09):**
+**Latest changes (2025-12-10) - CRITICAL FIX:**
+- **✅ FIXED: Dynamic pod detection** - No longer shows pods that don't exist in data
+  - **Problem**: Hardcoded pod list showed DELIVERY even when it didn't exist for that site/date
+  - **Solution**: Added ActivePods CTE to dynamically detect pods from SalesFact
+  - **Impact**: Only pods with actual data in date range appear in output
+  - **Change**: Scaffold now uses `CROSS JOIN ActivePods` instead of hardcoded list
+- **🔄 Removed hardcoded Pod IN filters** from CY_RawData and PY_RawData
+  - ActivePods already determines which pods to use
+  - Simplified query logic, no redundant filtering
+- **📄 Documentation updated**: README.md reflects dynamic pod detection
+- **📦 Git commit**: "Fix: Product Sales By POS - Use dynamic pod detection" (8255f84)
+
+**Previous changes (2025-12-09):**
 - **✅ FIXED: DELIVERY pod in PY_RawData** - Critical fix for year-over-year data
   - **Problem**: PY_RawData CTE had `Pod IN ('FC', 'DT', 'CSO')` without DELIVERY
   - **Impact**: Previous Year data was excluding DELIVERY pod, breaking YoY comparisons
@@ -109,12 +121,11 @@ All test files include DELIVERY in Scaffold CTEs and Pod IN filters.
 ## Key Decisions
 
 - **Sequential SortOrder pattern**: Total=0, PODs=1,2,3... → Rationale: Consistent ordering across all reports, matches get-pods-by-date-range utility
-- **Hardcoded pod list**: FC, DT, CSO, DELIVERY → Rationale: Performance optimization (no DISTINCT scan), consistent with pos-type-hourly pattern
-- **Scaffold pattern**: CROSS JOIN DateList × Pods → Rationale: Ensures all date/pod combinations exist with 0 values
+- **Dynamic pod detection**: ActivePods CTE instead of hardcoded list → Rationale: Only show pods with actual data, prevents empty rows, matches pos-type-hourly pattern
+- **Scaffold pattern**: CROSS JOIN DateList × ActivePods → Rationale: Ensures all date/pod combinations exist with 0 values for active pods only
 - **Split test files**: 4 separate test files vs 1 large file → Rationale: Better maintainability, focused test purposes
 - **@Pod parameter in tests**: NULL = All, 'CSO'/'FC'/etc = Specific pod → Rationale: Flexible filtering for diagnostics
-- **DELIVERY pod inclusion**: Added to all queries and tests → Rationale: User requirement, matches business needs
-- **PY_RawData fix priority**: Critical fix for YoY accuracy → Rationale: Without DELIVERY in PY filter, year-over-year comparisons were incomplete
+- **Removed Pod IN filters**: From CY_RawData and PY_RawData → Rationale: ActivePods already determines valid pods, no redundant filtering needed
 
 ---
 
@@ -150,7 +161,7 @@ This matches:
 
 ## Filter Consistency
 
-**Standard SalesFact filters** (applied across all queries):
+**Standard SalesFact filters** (applied across ActivePods, CY_RawData, PY_RawData):
 ```sql
 WHERE SiteId = @SiteId
   AND CalendarDate BETWEEN @StartDate AND @EndDate
@@ -163,11 +174,10 @@ WHERE SiteId = @SiteId
   AND SWCCashDrawerId IS NULL
   AND SaleTypeId IS NULL
   AND PosId IS NOT NULL
-  AND Pod IN ('FC', 'DT', 'CSO', 'DELIVERY')
   AND Pod IS NOT NULL AND Pod <> ''
 ```
 
-**Critical**: Both CY_RawData AND PY_RawData must have DELIVERY in Pod IN filter!
+**Note**: No Pod IN filter needed - ActivePods CTE dynamically detects all valid pods from data!
 
 ---
 
