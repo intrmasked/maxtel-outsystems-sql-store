@@ -262,3 +262,36 @@ WHERE SiteId = @SiteId
   AND PosId IS NOT NULL
   AND Pod IN ('FC', 'DT', 'CSO')
   AND Pod IS NOT NULL AND Pod <> '';
+
+-- =============================================
+-- TEST 5: Day Total for Specific Pod (if @Pod is specified)
+-- Shows the total sales for the specified pod for the entire day
+-- =============================================
+
+IF @Pod IS NOT NULL AND @Pod <> 'Total'
+BEGIN
+    PRINT '';
+    PRINT '--- Day Total for Pod: ' + @Pod + ' ---';
+    PRINT '';
+
+    SELECT
+        @Date AS Date,
+        @Pod AS Pod,
+        SUM(NetAmount) AS DayTotalSales,
+        SUM(TransactionCount) AS DayTotalGuestCount,
+        CASE WHEN SUM(TransactionCount) = 0 THEN 0
+             ELSE SUM(NetAmount) / SUM(TransactionCount) END AS DayAvgCheck
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+      AND CalendarDate = @Date
+      AND DatePeriodDimensionId = 15
+      AND ProductSaleTypeId = 1
+      AND ProductMenuId IS NULL
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
+      AND Pod = @Pod
+      AND Pod IS NOT NULL AND Pod <> '';
+END;

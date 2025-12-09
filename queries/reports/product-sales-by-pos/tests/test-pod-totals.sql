@@ -231,3 +231,38 @@ FROM PodSums ps
 JOIN TotalRow tr ON ps.ReportDate = tr.ReportDate
 ORDER BY ps.ReportDate
 OPTION (MAXRECURSION 1000);
+
+-- =============================================
+-- TEST 4: Date Range Total for Specific Pod (if @Pod is specified)
+-- Shows the grand total for the specified pod across all dates
+-- =============================================
+
+IF @Pod IS NOT NULL AND @Pod <> 'Total'
+BEGIN
+    PRINT '';
+    PRINT '--- Grand Total for Pod: ' + @Pod + ' (All Dates) ---';
+    PRINT '';
+
+    SELECT
+        @StartDate AS StartDate,
+        @EndDate AS EndDate,
+        @Pod AS Pod,
+        SUM(NetAmount) AS GrandTotalSales,
+        SUM(TransactionCount) AS GrandTotalGuestCount,
+        CASE WHEN SUM(TransactionCount) = 0 THEN 0
+             ELSE SUM(NetAmount) / SUM(TransactionCount) END AS GrandAvgCheck
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+      AND CalendarDate BETWEEN @StartDate AND @EndDate
+      AND DatePeriodDimensionId = 15
+      AND ProductMenuId IS NULL
+      AND ProductSaleTypeId = 1
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
+      AND PosId IS NOT NULL
+      AND Pod = @Pod
+      AND Pod IS NOT NULL AND Pod <> '';
+END;
