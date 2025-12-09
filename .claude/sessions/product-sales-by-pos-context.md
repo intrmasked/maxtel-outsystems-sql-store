@@ -23,9 +23,19 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [X] In Development
 - [ ] Needs Review
 
-**Current step**: Query complete with dynamic pod detection, test suite created, ready for user testing
+**Current step**: Query optimized with efficient dynamic pod detection, test suite created, ready for user testing
 
-**Latest changes (2025-12-10) - CRITICAL FIX:**
+**Latest changes (2025-12-10) - PERFORMANCE OPTIMIZATION:**
+- **✅ OPTIMIZED: ActivePods derived from CY_RawData** - Zero extra database hits
+  - **Problem**: Previous fix added separate ActivePods query hitting SalesFact (3 DB hits total)
+  - **Solution**: Changed ActivePods to `SELECT DISTINCT Pod FROM CY_RawData`
+  - **Impact**: Back to 2 database scans (CY + PY only), eliminated extra DISTINCT scan
+  - **Performance**: Query is now fast again with dynamic pod detection
+- **📊 Database hits**: 2 total (CY + PY) - ActivePods derived in-memory from CY data
+- **📄 Documentation updated**: README.md reflects optimization approach
+- **📦 Git commit**: "Performance fix: Derive ActivePods from CY_RawData" (4d184e2)
+
+**Previous changes (2025-12-10) - CRITICAL FIX:**
 - **✅ FIXED: Dynamic pod detection** - No longer shows pods that don't exist in data
   - **Problem**: Hardcoded pod list showed DELIVERY even when it didn't exist for that site/date
   - **Solution**: Added ActivePods CTE to dynamically detect pods from SalesFact
@@ -78,6 +88,8 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 13. ✅ @Pod parameter in all test files
 14. ✅ DELIVERY pod support (main query + all tests)
 15. ✅ PY_RawData DELIVERY fix (critical for YoY)
+16. ✅ Dynamic pod detection (no hardcoded pods)
+17. ✅ Performance optimization (ActivePods from CY_RawData, only 2 DB hits)
 
 **Pending**:
 - User testing with production data
@@ -121,7 +133,8 @@ All test files include DELIVERY in Scaffold CTEs and Pod IN filters.
 ## Key Decisions
 
 - **Sequential SortOrder pattern**: Total=0, PODs=1,2,3... → Rationale: Consistent ordering across all reports, matches get-pods-by-date-range utility
-- **Dynamic pod detection**: ActivePods CTE instead of hardcoded list → Rationale: Only show pods with actual data, prevents empty rows, matches pos-type-hourly pattern
+- **Dynamic pod detection**: ActivePods from CY_RawData instead of hardcoded list → Rationale: Only show pods with actual data, prevents empty rows, zero extra DB hits
+- **Performance-optimized ActivePods**: Derived from CY_RawData (in-memory DISTINCT) → Rationale: Eliminates separate database scan, maintains 2-query performance
 - **Scaffold pattern**: CROSS JOIN DateList × ActivePods → Rationale: Ensures all date/pod combinations exist with 0 values for active pods only
 - **Split test files**: 4 separate test files vs 1 large file → Rationale: Better maintainability, focused test purposes
 - **@Pod parameter in tests**: NULL = All, 'CSO'/'FC'/etc = Specific pod → Rationale: Flexible filtering for diagnostics
@@ -201,7 +214,9 @@ WHERE SiteId = @SiteId
 
 ## Notes for Next Session
 
-- **DELIVERY pod critical**: Must be in BOTH CY_RawData and PY_RawData Pod IN filters
+- **🔥 CRITICAL LESSON**: Always minimize database hits - derive data from existing CTEs instead of separate queries
+- **Performance optimization**: ActivePods derived from CY_RawData (no extra DB scan) - maintains 2-query performance
+- **Dynamic pod detection**: Only pods with data appear in output - no hardcoded lists
 - **YoY offset**: 364 days (52 weeks = same day of week comparison)
 - **Recursive CTE limit**: MAXRECURSION 1000 (supports up to ~3 years)
 - **Timezone filtering**: Filters out dates beyond NZ current date (line 195)
