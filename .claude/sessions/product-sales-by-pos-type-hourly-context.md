@@ -61,9 +61,24 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 - [X] Ready for Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query optimized and ready for production testing
+**Current step**: Query optimized, DELIVERY pod support verified, ready for production testing
 
-**Latest changes (2025-12-08) - FINAL VERSION:**
+**Latest changes (2025-12-09) - DELIVERY Pod Support:**
+- **✅ VERIFIED: DELIVERY pod support** - Query automatically includes DELIVERY pod
+  - **How it works**: ActivePods CTE dynamically detects all pods from data
+  - **No hardcoding needed**: Pod IN filter not used - picks up any pod in SalesFact
+  - **Test files updated**: All test queries now support DELIVERY pod
+    - test-1: Uses ActivePods (auto-detects DELIVERY)
+    - test-2: Added DELIVERY to Pod IN filter
+    - test-3: Uses ActivePods (auto-detects DELIVERY)
+    - test-4: Added DELIVERY to Pod IN filter
+    - test-5: Supports DELIVERY via @Pod parameter
+- **🔗 Related work**: product-sales-by-pos query also updated for DELIVERY pod
+  - Fixed PY_RawData CTE to include DELIVERY in Pod IN filter
+  - Updated all test files with DELIVERY in Scaffold and Pod IN filters
+- **📦 Git commit**: "Ensure DELIVERY pod included in all queries and tests" (7178ac7)
+
+**Previous changes (2025-12-08) - FINAL VERSION:**
 - **✅ FIXED: Hour 23 formatting** - Now displays as "23-24" instead of "23-00"
   - **Problem**: % 24 modulo caused hour 23 to show as "23-00"
   - **Solution**: Removed % 24 from hour formatting (line 92)
