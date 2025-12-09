@@ -61,9 +61,21 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 - [X] Ready for Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query optimized, DELIVERY pod support verified, ready for production testing
+**Current step**: Query fully optimized with UNION ALL approach, ready for production
 
-**Latest changes (2025-12-09) - DELIVERY Pod Support:**
+**Latest changes (2025-12-10) - PERFORMANCE OPTIMIZATION:**
+- **🚀 UNION ALL OPTIMIZATION**: Applied same pattern that gave 16x speedup in pos query
+  - **Implementation**:
+    - RawDataPoints CTE with UNION ALL (Query A: CY, Query B: PY)
+    - Pre-calculated PY date in Calculations CTE (avoids recalculation)
+    - Single aggregation pass over combined data points
+    - Active pods derived from aggregated data (only CY activity)
+    - RECOMPILE hint for optimal execution plan
+  - **Benefits**: Parallel index seeks, pre-aggregation, cleaner execution plan
+  - **Expected Impact**: Improved performance for single-day hourly queries
+- **📦 Git commit**: "Performance optimization: Apply UNION ALL pattern" (02a45cf)
+
+**Previous changes (2025-12-09) - DELIVERY Pod Support:**
 - **✅ VERIFIED: DELIVERY pod support** - Query automatically includes DELIVERY pod
   - **How it works**: ActivePods CTE dynamically detects all pods from data
   - **No hardcoding needed**: Pod IN filter not used - picks up any pod in SalesFact
@@ -132,6 +144,10 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 16. ✅ **Query optimization** (8 CTEs → 5 CTEs, timezone conversion optimized) - 2025-12-08
 17. ✅ **Index recommendations** (comprehensive analysis in README) - 2025-12-08
 18. ✅ **Diagnostic test query** (test-hourly-breakdown.sql) - 2025-12-08
+19. ✅ **UNION ALL optimization** (parallel index seeks on CY and PY) - 2025-12-10
+20. ✅ **Pre-calculated PY date** (Calculations CTE avoids recalculation) - 2025-12-10
+21. ✅ **Pre-aggregation strategy** (aggregate before scaffold building) - 2025-12-10
+22. ✅ **RECOMPILE hint** (optimal execution plan for each run) - 2025-12-10
 
 **Pending**:
 - User acceptance testing with production data
@@ -160,14 +176,16 @@ Totals row is at the bottom. (This should match the total on the parent screen f
 
 ## Key Decisions
 
+- **🚀 UNION ALL approach (2025-12-10)**: Combine CY and PY in single CTE with UNION ALL → Rationale: Forces SQL Server to run both queries in parallel with direct index seeks (same optimization as pos query)
+- **Pre-calculated PY date (2025-12-10)**: DATEADD(DAY, -364, @Date) in Calculations CTE → Rationale: Calculated once and reused, avoids recalculation on every row
+- **Pre-aggregation strategy (2025-12-10)**: Aggregate RawDataPoints before building scaffold → Rationale: Reduces data volume, improves join performance
+- **RECOMPILE hint (2025-12-10)**: OPTION (RECOMPILE) at end of query → Rationale: Ensures optimal execution plan for each parameter set
 - **Long format output**: One row per Hour-Pod combination → Rationale: User screenshot shows list structure, OutSystems will handle GetPODFullName conversion
 - **Total rows per hour**: Added Pod='Total' for each hour → Rationale: User screenshot shows "Total" column first, represents sum of all pods for that hour
 - **Total Day Total row**: Added Pod='Total' for Total Day → Rationale: Grand total for entire day across all pods
 - **PercentTotal = 0 for Total rows**: Total rows don't show % Total → Rationale: Total represents 100% already, individual pods show their % of Total
 - **Sorting**: Total first (SortOrder - 0.5), then alphabetical pods → Rationale: User screenshot shows Total column on left side
 - **Output structure**: ~24 hours × 5 rows + Total Day × 5 rows → Rationale: Total + CO + DL + DT + KI per hour (only hours with data)
-- **🔴 REMOVED Scaffold pattern (2025-12-08)**: No longer using cross join Hours × Pods → Rationale: Simpler query, only shows hours with actual data (optimization)
-- **🔴 CRITICAL: Filter by NZ Date not CalendarDate (2025-12-08)**: `CAST(CONVERT(...AT TIME ZONE...) AS DATE) = @Date` → Rationale: Fixes hour 23-24 boundary issue (UTC hour 23 = NZ next day)
 - **🚀 OPTIMIZED: Convert timezone ONCE (2025-12-08)**: Store as NZ_DateTime in RawData CTE, reuse → Rationale: Was converting 6+ times per row, now converts once (major performance gain)
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours
 - **Hour extraction after TZ conversion**: DATEPART(HOUR, NZ_DateTime) → Rationale: Extract hour in NZ timezone, not UTC
