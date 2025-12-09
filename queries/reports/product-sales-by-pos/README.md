@@ -46,9 +46,9 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 ## Query Logic
 
 1. Generate complete date range using recursive CTE
-2. Detect active PODs from SalesFact for date range (only pods with data)
-3. Build scaffold with active PODs (ensures 0 values appear for all dates)
-4. Fetch current year data (CY) from SalesFact
+2. Fetch current year data (CY) from SalesFact
+3. Derive active PODs from CY data (no extra DB hit)
+4. Build scaffold with active PODs (ensures 0 values appear for all dates)
 5. Fetch previous year data (PY) from SalesFact (364 days earlier)
 6. Merge scaffold with raw data (ensures 0 values appear)
 7. Calculate daily totals for "Total" row
@@ -58,7 +58,8 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 11. Filter out future dates (up to NZ current date)
 
 **Key Optimizations:**
-- Dynamic pod detection (only shows pods with actual data)
+- Dynamic pod detection from CY data (zero extra DB hits)
+- Only 2 database scans (CY + PY) instead of 3
 - Early filtering with index pushdown
 - Window functions for percentage calculations
 - Consistent pod ordering across all reports
@@ -134,7 +135,8 @@ Date       | Pod      | Value    | PercentTotal | PercentInc | SortOrder
 - PODs sorted alphabetically (CSO, DELIVERY, DT, FC)
 - Filters out dates beyond NZ current date
 - Recursive CTE limited to 1000 iterations (max ~3 years)
-- Dynamic pod detection (only shows pods with actual data in date range)
+- Dynamic pod detection from CY data (no extra database scan)
+- Only 2 database hits total (CY + PY queries)
 - YoY comparison uses 364-day offset
 
 ---

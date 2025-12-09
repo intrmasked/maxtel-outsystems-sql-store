@@ -22,34 +22,7 @@ DateList AS (
     WHERE ReportDate < @EndDate
 ),
 
--- [STEP 2]: Get Distinct Pods (Only those active in date range)
--- Dynamically detects which pods exist in the data
-ActivePods AS (
-    SELECT DISTINCT Pod
-    FROM {SalesFact}
-    WHERE SiteId = @SiteId
-      AND CalendarDate BETWEEN @StartDate AND @EndDate
-      AND DatePeriodDimensionId = 15
-      AND ProductMenuId IS NULL
-      AND ProductSaleTypeId = 1
-      AND TenderTypeId IS NULL
-      AND OperationId IS NULL
-      AND OperationKindId IS NULL
-      AND SWCCashDrawerId IS NULL
-      AND SaleTypeId IS NULL
-      AND PosId IS NOT NULL
-      AND Pod IS NOT NULL AND Pod <> ''
-),
-
--- [STEP 3]: Build Master Scaffold from active pods
--- Cross join date range with actual pods in data
-Scaffold AS (
-    SELECT d.ReportDate, p.Pod
-    FROM DateList d
-    CROSS JOIN ActivePods p
-),
-
--- [STEP 4]: CURRENT YEAR DATA ONLY
+-- [STEP 2]: CURRENT YEAR DATA ONLY
 CY_RawData AS (
     SELECT
         CalendarDate AS ReportDate,
@@ -70,6 +43,20 @@ CY_RawData AS (
       AND PosId IS NOT NULL
       AND Pod IS NOT NULL AND Pod <> ''
     GROUP BY CalendarDate, Pod
+),
+
+-- [STEP 3]: Get Active Pods from CY data (no extra DB hit)
+ActivePods AS (
+    SELECT DISTINCT Pod
+    FROM CY_RawData
+),
+
+-- [STEP 4]: Build Master Scaffold from active pods
+-- Cross join date range with actual pods in data
+Scaffold AS (
+    SELECT d.ReportDate, p.Pod
+    FROM DateList d
+    CROSS JOIN ActivePods p
 ),
 
 -- [STEP 5]: PREVIOUS YEAR DATA (shifted forward by 364 days)
