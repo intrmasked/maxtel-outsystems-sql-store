@@ -26,6 +26,7 @@ WHERE SiteId = @SiteId
   AND OperationKindId IS NULL
   AND SWCCashDrawerId IS NULL
   AND SaleTypeId IS NULL
+  AND Pod IN ('FC', 'DT', 'CSO', 'DELIVERY')
   AND Pod IS NOT NULL AND Pod <> ''
   AND (@Pod IS NULL OR Pod = @Pod)  -- Filter by pod if specified
 GROUP BY Pod

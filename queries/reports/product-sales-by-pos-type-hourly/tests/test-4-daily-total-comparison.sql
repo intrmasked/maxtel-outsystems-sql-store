@@ -26,5 +26,5 @@ WHERE SiteId = @SiteId
   AND SWCCashDrawerId IS NULL
   AND SaleTypeId IS NULL
   AND PosId IS NOT NULL
-  AND Pod IN ('FC', 'DT', 'CSO')
+  AND Pod IN ('FC', 'DT', 'CSO', 'DELIVERY')
   AND Pod IS NOT NULL AND Pod <> '';
