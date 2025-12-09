@@ -22,23 +22,34 @@ DateList AS (
     WHERE ReportDate < @EndDate
 ),
 
--- [STEP 2]: Build Master Scaffold directly from pod list
--- Hardcoded pods for performance
+-- [STEP 2]: Get Distinct Pods (Only those active in date range)
+-- Dynamically detects which pods exist in the data
+ActivePods AS (
+    SELECT DISTINCT Pod
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+      AND CalendarDate BETWEEN @StartDate AND @EndDate
+      AND DatePeriodDimensionId = 15
+      AND ProductMenuId IS NULL
+      AND ProductSaleTypeId = 1
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
+      AND PosId IS NOT NULL
+      AND Pod IS NOT NULL AND Pod <> ''
+),
+
+-- [STEP 3]: Build Master Scaffold from active pods
+-- Cross join date range with actual pods in data
 Scaffold AS (
     SELECT d.ReportDate, p.Pod
     FROM DateList d
-    CROSS JOIN (
-        SELECT 'FC' AS Pod
-        UNION ALL
-        SELECT 'DT'
-        UNION ALL
-        SELECT 'CSO'
-        UNION ALL
-        SELECT 'DELIVERY'
-    ) p
+    CROSS JOIN ActivePods p
 ),
 
--- [STEP 3]: CURRENT YEAR DATA ONLY
+-- [STEP 4]: CURRENT YEAR DATA ONLY
 CY_RawData AS (
     SELECT
         CalendarDate AS ReportDate,
@@ -57,12 +68,11 @@ CY_RawData AS (
       AND SWCCashDrawerId IS NULL
       AND SaleTypeId IS NULL
       AND PosId IS NOT NULL
-      AND Pod IN ('FC', 'DT', 'CSO', 'DELIVERY')
       AND Pod IS NOT NULL AND Pod <> ''
     GROUP BY CalendarDate, Pod
 ),
 
--- [STEP 4]: PREVIOUS YEAR DATA (shifted forward by 364 days)
+-- [STEP 5]: PREVIOUS YEAR DATA (shifted forward by 364 days)
 PY_RawData AS (
     SELECT
         DATEADD(DAY, 364, CalendarDate) AS ReportDate,
@@ -81,12 +91,11 @@ PY_RawData AS (
       AND SWCCashDrawerId IS NULL
       AND SaleTypeId IS NULL
       AND PosId IS NOT NULL
-      AND Pod IN ('FC', 'DT', 'CSO', 'DELIVERY')
       AND Pod IS NOT NULL AND Pod <> ''
     GROUP BY DATEADD(DAY, 364, CalendarDate), Pod
 ),
 
--- [STEP 5]: Merge Scaffold with Raw Data
+-- [STEP 6]: Merge Scaffold with Raw Data
 CleanedData AS (
     SELECT
         s.ReportDate,
@@ -100,7 +109,7 @@ CleanedData AS (
     LEFT JOIN PY_RawData py ON s.ReportDate = py.ReportDate AND s.Pod = py.Pod
 ),
 
--- [STEP 6]: Calculate Daily Totals Row
+-- [STEP 7]: Calculate Daily Totals Row
 TotalData AS (
     SELECT
         ReportDate,
@@ -113,7 +122,7 @@ TotalData AS (
     GROUP BY ReportDate
 ),
 
--- [STEP 7]: Combine Individual Pods with Total Row
+-- [STEP 8]: Combine Individual Pods with Total Row
 -- Add SortOrder to match get-pods-by-date-range ordering
 FinalSet AS (
     -- Total row (SortOrder = 0)
@@ -141,7 +150,7 @@ FinalSet AS (
     FROM CleanedData
 )
 
--- [STEP 8]: Calculate Final Metrics
+-- [STEP 9]: Calculate Final Metrics
 SELECT
     ReportDate AS Date,
     Pod,

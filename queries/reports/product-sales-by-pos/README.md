@@ -46,18 +46,19 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 ## Query Logic
 
 1. Generate complete date range using recursive CTE
-2. Build scaffold with hardcoded PODs (FC, DT, CSO, DELIVERY) for performance
-3. Fetch current year data (CY) from SalesFact
-4. Fetch previous year data (PY) from SalesFact (364 days earlier)
-5. Merge scaffold with raw data (ensures 0 values appear)
-6. Calculate daily totals for "Total" row
-7. Combine individual pod rows with total rows
-8. Add sequential SortOrder matching get-pods-by-date-range
-9. Calculate final metrics based on SelectedView
-10. Filter out future dates (up to NZ current date)
+2. Detect active PODs from SalesFact for date range (only pods with data)
+3. Build scaffold with active PODs (ensures 0 values appear for all dates)
+4. Fetch current year data (CY) from SalesFact
+5. Fetch previous year data (PY) from SalesFact (364 days earlier)
+6. Merge scaffold with raw data (ensures 0 values appear)
+7. Calculate daily totals for "Total" row
+8. Combine individual pod rows with total rows
+9. Add sequential SortOrder matching get-pods-by-date-range
+10. Calculate final metrics based on SelectedView
+11. Filter out future dates (up to NZ current date)
 
 **Key Optimizations:**
-- Hardcoded pod list (no DISTINCT scan)
+- Dynamic pod detection (only shows pods with actual data)
 - Early filtering with index pushdown
 - Window functions for percentage calculations
 - Consistent pod ordering across all reports
@@ -130,10 +131,10 @@ Date       | Pod      | Value    | PercentTotal | PercentInc | SortOrder
 
 - POD ordering matches get-pods-by-date-range for consistency
 - Total row always appears first (SortOrder = 0)
-- PODs sorted alphabetically (CSO, DT, FC)
+- PODs sorted alphabetically (CSO, DELIVERY, DT, FC)
 - Filters out dates beyond NZ current date
 - Recursive CTE limited to 1000 iterations (max ~3 years)
-- Hardcoded pods (FC, DT, CSO, DELIVERY) for performance
+- Dynamic pod detection (only shows pods with actual data in date range)
 - YoY comparison uses 364-day offset
 
 ---
