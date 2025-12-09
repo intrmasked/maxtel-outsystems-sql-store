@@ -8,7 +8,7 @@
 
 ## Purpose
 
-Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk) with year-over-year comparison. Supports date range filtering and multiple view modes.
+Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-over-year comparison. Supports date range filtering and multiple view modes.
 
 ---
 
@@ -46,7 +46,7 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk) with year-over-year co
 ## Query Logic
 
 1. Generate complete date range using recursive CTE
-2. Build scaffold with hardcoded PODs (FC, DT, CSO) for performance
+2. Build scaffold with hardcoded PODs (FC, DT, CSO, DELIVERY) for performance
 3. Fetch current year data (CY) from SalesFact
 4. Fetch previous year data (PY) from SalesFact (364 days earlier)
 5. Merge scaffold with raw data (ensures 0 values appear)
@@ -112,14 +112,15 @@ SelectedView: 'D'
 
 ### Sample Output
 ```
-Date       | Pod   | Value    | PercentTotal | PercentInc | SortOrder
------------|-------|----------|--------------|------------|----------
-2025-12-01 | Total | 10000.00 | 0.00         | 5.50       | 0
-2025-12-01 | CSO   | 3000.00  | 30.00        | 7.20       | 1
-2025-12-01 | DT    | 4500.00  | 45.00        | 4.80       | 2
-2025-12-01 | FC    | 2500.00  | 25.00        | 6.10       | 3
-2025-12-02 | Total | 11000.00 | 0.00         | 8.20       | 0
-2025-12-02 | CSO   | 3200.00  | 29.09        | 6.50       | 1
+Date       | Pod      | Value    | PercentTotal | PercentInc | SortOrder
+-----------|----------|----------|--------------|------------|----------
+2025-12-01 | Total    | 10000.00 | 0.00         | 5.50       | 0
+2025-12-01 | CSO      | 2500.00  | 25.00        | 7.20       | 1
+2025-12-01 | DELIVERY | 500.00   | 5.00         | 3.50       | 2
+2025-12-01 | DT       | 4500.00  | 45.00        | 4.80       | 3
+2025-12-01 | FC       | 2500.00  | 25.00        | 6.10       | 4
+2025-12-02 | Total    | 11000.00 | 0.00         | 8.20       | 0
+2025-12-02 | CSO      | 2700.00  | 24.55        | 6.50       | 1
 ...
 ```
 
@@ -132,7 +133,7 @@ Date       | Pod   | Value    | PercentTotal | PercentInc | SortOrder
 - PODs sorted alphabetically (CSO, DT, FC)
 - Filters out dates beyond NZ current date
 - Recursive CTE limited to 1000 iterations (max ~3 years)
-- Hardcoded pods (FC, DT, CSO) for performance
+- Hardcoded pods (FC, DT, CSO, DELIVERY) for performance
 - YoY comparison uses 364-day offset
 
 ---
