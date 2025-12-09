@@ -3,7 +3,7 @@
 -- Purpose: Hourly sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with YoY comparison
 -- Target: SQL Server 2014+ / OutSystems Advanced SQL
 -- Created: 2025-11-29
--- Updated: 2025-12-08 - FIXED: CalendarDate boundary issue (hour 23-24 missing data)
+-- Updated: 2025-12-10 - Performance optimization (UNION ALL approach for parallel execution)
 -- =============================================
 
 -- ⚠️ NOTE: When using in OutSystems Advanced SQL Block:
@@ -24,14 +24,17 @@ DECLARE @SelectedView VARCHAR(1) = 'D';     -- 'D' = Sales (NetAmount), 'G' = GC
 
 WITH
 
--- [STEP 0]: Force Parameter Binding (Fixes the "Must declare variable" error)
--- This CTE forces OutSystems to recognize @SelectedView parameter
+-- [STEP 0]: Parameters & Constants
+-- We wrap standard inputs to ensure OutSystems binds them correctly
 InputVar AS (
     SELECT @SelectedView AS Val
 ),
+-- Pre-calculate PY Date to avoid recalculating it on every row
+Calculations AS (
+    SELECT DATEADD(DAY, -364, @Date) AS PYDate
+),
 
--- [STEP 1]: Generate 24 Hours (00-01 through 23-24)
--- Uses CTE to generate all 24 hour buckets
+-- [STEP 1]: Generate 24 Hours
 Hours AS (
     SELECT 0 AS HourStart
     UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4
@@ -41,84 +44,103 @@ Hours AS (
     UNION ALL SELECT 20 UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23
 ),
 
--- [STEP 2]: Single Scan of SalesFact (OPTIMIZED)
--- Fetches both CY and PY data in ONE scan instead of two separate queries
--- Filters by CalendarDate and converts DateTime to NZ timezone for hour extraction
-RawData AS (
+-- [STEP 2]: Fetch Data (THE OPTIMIZATION)
+-- We use UNION ALL to force SQL Server to use the Index on CalendarDate twice efficiently.
+RawDataPoints AS (
+    -- QUERY A: Current Year (Index Seek)
     SELECT
         DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourStart,
         Pod,
-        -- Conditional Sum for Current Year (CY)
-        SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END) AS CY_NetAmount,
-        SUM(CASE WHEN CalendarDate = @Date THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
-        -- Conditional Sum for Previous Year (PY)
-        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN NetAmount ELSE 0 END) AS PY_NetAmount,
-        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN TransactionCount ELSE 0 END) AS PY_TransactionCount,
-        -- Check if Pod was active Today (used to filter list)
-        MAX(CASE WHEN CalendarDate = @Date THEN 1 ELSE 0 END) AS IsActiveToday
+        NetAmount AS CY_NetAmount,
+        TransactionCount AS CY_TransactionCount,
+        0 AS PY_NetAmount,
+        0 AS PY_TransactionCount
     FROM {SalesFact}
     WHERE SiteId = @SiteId
-        AND (CalendarDate = @Date OR CalendarDate = DATEADD(DAY, -364, @Date))
-        AND DatePeriodDimensionId = 15
-        AND Pod IS NOT NULL AND Pod <> ''
-        AND ProductSaleTypeId = 1
-        AND ProductMenuId IS NULL
-        AND TenderTypeId IS NULL
-        AND OperationId IS NULL
-        AND OperationKindId IS NULL
-        AND SWCCashDrawerId IS NULL
-        AND SaleTypeId IS NULL
-    GROUP BY
-        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')),
-        Pod
+      AND CalendarDate = @Date -- Direct Index Hit
+      AND DatePeriodDimensionId = 15
+      AND Pod IS NOT NULL AND Pod <> ''
+      AND ProductSaleTypeId = 1
+      AND ProductMenuId IS NULL
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
+
+    UNION ALL
+
+    -- QUERY B: Previous Year (Index Seek)
+    SELECT
+        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourStart,
+        Pod,
+        0, 0, -- CY is 0
+        NetAmount,
+        TransactionCount
+    FROM {SalesFact}
+    WHERE SiteId = @SiteId
+      AND CalendarDate = (SELECT PYDate FROM Calculations) -- Direct Index Hit on calculated date
+      AND DatePeriodDimensionId = 15
+      AND Pod IS NOT NULL AND Pod <> ''
+      AND ProductSaleTypeId = 1
+      AND ProductMenuId IS NULL
+      AND TenderTypeId IS NULL
+      AND OperationId IS NULL
+      AND OperationKindId IS NULL
+      AND SWCCashDrawerId IS NULL
+      AND SaleTypeId IS NULL
 ),
 
--- [STEP 3]: Get Distinct Pods (Only those active Today)
--- Filters to only pods that have data for the current day
+-- [STEP 3]: Aggregate the Points
+AggregatedData AS (
+    SELECT
+        HourStart,
+        Pod,
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount
+    FROM RawDataPoints
+    GROUP BY HourStart, Pod
+),
+
+-- [STEP 4]: Get Active Pods (Only those with CY data)
 ActivePods AS (
     SELECT DISTINCT Pod
-    FROM RawData
-    WHERE IsActiveToday = 1
+    FROM AggregatedData
+    WHERE CY_NetAmount <> 0 OR CY_TransactionCount > 0
 ),
 
--- [STEP 4]: Build Scaffold (Hour x Pod Grid)
--- Cross join ensures every hour has every pod, even with 0 sales
--- FIXED: Removed % 24 modulo so hour 23 displays as "23-24" instead of "23-00"
--- Pod ordering matches get-pods-by-date-range for consistent UI display
--- Total appears first (0.01), then PODs (0.02, 0.03, 0.04...)
+-- [STEP 5]: Build Scaffold (Hour x Pod Grid)
 Scaffold AS (
     SELECT
         h.HourStart,
-        -- Format hour as "00-01", "01-02", ..., "23-24" (matches OutSystems formula)
+        -- Format hour as "00-01", "23-24"
         REPLICATE('0', 2 - LEN(CAST(h.HourStart AS VARCHAR))) + CAST(h.HourStart AS VARCHAR) + '-' +
         REPLICATE('0', 2 - LEN(CAST((h.HourStart + 1) AS VARCHAR))) + CAST((h.HourStart + 1) AS VARCHAR) AS Hour,
         p.Pod,
-        -- Sort order: Hour (0-23) + Pod sequence (0.02, 0.03, 0.04...) - Total will be 0.01
+        -- Sort logic
         h.HourStart + ((ROW_NUMBER() OVER (PARTITION BY h.HourStart ORDER BY p.Pod) + 1) * 0.01) AS SortOrder
     FROM Hours h
     CROSS JOIN ActivePods p
 ),
 
--- [STEP 5]: Merge Scaffold with Raw Data
--- Left joins ensure every Hour-Pod combination exists
--- ISNULL converts NULL to 0 for hours with no sales
+-- [STEP 6]: Merge Scaffold with Aggregated Data
 MergedData AS (
     SELECT
         s.HourStart,
         s.Hour,
         s.Pod,
         s.SortOrder,
-        ISNULL(rd.CY_NetAmount, 0) AS CY_NetAmount,
-        ISNULL(rd.CY_TransactionCount, 0) AS CY_TransactionCount,
-        ISNULL(rd.PY_NetAmount, 0) AS PY_NetAmount,
-        ISNULL(rd.PY_TransactionCount, 0) AS PY_TransactionCount
+        ISNULL(ad.CY_NetAmount, 0) AS CY_NetAmount,
+        ISNULL(ad.CY_TransactionCount, 0) AS CY_TransactionCount,
+        ISNULL(ad.PY_NetAmount, 0) AS PY_NetAmount,
+        ISNULL(ad.PY_TransactionCount, 0) AS PY_TransactionCount
     FROM Scaffold s
-    LEFT JOIN RawData rd ON s.HourStart = rd.HourStart AND s.Pod = rd.Pod
+    LEFT JOIN AggregatedData ad ON s.HourStart = ad.HourStart AND s.Pod = ad.Pod
 ),
 
--- [STEP 6]: Pre-calculate Denominators for % Math (OPTIMIZED)
--- Uses window functions to attach totals to every row
--- This avoids complex joins later in the final SELECT
+-- [STEP 7]: Calculate Denominators (Window Functions)
 EnrichedData AS (
     SELECT
         m.*,
@@ -129,10 +151,9 @@ EnrichedData AS (
     FROM MergedData m
 ),
 
--- [STEP 7]: Generate Final Rows
--- Combines individual pod rows, hourly totals, and Total Day rows
+-- [STEP 8]: Generate Final Rows
 FinalRows AS (
-    -- 1. Individual Pod Rows (Standard Hour)
+    -- 1. Individual Pod Rows
     SELECT
         Hour, Pod, SortOrder,
         CY_NetAmount, CY_TransactionCount, PY_NetAmount, PY_TransactionCount,
@@ -141,18 +162,17 @@ FinalRows AS (
 
     UNION ALL
 
-    -- 2. Hourly Total Rows (Sum of the Hour)
-    -- Total row appears FIRST in each hour (HourStart + 0.01)
+    -- 2. Hourly Total Rows
     SELECT
         Hour, 'Total', HourStart + 0.01,
         SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
-        NULL, NULL -- Totals don't show % (denominator set to NULL)
+        NULL, NULL
     FROM EnrichedData
     GROUP BY Hour, HourStart
 
     UNION ALL
 
-    -- 3. Grand Total Row (Sum of the Day) - appears FIRST in Total Day section
+    -- 3. Grand Total Row
     SELECT
         'Total Day', 'Total', 9999.01,
         SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
@@ -161,25 +181,22 @@ FinalRows AS (
 
     UNION ALL
 
-    -- 4. Total Day per Pod Rows (ordered to match get-pods-by-date-range)
-    -- Total appears first, then PODs (0.02, 0.03, 0.04...)
+    -- 4. Total Day per Pod Rows
     SELECT
         'Total Day', Pod,
         9999 + ((ROW_NUMBER() OVER (ORDER BY Pod) + 1) * 0.01),
         SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount),
-        MAX(Day_Total_Net), MAX(Day_Total_Trans) -- Use the Day Total as Denominator
+        MAX(Day_Total_Net), MAX(Day_Total_Trans)
     FROM EnrichedData
     GROUP BY Pod
 )
 
--- [STEP 8]: Final Output with Calculations
+-- [STEP 9]: Final Output
 SELECT
       fr.Hour,
       fr.Pod,
 
-      -- Sales based on view
-      -- Uses subquery (SELECT Val FROM InputVar) to reference parameter
-      -- This is required for OutSystems parameter binding
+      -- Sales
       CASE (SELECT Val FROM InputVar)
           WHEN 'D' THEN fr.CY_NetAmount
           WHEN 'G' THEN CAST(fr.CY_TransactionCount AS DECIMAL(18,2))
@@ -189,20 +206,19 @@ SELECT
           ELSE 0
       END AS Sales,
 
-      -- PercentTotal (for individual pods only, 0 for Total rows)
+      -- PercentTotal
       CASE
-          WHEN fr.Pod = 'Total' THEN 0  -- Total rows don't show % Total
+          WHEN fr.Pod = 'Total' THEN 0
           WHEN (SELECT Val FROM InputVar) = 'D' THEN
               CASE WHEN ISNULL(fr.Denom_Net, 0) = 0 THEN 0
               ELSE fr.CY_NetAmount * 100.0 / NULLIF(fr.Denom_Net, 0) END
           WHEN (SELECT Val FROM InputVar) = 'G' THEN
               CASE WHEN ISNULL(fr.Denom_Trans, 0) = 0 THEN 0
               ELSE CAST(fr.CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(fr.Denom_Trans, 0) END
-          WHEN (SELECT Val FROM InputVar) = 'A' THEN 0
           ELSE 0
       END AS PercentTotal,
 
-      -- PercentInc (YoY growth %)
+      -- PercentInc
       CASE (SELECT Val FROM InputVar)
           WHEN 'D' THEN
               CASE WHEN fr.PY_NetAmount = 0 THEN 0
@@ -219,8 +235,9 @@ SELECT
 
   FROM FinalRows fr
   ORDER BY fr.SortOrder ASC,
-           CASE WHEN fr.Pod = 'Total' THEN 0 ELSE 1 END,  -- Total first
-           fr.Pod ASC;                                     -- Then alphabetical
+           CASE WHEN fr.Pod = 'Total' THEN 0 ELSE 1 END,
+           fr.Pod ASC
+  OPTION (MAXRECURSION 1000, RECOMPILE);
 
 -- =============================================
 -- OUTPUT FORMAT:
@@ -228,21 +245,21 @@ SELECT
 -- Hour     | Pod   | Sales   | PercentTotal | PercentInc
 -- ---------+-------+---------+--------------+-----------
 -- 00-01    | Total | 600.50  | 0.0          | 3.5
--- 00-01    | CO    | 150.50  | 25.0         | 5.2
--- 00-01    | DL    | 50.00   | 8.3          | 0.0
+-- 00-01    | CSO   | 150.50  | 25.0         | 5.2
+-- 00-01    | DELIVERY | 50.00 | 8.3        | 0.0
 -- 00-01    | DT    | 300.00  | 50.0         | -2.1
--- 00-01    | KI    | 100.00  | 16.7         | 10.5
+-- 00-01    | FC    | 100.00  | 16.7         | 10.5
 -- 01-02    | Total | 800.00  | 0.0          | 4.2
--- 01-02    | CO    | 200.00  | 25.0         | ...
--- 01-02    | DL    | 100.00  | 12.5         | ...
+-- 01-02    | CSO   | 200.00  | 25.0         | ...
+-- 01-02    | DELIVERY | 100.00 | 12.5      | ...
 -- 01-02    | DT    | 400.00  | 50.0         | ...
--- 01-02    | KI    | 100.00  | 12.5         | ...
+-- 01-02    | FC    | 100.00  | 12.5         | ...
 -- ...
 -- Total Day| Total | 12500.00| 0.0          | 6.8
--- Total Day| CO    | 5000.00 | 40.0         | 8.5
--- Total Day| DL    | 500.00  | 4.0          | -1.5
+-- Total Day| CSO   | 5000.00 | 40.0         | 8.5
+-- Total Day| DELIVERY | 500.00 | 4.0        | -1.5
 -- Total Day| DT    | 6000.00 | 48.0         | 12.0
--- Total Day| KI    | 1000.00 | 8.0          | 5.0
+-- Total Day| FC    | 1000.00 | 8.0          | 5.0
 --
 -- Output: 24 hours × 5 rows (Total + 4 pods) + Total Day × 5 rows = 125 rows
 --
@@ -256,23 +273,21 @@ SELECT
 --
 -- Output Structure:
 -- - Hour (Text) - "00-01", "01-02", ..., "23-24", "Total Day"
--- - Pod (Text) - "Total", "CO", "DL", "DT", "KI" (alphabetical after Total)
+-- - Pod (Text) - "Total", "CSO", "DELIVERY", "DT", "FC" (alphabetical after Total)
 -- - Sales (Decimal) - Based on SelectedView (D/G/A)
 -- - PercentTotal (Decimal) - % of hour total (0 for Total rows)
 -- - PercentInc (Decimal) - YoY % increase
 --
 -- =============================================
 -- OPTIMIZATIONS APPLIED:
--- 1. ✅ Single DB scan - Fetches CY and PY data in one pass (RawData CTE)
--- 2. ✅ Timezone conversion ONCE per row - Stored in NZ_DateTime, reused
--- 3. ✅ Window functions - Pre-calculate totals without extra joins
--- 4. ✅ Reduced CTEs - From 8 CTEs down to 5 CTEs
--- 5. ✅ Removed scaffold pattern - Only hours with actual data appear
--- 6. ✅ Simplified CASE logic - Cleaner PercentTotal and PercentInc
--- 7. ✅ InputVar pattern - OutSystems parameter binding fix
--- 8. ✅ NULLIF instead of nested CASE - Simpler divide-by-zero handling
+-- 1. ✅ UNION ALL approach - Forces parallel index seeks on CY and PY dates
+-- 2. ✅ Pre-calculated PY date - Calculated once in Calculations CTE
+-- 3. ✅ Pre-aggregation - Aggregate raw data before building scaffold
+-- 4. ✅ Active pods detection - Only shows pods with CY activity
+-- 5. ✅ Window functions - Pre-calculate totals without extra joins
+-- 6. ✅ RECOMPILE hint - Optimal execution plan for each run
 --
--- PERFORMANCE: Optimized for minimal database hits and simpler syntax
+-- PERFORMANCE: Optimized for minimal database hits and cleaner execution plan
 -- =============================================
 -- STATUS: READY FOR OUTSYSTEMS - OPTIMIZED
 -- =============================================
