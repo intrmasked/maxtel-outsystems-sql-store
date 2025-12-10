@@ -64,7 +64,13 @@ TenderAgg AS (
 CleanData AS (
     SELECT
         cd.PosId AS POS,
-        pt.Pod,
+        CASE pt.Pod
+            WHEN 'FC' THEN 'Counter'
+            WHEN 'DT' THEN 'Drive-Thru'
+            WHEN 'CSO' THEN 'Kiosk'
+            WHEN 'DELIVERY' THEN 'Delivery'
+            ELSE pt.Pod
+        END AS Pod,
         u.Name AS CashierName,
 
         -- Drawer Level Data (No Summing needed, just select the columns)

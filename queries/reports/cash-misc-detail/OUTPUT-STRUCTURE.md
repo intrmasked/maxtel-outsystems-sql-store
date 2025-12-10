@@ -17,7 +17,14 @@
 | Column | Data Type | Description | Example Value |
 |--------|-----------|-------------|---------------|
 | `POS` | Long Integer | POS Terminal ID | 1, 2, 3, NULL (for Total row) |
-| `Pod` | Text | POS Type (Front Counter, Drive Thru, etc.) | "Front Counter", "Total" |
+| `Pod` | Text | POS Type Name (converted from code) | "Counter", "Drive-Thru", "Kiosk", "Delivery", "Total" |
+
+**Pod Name Conversion:**
+- 'FC' → 'Counter'
+- 'DT' → 'Drive-Thru'
+- 'CSO' → 'Kiosk'
+- 'DELIVERY' → 'Delivery'
+- Other codes → Return as-is
 
 ---
 
@@ -85,8 +92,8 @@ All columns below change behavior based on the view filter:
 
 | POS | Pod | Difference | Variance | Promo | Discounts | EmployeeMeals | ManagerMeals | ReductionBeforeTotal | ReductionAfterTotal | OfflineEftpos | PettyCash | CashRefund | EftposRefund | Cashier | Manager |
 |-----|-----|------------|----------|-------|-----------|---------------|--------------|---------------------|---------------------|---------------|-----------|------------|--------------|---------|---------|
-| 1 | Front Counter | 1250.50 | 2.60 | 45.00 | 120.50 | 25.00 | 15.00 | 10.00 | 5.00 | 0.00 | 20.00 | 10.00 | 5.00 | John Smith | NULL |
-| 2 | Drive Thru | 980.25 | 2.60 | 30.00 | 85.75 | 20.00 | 10.00 | 8.00 | 3.00 | 15.00 | 0.00 | 5.00 | 2.00 | Jane Doe | NULL |
+| 1 | Counter | 1250.50 | 2.60 | 45.00 | 120.50 | 25.00 | 15.00 | 10.00 | 5.00 | 0.00 | 20.00 | 10.00 | 5.00 | John Smith | NULL |
+| 2 | Drive-Thru | 980.25 | 2.60 | 30.00 | 85.75 | 20.00 | 10.00 | 8.00 | 3.00 | 15.00 | 0.00 | 5.00 | 2.00 | Jane Doe | NULL |
 | NULL | Total | 2230.75 | 5.20 | 75.00 | 206.25 | 45.00 | 25.00 | 18.00 | 8.00 | 15.00 | 20.00 | 15.00 | 7.00 | NULL | NULL |
 
 ---
@@ -95,8 +102,8 @@ All columns below change behavior based on the view filter:
 
 | POS | Pod | Difference | Variance | Promo | Discounts | EmployeeMeals | ManagerMeals | ReductionBeforeTotal | ReductionAfterTotal | OfflineEftpos | PettyCash | CashRefund | EftposRefund | Cashier | Manager |
 |-----|-----|------------|----------|-------|-----------|---------------|--------------|---------------------|---------------------|---------------|-----------|------------|--------------|---------|---------|
-| 1 | Front Counter | NULL | NULL | 5.00 | 12.00 | 3.00 | 2.00 | 2.00 | 1.00 | 0.00 | 4.00 | 2.00 | 1.00 | John Smith | NULL |
-| 2 | Drive Thru | NULL | NULL | 3.00 | 8.00 | 2.00 | 1.00 | 1.00 | 1.00 | 3.00 | 0.00 | 1.00 | 1.00 | Jane Doe | NULL |
+| 1 | Counter | NULL | NULL | 5.00 | 12.00 | 3.00 | 2.00 | 2.00 | 1.00 | 0.00 | 4.00 | 2.00 | 1.00 | John Smith | NULL |
+| 2 | Drive-Thru | NULL | NULL | 3.00 | 8.00 | 2.00 | 1.00 | 1.00 | 1.00 | 3.00 | 0.00 | 1.00 | 1.00 | Jane Doe | NULL |
 | NULL | Total | NULL | NULL | 8.00 | 20.00 | 5.00 | 3.00 | 3.00 | 2.00 | 3.00 | 4.00 | 3.00 | 2.00 | NULL | NULL |
 
 **Note**: Difference and Variance are hidden when view = 'G'
@@ -107,8 +114,8 @@ All columns below change behavior based on the view filter:
 
 | POS | Pod | Difference | Variance | Promo | Discounts | EmployeeMeals | ManagerMeals | ReductionBeforeTotal | ReductionAfterTotal | OfflineEftpos | PettyCash | CashRefund | EftposRefund | Cashier | Manager |
 |-----|-----|------------|----------|-------|-----------|---------------|--------------|---------------------|---------------------|---------------|-----------|------------|--------------|---------|---------|
-| 1 | Front Counter | 1250.50 | 2.60 | 9.00 | 10.04 | 8.33 | 7.50 | 5.00 | 5.00 | 0.00 | 5.00 | 5.00 | 5.00 | John Smith | NULL |
-| 2 | Drive Thru | 980.25 | 2.60 | 10.00 | 10.72 | 10.00 | 10.00 | 8.00 | 3.00 | 5.00 | 0.00 | 5.00 | 2.00 | Jane Doe | NULL |
+| 1 | Counter | 1250.50 | 2.60 | 9.00 | 10.04 | 8.33 | 7.50 | 5.00 | 5.00 | 0.00 | 5.00 | 5.00 | 5.00 | John Smith | NULL |
+| 2 | Drive-Thru | 980.25 | 2.60 | 10.00 | 10.72 | 10.00 | 10.00 | 8.00 | 3.00 | 5.00 | 0.00 | 5.00 | 2.00 | Jane Doe | NULL |
 | NULL | Total | 2230.75 | 5.20 | 9.38 | 10.31 | 9.00 | 8.33 | 6.00 | 4.00 | 5.00 | 5.00 | 5.00 | 3.50 | NULL | NULL |
 
 **Note**: Average = Amount / Count for each column
