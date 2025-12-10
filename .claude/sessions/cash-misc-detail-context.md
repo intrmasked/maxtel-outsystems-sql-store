@@ -132,9 +132,12 @@ When filter is Average [message cut off]
 - ✅ Created OUTPUT-STRUCTURE.md for frontend development
 - ✅ Removed SortOrder column (simplified to CASE in ORDER BY)
 - ✅ Added Pod name conversion (FC→Counter, DT→Drive-Thru, CSO→Kiosk, DELIVERY→Delivery)
+- ✅ Refactored to use tt.TenderTypeId instead of cdt.TenderTypeId for consistency
 - ✅ Git commit: 222d46a "Cash Misc Detail: Complete query implementation"
 - ✅ Git commit: 169665c "Update session context: Add git commit reference"
-- ✅ Git commit: d2abd0c "Add Pod name conversion to cash-misc-detail query"
+- ✅ Git commit: d2abd0c "Add Pod name conversion"
+- ✅ Git commit: 4b91c80 "Update session context: Document Pod name conversion"
+- ✅ Git commit: 107f5ab "Refactor: Use tt.TenderTypeId for consistency"
 - ✅ All changes pushed to remote repository
 
 **Test Coverage:**
