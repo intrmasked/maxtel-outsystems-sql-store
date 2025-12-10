@@ -129,6 +129,10 @@ When filter is Average [message cut off]
 - ✅ All 10 test files created for comprehensive column verification
 - ✅ Fixed OutSystems sandbox issue (removed multiple SELECT statements)
 - ✅ Updated claude.md with OutSystems test query rules
+- ✅ Created OUTPUT-STRUCTURE.md for frontend development
+- ✅ Removed SortOrder column (simplified to CASE in ORDER BY)
+- ✅ Git commit: 222d46a "Cash Misc Detail: Complete query implementation with comprehensive test coverage"
+- ✅ Pushed to remote repository
 
 **Test Coverage:**
 1. test-1-difference-variance.sql - Difference & Variance calculations
