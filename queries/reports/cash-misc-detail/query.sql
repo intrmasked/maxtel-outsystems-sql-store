@@ -33,20 +33,20 @@ TenderAgg AS (
         cdt.OperatingPeriodCashDrawerId,
 
         -- Offline Eftpos (Type 9)
-        SUM(CASE WHEN cdt.TenderTypeId = 9 THEN cdt.DrawerAmount ELSE 0 END) AS OfflineEftposAmount,
-        SUM(CASE WHEN cdt.TenderTypeId = 9 THEN cdt.TransactionCount ELSE 0 END) AS OfflineEftposCount,
+        SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.DrawerAmount ELSE 0 END) AS OfflineEftposAmount,
+        SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.TransactionCount ELSE 0 END) AS OfflineEftposCount,
 
         -- Petty Cash (Type 22)
-        SUM(CASE WHEN cdt.TenderTypeId = 22 THEN cdt.DrawerAmount  ELSE 0 END) AS PettyCashAmount,
-        SUM(CASE WHEN cdt.TenderTypeId = 22 THEN cdt.TransactionCount ELSE 0 END) AS PettyCashCount,
+        SUM(CASE WHEN tt.TenderTypeId = 22 THEN cdt.DrawerAmount  ELSE 0 END) AS PettyCashAmount,
+        SUM(CASE WHEN tt.TenderTypeId = 22 THEN cdt.TransactionCount ELSE 0 END) AS PettyCashCount,
 
         -- Cash Refunds (IsCash = 1)
         SUM(CASE WHEN tt.IsCash = 1 THEN cdt.RefundAmount ELSE 0 END) AS CashRefundAmount,
         SUM(CASE WHEN tt.IsCash = 1 THEN cdt.RefundCount ELSE 0 END) AS CashRefundCount,
 
-        -- Eftpos Refunds (Specific IDs)
-        SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END) AS EftposRefundAmount,
-        SUM(CASE WHEN cdt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundCount ELSE 0 END) AS EftposRefundCount
+        -- Eftpos Refunds (Eftpos, Doordash, MOP, Ubereats, Delivereasy)
+        SUM(CASE WHEN tt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundAmount ELSE 0 END) AS EftposRefundAmount,
+        SUM(CASE WHEN tt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundCount ELSE 0 END) AS EftposRefundCount
 
     FROM {SWCCashDrawerTender} cdt
     INNER JOIN {TenderType} tt ON cdt.TenderTypeId = tt.Id
