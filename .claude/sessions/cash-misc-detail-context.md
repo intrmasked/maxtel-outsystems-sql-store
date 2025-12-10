@@ -40,7 +40,7 @@ When filter is Average [message cut off]
 - [X] In Development
 - [ ] Needs Review
 
-**Current step**: Analyzing requirements and identifying table needs
+**Current step**: Query complete with comprehensive test coverage - ready for user testing
 
 ---
 
@@ -122,4 +122,27 @@ When filter is Average [message cut off]
 3. Use InputVar CTE pattern for view filter (@SelectedView)
 4. Conditional columns based on view filter
 
-**Status:** Waiting for user input on table/column specifics
+**Status:** Query implemented with full test coverage
+
+**Recent Updates (2025-12-10):**
+- ✅ Main query completed with performance optimization (pre-aggregation pattern)
+- ✅ All 10 test files created for comprehensive column verification
+- ✅ Fixed OutSystems sandbox issue (removed multiple SELECT statements)
+- ✅ Updated claude.md with OutSystems test query rules
+
+**Test Coverage:**
+1. test-1-difference-variance.sql - Difference & Variance calculations
+2. test-2-promo.sql - Promo Amount/Count
+3. test-3-discounts.sql - Discount Amount/Count
+4. test-4-employee-meals.sql - Crew Meals Amount/Count
+5. test-5-manager-meals.sql - Manager Meals Amount/Count
+6. test-6-reduction.sql - Reduction Before/After/Count
+7. test-7-offline-eftpos.sql - Offline Eftpos (TenderTypeId=9)
+8. test-8-petty-cash.sql - Petty Cash (TenderTypeId=22)
+9. test-9-cash-refund.sql - Cash Refunds (IsCash=1)
+10. test-10-eftpos-refund.sql - Eftpos Refunds (TenderTypeId IN 10,13,16,19,21)
+
+**Key Learnings:**
+- OutSystems sandbox stops after first result set
+- Use window functions (OVER clause) for verification stats in single SELECT
+- Never use multiple SELECT statements in test queries

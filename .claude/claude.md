@@ -70,6 +70,26 @@ queries/[category]/[story-name]/
 - Keep them organized in the `tests/` subfolder
 - Example: `queries/reports/product-sales-by-drawer/tests/test-salesfact.sql`
 
+**🚨 CRITICAL: OutSystems Sandbox Limitation**
+- **NEVER use multiple SELECT statements** in test queries
+- OutSystems sandbox **stops after the first result set**
+- ❌ WRONG: `SELECT '=== Section 1 ===' AS Header; SELECT * FROM Table;`
+- ✅ CORRECT: Use a **single SELECT with window functions** for verification stats
+  ```sql
+  -- CORRECT: Single SELECT with verification columns
+  SELECT
+      cd.PosId,
+      cd.Amount,
+      -- Verification columns using window functions
+      COUNT(*) OVER() AS Total_Rows,
+      SUM(cd.Amount) OVER() AS Total_Amount,
+      MIN(cd.Amount) OVER() AS Min_Amount,
+      MAX(cd.Amount) OVER() AS Max_Amount
+  FROM {Table} cd;
+  ```
+- Use **window functions** (OVER clause) to include aggregated stats in a single result set
+- Add descriptive comments to explain what each section does
+
 ### Table Documentation Guidelines:
 - Table docs in `database-context/tables/` are **universal** - used by ALL queries
 - Keep them generic and non-query-specific
