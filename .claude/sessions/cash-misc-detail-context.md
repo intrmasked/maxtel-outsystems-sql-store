@@ -36,11 +36,11 @@ When filter is Average [message cut off]
 
 ## Status
 
-- [ ] Complete
-- [X] In Development
+- [X] Complete
+- [ ] In Development
 - [ ] Needs Review
 
-**Current step**: Query complete with comprehensive test coverage - ready for user testing
+**Current step**: All issues resolved - Ready for production testing and OutSystems integration
 
 ---
 
@@ -122,7 +122,7 @@ When filter is Average [message cut off]
 3. Use InputVar CTE pattern for view filter (@SelectedView)
 4. Conditional columns based on view filter
 
-**Status:** Query implemented with full test coverage
+**Status:** ✅ Query Complete - Ready for Production Testing
 
 **Recent Updates (2025-12-10):**
 - ✅ Main query completed with performance optimization (pre-aggregation pattern)
@@ -133,11 +133,14 @@ When filter is Average [message cut off]
 - ✅ Removed SortOrder column (simplified to CASE in ORDER BY)
 - ✅ Added Pod name conversion (FC→Counter, DT→Drive-Thru, CSO→Kiosk, DELIVERY→Delivery)
 - ✅ Refactored to use tt.TenderTypeId instead of cdt.TenderTypeId for consistency
+- ✅ Fixed Variance calculation: TotalExpectedCash - TotalCountedCash (per drawer, not period total)
 - ✅ Git commit: 222d46a "Cash Misc Detail: Complete query implementation"
 - ✅ Git commit: 169665c "Update session context: Add git commit reference"
 - ✅ Git commit: d2abd0c "Add Pod name conversion"
 - ✅ Git commit: 4b91c80 "Update session context: Document Pod name conversion"
 - ✅ Git commit: 107f5ab "Refactor: Use tt.TenderTypeId for consistency"
+- ✅ Git commit: 29d2584 "Update session context: Document tt.TenderTypeId refactor"
+- ✅ Git commit: 569077e "Fix Variance calculation: Use per-drawer variance"
 - ✅ All changes pushed to remote repository
 
 **Test Coverage:**
