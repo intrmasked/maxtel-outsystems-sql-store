@@ -146,6 +146,7 @@ When filter is Average [message cut off]
 - ✅ Git commit: 23cc495 "Fix Variance: Sum variance from all tenders per drawer (correct)"
 - ✅ Git commit: f731d25 "Update session context: Document tender-based variance"
 - ✅ Git commit: c35a649 "Use CountedAmount for Offline Eftpos and Petty Cash"
+- ✅ Git commit: 5bb2be2 "Fix critical system drawer exclusion bug - Offline Eftpos and Variance now accurate"
 - ✅ All changes pushed to remote repository
 
 **Test Coverage:**
