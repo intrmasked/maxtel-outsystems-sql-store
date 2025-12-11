@@ -75,7 +75,7 @@ CleanData AS (
 
         -- Drawer Level Data (No Summing needed, just select the columns)
         (cd.FinalGT - cd.InitialGT) AS Difference,
-        p.TotalVariance AS Variance,
+        (cd.TotalExpectedCash - cd.TotalCountedCash) AS Variance,
 
         cd.PromoAmount,       cd.PromoCount,
         cd.DiscountAmount,    cd.DiscountCount,

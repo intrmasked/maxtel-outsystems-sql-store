@@ -35,7 +35,7 @@
 | Column | Data Type | Visible When | Description |
 |--------|-----------|--------------|-------------|
 | `Difference` | Decimal | 'D', 'A' | FinalGT - InitialGT |
-| `Variance` | Decimal | 'D', 'A' | ⚠️ Currently: Period total variance (needs clarification per POS) |
+| `Variance` | Decimal | 'D', 'A' | TotalExpectedCash - TotalCountedCash (per drawer) |
 
 ---
 
@@ -145,13 +145,6 @@ All columns below change behavior based on the view filter:
 3. Within POS: `Cashier ASC` (alphabetically by cashier name)
 
 ---
-
-## Known Issues / Pending Clarifications
-
-⚠️ **Variance Field**: Currently returns `p.TotalVariance` (period total variance = 2.6) for all rows.
-- **Issue**: Same value repeated for all POS/drawers
-- **Expected**: Should show variance per POS/drawer
-- **Awaiting**: User clarification on correct field or calculation
 
 ---
 

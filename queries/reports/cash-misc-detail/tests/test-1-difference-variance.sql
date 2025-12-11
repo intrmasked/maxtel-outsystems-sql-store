@@ -10,7 +10,7 @@ DECLARE @Date DATE = '2025-11-29';
 DECLARE @PeriodId BIGINT;
 SELECT @PeriodId = Id FROM {SWCPeriod} WHERE SiteId = @SiteId AND BusDate = @Date;
 
--- RAW DATA: Show drawer calculations and period variance
+-- RAW DATA: Show drawer calculations and variance
 SELECT
     cd.PosId AS POS,
     pt.Pod,
@@ -18,12 +18,16 @@ SELECT
     cd.InitialGT,
     cd.FinalGT,
     (cd.FinalGT - cd.InitialGT) AS Calculated_Difference,
-    p.TotalVariance AS Period_Variance,
+    cd.TotalExpectedCash,
+    cd.TotalCountedCash,
+    (cd.TotalExpectedCash - cd.TotalCountedCash) AS Calculated_Variance,
 
     -- Verification columns
     COUNT(*) OVER() AS Total_Rows,
     MIN(cd.FinalGT - cd.InitialGT) OVER() AS Min_Difference,
-    MAX(cd.FinalGT - cd.InitialGT) OVER() AS Max_Difference
+    MAX(cd.FinalGT - cd.InitialGT) OVER() AS Max_Difference,
+    MIN(cd.TotalExpectedCash - cd.TotalCountedCash) OVER() AS Min_Variance,
+    MAX(cd.TotalExpectedCash - cd.TotalCountedCash) OVER() AS Max_Variance
 FROM {SWCCashDrawer} cd
 INNER JOIN {SWCPeriod} p ON cd.OperatingPeriodId = p.Id
 INNER JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId AND cd.PosId = pt.PosId
