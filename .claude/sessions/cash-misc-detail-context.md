@@ -159,9 +159,33 @@ When filter is Average [message cut off]
 8. test-8-petty-cash.sql - Petty Cash (TenderTypeId=22)
 9. test-9-cash-refund.sql - Cash Refunds (IsCash=1)
 10. test-10-eftpos-refund.sql - Eftpos Refunds (TenderTypeId IN 10,13,16,19,21)
-11. test-11-variance-breakdown.sql - NEW: Variance breakdown by tender type
+11. test-11-variance-breakdown.sql - Variance breakdown by tender type
+12. test-12-tender-data-diagnostic.sql - Diagnostic query showing all tender types with CountedAmount vs DrawerAmount
+13. test-13-offline-eftpos-drawer-match.sql - **NEW**: Diagnose which drawer has Offline Eftpos (revealed SYS drawer exclusion bug)
+
+**Recent Update (2025-12-11):**
+
+**Critical Fix #1: System Drawer Exclusion (Offline Eftpos Missing)**
+- ✅ **Root Cause**: Offline Eftpos and other system-level tenders exist on PosId = "SYS" (system drawer)
+- ✅ **Problem**: SYS drawer has no matching SWCPosTerminal record → INNER JOIN excluded it entirely
+- ✅ **Impact**: Offline Eftpos data (12.80) was missing, Variance was incorrect
+- ✅ **Fix**: Changed INNER JOIN to LEFT JOIN for SWCPosTerminal (query.sql:100)
+- ✅ **Additional**: Added NULL handling for Pod → Shows "System" when pt.Pod IS NULL
+- ✅ **Result**: SYS drawer now included, Offline Eftpos showing correctly, Variance accurate
+- ✅ **Test**: test-13-offline-eftpos-drawer-match.sql created to diagnose and verify fix
+
+**Change #2: Join Pattern Simplification**
+- ✅ Simplified TenderAgg CTE join pattern to match test-12 diagnostic query
+- **Change**: Replaced subquery filter with direct INNER JOIN to SWCCashDrawer
+- **Before**: Used subquery `drawer_filter` to filter drawers by OperatingPeriodId
+- **After**: Direct join to SWCCashDrawer and TargetPeriod (clearer, matches test-12 pattern)
+- **Rationale**: test-12 showed correct diagnostic data using simpler join pattern - applied same pattern to main query for clarity and consistency
 
 **Key Learnings:**
 - OutSystems sandbox stops after first result set
 - Use window functions (OVER clause) for verification stats in single SELECT
 - Never use multiple SELECT statements in test queries
+- Keep join patterns consistent between test queries and main query for easier debugging
+- **CRITICAL**: Always use LEFT JOIN for SWCPosTerminal - system drawers (PosId="SYS") have no matching PosTerminal record
+- System drawers contain important data: Offline Eftpos, Petty Cash, system-level adjustments
+- Diagnostic queries are essential - test-13 revealed the SYS drawer exclusion issue

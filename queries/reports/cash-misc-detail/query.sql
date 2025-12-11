@@ -8,7 +8,7 @@
 
 -- Parameters (for local SQL Server testing)
 DECLARE @SiteId BIGINT = 3187;
-DECLARE @Date DATE = '2025-11-29';
+DECLARE @Date DATE = '2025-12-04';
 DECLARE @SelectedView VARCHAR(1) = 'D';  -- 'D' = Dollars, 'G' = Guests, 'A' = Average
 
 WITH
@@ -52,13 +52,9 @@ TenderAgg AS (
         SUM(CASE WHEN tt.TenderTypeId IN (10, 13, 16, 19, 21) THEN cdt.RefundCount ELSE 0 END) AS EftposRefundCount
 
     FROM {SWCCashDrawerTender} cdt
+    INNER JOIN {SWCCashDrawer} cd ON cdt.OperatingPeriodCashDrawerId = cd.Id
     INNER JOIN {TenderType} tt ON cdt.TenderTypeId = tt.Id
-    -- Direct join to filter drawers (faster than EXISTS)
-    INNER JOIN (
-        SELECT cd.Id
-        FROM {SWCCashDrawer} cd
-        INNER JOIN TargetPeriod tp ON cd.OperatingPeriodId = tp.Id
-    ) drawer_filter ON cdt.OperatingPeriodCashDrawerId = drawer_filter.Id
+    INNER JOIN TargetPeriod tp ON cd.OperatingPeriodId = tp.Id
     GROUP BY cdt.OperatingPeriodCashDrawerId
 ),
 
@@ -67,11 +63,12 @@ TenderAgg AS (
 CleanData AS (
     SELECT
         cd.PosId AS POS,
-        CASE pt.Pod
-            WHEN 'FC' THEN 'Counter'
-            WHEN 'DT' THEN 'Drive-Thru'
-            WHEN 'CSO' THEN 'Kiosk'
-            WHEN 'DELIVERY' THEN 'Delivery'
+        CASE
+            WHEN pt.Pod IS NULL THEN 'System'
+            WHEN pt.Pod = 'FC' THEN 'Counter'
+            WHEN pt.Pod = 'DT' THEN 'Drive-Thru'
+            WHEN pt.Pod = 'CSO' THEN 'Kiosk'
+            WHEN pt.Pod = 'DELIVERY' THEN 'Delivery'
             ELSE pt.Pod
         END AS Pod,
         u.Name AS CashierName,
@@ -101,7 +98,7 @@ CleanData AS (
     FROM {SWCCashDrawer} cd
     INNER JOIN TargetPeriod tp ON cd.OperatingPeriodId = tp.Id
     INNER JOIN {SWCPeriod} p ON tp.Id = p.Id
-    INNER JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId AND cd.PosId = pt.PosId
+    LEFT JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId AND cd.PosId = pt.PosId
     LEFT JOIN {User} u ON cd.OperatorUserId = u.Id
     LEFT JOIN TenderAgg t ON cd.Id = t.OperatingPeriodCashDrawerId
 ),
