@@ -35,12 +35,12 @@ TenderAgg AS (
         -- Variance: Sum of (ExpectedAmount - CountedAmount) across all tenders
         SUM(cdt.ExpectedAmount - cdt.CountedAmount) AS TotalVariance,
 
-        -- Offline Eftpos (Type 9)
-        SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.DrawerAmount ELSE 0 END) AS OfflineEftposAmount,
+        -- Offline Eftpos (Type 9) - Use CountedAmount
+        SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.CountedAmount ELSE 0 END) AS OfflineEftposAmount,
         SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.TransactionCount ELSE 0 END) AS OfflineEftposCount,
 
-        -- Petty Cash (Type 22)
-        SUM(CASE WHEN tt.TenderTypeId = 22 THEN cdt.DrawerAmount  ELSE 0 END) AS PettyCashAmount,
+        -- Petty Cash (Type 22) - Use CountedAmount
+        SUM(CASE WHEN tt.TenderTypeId = 22 THEN cdt.CountedAmount ELSE 0 END) AS PettyCashAmount,
         SUM(CASE WHEN tt.TenderTypeId = 22 THEN cdt.TransactionCount ELSE 0 END) AS PettyCashCount,
 
         -- Cash Refunds (IsCash = 1)

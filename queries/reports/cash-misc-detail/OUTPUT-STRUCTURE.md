@@ -63,6 +63,11 @@ All columns below change behavior based on the view filter:
 
 **Data Type**: All dynamic columns return `Decimal(18,2)`
 
+**Data Sources:**
+- **Promo, Discounts, EmployeeMeals, ManagerMeals, Reduction**: From SWCCashDrawer table (drawer-level aggregates)
+- **OfflineEftpos, PettyCash**: From SWCCashDrawerTender table using **CountedAmount** (TenderTypeId = 9, 22)
+- **CashRefund, EftposRefund**: From SWCCashDrawerTender table using **RefundAmount** (filtered by tender type)
+
 ---
 
 ### Fixed Columns (Always visible)
