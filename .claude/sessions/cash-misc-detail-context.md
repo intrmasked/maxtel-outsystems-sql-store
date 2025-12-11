@@ -126,25 +126,27 @@ When filter is Average [message cut off]
 
 **Recent Updates (2025-12-10):**
 - ✅ Main query completed with performance optimization (pre-aggregation pattern)
-- ✅ All 10 test files created for comprehensive column verification
+- ✅ All 11 test files created for comprehensive column verification
 - ✅ Fixed OutSystems sandbox issue (removed multiple SELECT statements)
 - ✅ Updated claude.md with OutSystems test query rules
 - ✅ Created OUTPUT-STRUCTURE.md for frontend development
 - ✅ Removed SortOrder column (simplified to CASE in ORDER BY)
 - ✅ Added Pod name conversion (FC→Counter, DT→Drive-Thru, CSO→Kiosk, DELIVERY→Delivery)
 - ✅ Refactored to use tt.TenderTypeId instead of cdt.TenderTypeId for consistency
-- ✅ Fixed Variance calculation: TotalExpectedCash - TotalCountedCash (per drawer, not period total)
+- ✅ Fixed Variance calculation: SUM(ExpectedAmount - CountedAmount) from all tenders per drawer
 - ✅ Git commit: 222d46a "Cash Misc Detail: Complete query implementation"
 - ✅ Git commit: 169665c "Update session context: Add git commit reference"
 - ✅ Git commit: d2abd0c "Add Pod name conversion"
 - ✅ Git commit: 4b91c80 "Update session context: Document Pod name conversion"
 - ✅ Git commit: 107f5ab "Refactor: Use tt.TenderTypeId for consistency"
 - ✅ Git commit: 29d2584 "Update session context: Document tt.TenderTypeId refactor"
-- ✅ Git commit: 569077e "Fix Variance calculation: Use per-drawer variance"
+- ✅ Git commit: 569077e "Fix Variance calculation: Use per-drawer variance (attempt 1)"
+- ✅ Git commit: 96bd065 "Update session context: Mark query as complete"
+- ✅ Git commit: 23cc495 "Fix Variance: Sum variance from all tenders per drawer (correct)"
 - ✅ All changes pushed to remote repository
 
 **Test Coverage:**
-1. test-1-difference-variance.sql - Difference & Variance calculations
+1. test-1-difference-variance.sql - Difference & Variance (sum from tenders)
 2. test-2-promo.sql - Promo Amount/Count
 3. test-3-discounts.sql - Discount Amount/Count
 4. test-4-employee-meals.sql - Crew Meals Amount/Count
@@ -154,6 +156,7 @@ When filter is Average [message cut off]
 8. test-8-petty-cash.sql - Petty Cash (TenderTypeId=22)
 9. test-9-cash-refund.sql - Cash Refunds (IsCash=1)
 10. test-10-eftpos-refund.sql - Eftpos Refunds (TenderTypeId IN 10,13,16,19,21)
+11. test-11-variance-breakdown.sql - NEW: Variance breakdown by tender type
 
 **Key Learnings:**
 - OutSystems sandbox stops after first result set
