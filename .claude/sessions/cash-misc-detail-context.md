@@ -134,6 +134,7 @@ When filter is Average [message cut off]
 - ✅ Added Pod name conversion (FC→Counter, DT→Drive-Thru, CSO→Kiosk, DELIVERY→Delivery)
 - ✅ Refactored to use tt.TenderTypeId instead of cdt.TenderTypeId for consistency
 - ✅ Fixed Variance calculation: SUM(ExpectedAmount - CountedAmount) from all tenders per drawer
+- ✅ Changed Offline Eftpos & Petty Cash to use CountedAmount (instead of DrawerAmount)
 - ✅ Git commit: 222d46a "Cash Misc Detail: Complete query implementation"
 - ✅ Git commit: 169665c "Update session context: Add git commit reference"
 - ✅ Git commit: d2abd0c "Add Pod name conversion"
@@ -143,6 +144,8 @@ When filter is Average [message cut off]
 - ✅ Git commit: 569077e "Fix Variance calculation: Use per-drawer variance (attempt 1)"
 - ✅ Git commit: 96bd065 "Update session context: Mark query as complete"
 - ✅ Git commit: 23cc495 "Fix Variance: Sum variance from all tenders per drawer (correct)"
+- ✅ Git commit: f731d25 "Update session context: Document tender-based variance"
+- ✅ Git commit: c35a649 "Use CountedAmount for Offline Eftpos and Petty Cash"
 - ✅ All changes pushed to remote repository
 
 **Test Coverage:**
