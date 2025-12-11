@@ -32,6 +32,9 @@ TenderAgg AS (
     SELECT
         cdt.OperatingPeriodCashDrawerId,
 
+        -- Variance: Sum of (ExpectedAmount - CountedAmount) across all tenders
+        SUM(cdt.ExpectedAmount - cdt.CountedAmount) AS TotalVariance,
+
         -- Offline Eftpos (Type 9)
         SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.DrawerAmount ELSE 0 END) AS OfflineEftposAmount,
         SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.TransactionCount ELSE 0 END) AS OfflineEftposCount,
@@ -75,7 +78,7 @@ CleanData AS (
 
         -- Drawer Level Data (No Summing needed, just select the columns)
         (cd.FinalGT - cd.InitialGT) AS Difference,
-        (cd.TotalExpectedCash - cd.TotalCountedCash) AS Variance,
+        ISNULL(t.TotalVariance, 0) AS Variance,
 
         cd.PromoAmount,       cd.PromoCount,
         cd.DiscountAmount,    cd.DiscountCount,

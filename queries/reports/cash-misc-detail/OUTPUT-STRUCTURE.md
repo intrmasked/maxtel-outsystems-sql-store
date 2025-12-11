@@ -35,7 +35,12 @@
 | Column | Data Type | Visible When | Description |
 |--------|-----------|--------------|-------------|
 | `Difference` | Decimal | 'D', 'A' | FinalGT - InitialGT |
-| `Variance` | Decimal | 'D', 'A' | TotalExpectedCash - TotalCountedCash (per drawer) |
+| `Variance` | Decimal | 'D', 'A' | Sum of (ExpectedAmount - CountedAmount) across all tenders for the drawer |
+
+**Variance Calculation:**
+- Calculated from SWCCashDrawerTender: `SUM(ExpectedAmount - CountedAmount)` per drawer
+- Each tender type contributes its variance to the total drawer variance
+- Example: If drawer has Cash variance of -$2 and Eftpos variance of +$3, total drawer variance = $1
 
 ---
 
