@@ -55,9 +55,24 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - [X] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query fully developed with day part totals, ready for testing
+**Current step**: Query fully optimized with single-scan approach, ready for testing
 
-**Latest changes (2025-12-12) - DAY PART TOTALS ADDED:**
+**Latest changes (2025-12-12) - PERFORMANCE OPTIMIZATION:**
+- **✅ OPTIMIZED**: Single-Scan Approach for CY/PY Data
+  - **Replaced**: Separated CY/PY CTEs with combined conditional aggregation
+  - **Implementation**:
+    - RawDataCombined CTE uses `CalendarDate IN (@Date, @PrevDate)`
+    - Conditional SUM: `SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END)`
+    - Pre-calculated @PrevDate variable (avoids inline DATEADD)
+    - Removed InputVar CTE (not needed - using @SelectedView directly)
+    - Added OPTION (RECOMPILE) for optimal execution plan
+    - Reduced from 8 CTEs to 6 CTEs
+  - **Benefits**: Single table scan, cleaner code, better for single-day queries
+  - **Performance**: Eliminates potential double-scan, optimal for this use case
+  - **User Feedback**: User reviewed both approaches and confirmed this is better
+  - **Documentation**: README and metadata.json updated with optimization details
+
+**Earlier changes (2025-12-12) - DAY PART TOTALS ADDED:**
 - **✅ ADDED**: Day Part Total Rows
   - **Implementation**:
     - New DayPartTotals CTE (STEP 6) calculates sum for each day part
@@ -101,9 +116,13 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 10. ✅ Total row PercentTotal = 100%
 11. ✅ DayPartLabel auto-classification (Overnight/Breakfast/Day/Night)
 12. ✅ Day Part Total rows (4 totals after each day part)
-13. ✅ README documentation (updated with day part totals)
-14. ✅ metadata.json file (updated with 29 rows)
-15. ✅ Session context file (this file)
+13. ✅ PERFORMANCE OPTIMIZATION: Single-scan conditional aggregation
+14. ✅ PERFORMANCE OPTIMIZATION: Pre-calculated @PrevDate variable
+15. ✅ PERFORMANCE OPTIMIZATION: OPTION (RECOMPILE) hint
+16. ✅ Simplified: Removed InputVar CTE (not needed)
+17. ✅ README documentation (updated with optimization details)
+18. ✅ metadata.json file (updated with optimization features)
+19. ✅ Session context file (this file)
 
 **Pending**:
 - User acceptance testing with production data
@@ -121,20 +140,24 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 ## Queries Created
 
-- `queries/reports/product-sales-by-day-part-hourly/` - [IN TESTING]
+- `queries/reports/product-sales-by-day-part-hourly/` - [IN TESTING - OPTIMIZED]
   - Purpose: Hourly sales breakdown for a single day with YoY comparison
   - Tables used: SalesFact
-  - Output: 25 rows (1 Total + 24 hours)
-  - Parameters: @SiteId, @Date, @SelectedView
-  - Status: Query complete, pending testing
+  - Output: 29 rows (1 Total + 24 hours + 4 day part totals)
+  - Parameters: @SiteId, @Date, @SelectedView, @PrevDate
+  - Optimization: Single-scan conditional aggregation with RECOMPILE hint
+  - Status: Query optimized and ready for testing
 
 ---
 
 ## Key Decisions
 
-- **Hourly breakdown**: 24 rows (00-01 through 23-24) + 1 Total row → Rationale: User screenshot shows hourly granularity, Total row at bottom
+- **Hourly breakdown**: 24 rows (00-01 through 23-24) + 1 Total row + 4 day part totals → Rationale: User screenshot shows hourly granularity, day part totals requested for aggregation
 - **Hour format "HH-HH"**: Use REPLICATE for padding (OutSystems compatible) → Rationale: No RIGHT() function in OutSystems, "00-01" format matches UI
-- **Separated CY/PY fetch**: Current Year and Previous Year fetched independently → Rationale: Prevents double-counting from conditional CASE logic
+- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, @PrevDate)` → Rationale: User reviewed both approaches (separated vs combined), confirmed single-scan is better for this single-day use case. Cleaner, more efficient, fewer CTEs (6 vs 8)
+- **🚀 OPTIMIZATION: Pre-calculated @PrevDate**: DECLARE @PrevDate = DATEADD(DAY, -364, @Date) → Rationale: Avoids inline DATEADD recalculation in query plan, cleaner code
+- **🚀 OPTIMIZATION: RECOMPILE hint**: OPTION (RECOMPILE) at end → Rationale: Ensures optimal execution plan for each parameter set (recommended in CLAUDE.md)
+- **Removed InputVar CTE**: Not needed when using @SelectedView directly → Rationale: Simplifies query, InputVar was workaround for OutSystems quirk but not required here
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours
 - **Hour extraction**: DATEPART(HOUR, NZ_DateTime) → Rationale: Extract hour (0-23) in NZ timezone, not UTC
 - **YoY comparison 364 days back**: CalendarDate - 364 days → Rationale: 52 weeks = same day of week comparison

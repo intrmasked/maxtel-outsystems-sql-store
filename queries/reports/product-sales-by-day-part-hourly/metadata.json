@@ -4,7 +4,7 @@
   "category": "reports",
   "created_date": "2025-12-12",
   "author": "Claude Code",
-  "status": "in_testing",
+  "status": "in_testing_optimized",
   "sql_server_version": "2014+",
   "description": "Hourly sales breakdown for a single day showing 24 hours + 4 day part totals + Total with YoY comparison",
   "output_format": "long_format",
@@ -43,7 +43,10 @@
     "Scaffold pattern for complete output",
     "Total row (sum of all 24 hours)",
     "Three view modes (Sales, GC, Av Chq)",
-    "Total row aligns with parent screen day totals"
+    "Total row aligns with parent screen day totals",
+    "OPTIMIZED: Single table scan with conditional aggregation",
+    "OPTIMIZED: Pre-calculated date variable",
+    "OPTIMIZED: RECOMPILE hint for optimal execution plan"
   ],
   "related_queries": [
     "product-sales-by-day-part",

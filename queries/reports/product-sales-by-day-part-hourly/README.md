@@ -157,10 +157,31 @@ WHERE SiteId = @SiteId
 
 ## Performance Optimizations
 
-1. **Separated CY/PY Fetch** - Current Year and Previous Year data fetched independently to prevent double-counting
-2. **Early Filtering** - All dimension filters applied before aggregation for index pushdown
-3. **Window Functions** - Daily totals calculated using OVER() to avoid extra joins
-4. **Hour Scaffold** - Ensures all 24 hours exist in output, even with 0 sales
+**OPTIMIZED**: This query uses a single-scan approach for maximum efficiency on single-day queries.
+
+1. **Single Table Scan** - Fetches both CY and PY data in one pass using conditional SUM aggregation
+   - Uses `CalendarDate IN (@Date, @PrevDate)` filter
+   - Conditionally aggregates with `SUM(CASE WHEN CalendarDate = @Date THEN ... ELSE 0 END)`
+   - Avoids double scan of SalesFact table
+
+2. **Pre-calculated Date Variable** - `@PrevDate = DATEADD(DAY, -364, @Date)` calculated once
+   - Avoids inline DATEADD recalculation in query plan
+   - Cleaner and more maintainable
+
+3. **Early Filtering** - All dimension filters applied before aggregation for index pushdown
+   - ProductMenuId, TenderTypeId, OperationId, etc. all set to NULL in WHERE clause
+   - Enables SQL Server to use optimal indexes
+
+4. **Window Functions** - Daily totals calculated using OVER() to avoid extra joins
+   - `MAX(CASE WHEN SortOrder = 0 ...) OVER()` pattern
+   - No additional table scans needed
+
+5. **Hour Scaffold** - Ensures all 24 hours exist in output, even with 0 sales
+   - LEFT JOIN pattern fills missing hours with 0 values
+
+6. **RECOMPILE Hint** - `OPTION (RECOMPILE)` forces optimal execution plan
+   - SQL Server optimizes for actual parameter values each run
+   - Critical for queries with varying date ranges
 
 ---
 

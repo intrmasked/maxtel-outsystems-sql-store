@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT SALES BY DAY PART - HOURLY BREAKDOWN
+   QUERY: PRODUCT SALES BY DAY PART - HOURLY BREAKDOWN (OPTIMIZED)
    ===================================================================================
 
    PURPOSE:
@@ -32,9 +32,11 @@
    6. Day Part Total rows: Overnight Total, Breakfast Total, Day Total, Night Total (appear after last hour of each part)
 
    KEY OPTIMIZATIONS:
-   1. SEPARATED CY/PY FETCH: Prevents double-counting from conditional CASE logic
-   2. EARLY FILTERING: All WHERE conditions applied before aggregation for index pushdown
-   3. WINDOW FUNCTIONS: Calculate daily totals without extra joins
+   1. SINGLE TABLE SCAN: Fetches CY and PY data in one pass using conditional SUM
+   2. PRE-CALCULATED DATE: @PrevDate variable avoids inline DATEADD recalculation
+   3. EARLY FILTERING: All WHERE conditions applied before aggregation for index pushdown
+   4. WINDOW FUNCTIONS: Calculate daily totals without extra joins
+   5. RECOMPILE HINT: Ensures optimal execution plan for each parameter set
 
    ===================================================================================
 */
@@ -44,14 +46,13 @@ DECLARE @SiteId BIGINT = 3187;
 DECLARE @Date DATE = '2025-11-25';
 DECLARE @SelectedView VARCHAR(1) = 'D';  -- 'D' = Dollars, 'G' = Guests, 'A' = Average
 
+-- [OPTIMIZATION 1]: Pre-calculate the PY Date variable
+-- Avoids recalculating this inside the query plan
+DECLARE @PrevDate DATE = DATEADD(DAY, -364, @Date);
+
 WITH
 
--- [STEP 1]: Handle Parameters (OutSystems quirk fix)
-InputVar AS (
-    SELECT @SelectedView AS Val
-),
-
--- [STEP 2]: Generate 24-Hour Scaffold
+-- [STEP 1]: Generate 24-Hour Scaffold
 -- Creates rows for 00-01, 01-02, ..., 23-24
 Hours AS (
     SELECT 0 AS HourNum UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3
@@ -78,17 +79,24 @@ HourLabels AS (
     FROM Hours
 ),
 
--- [STEP 3a]: CURRENT YEAR DATA ONLY
--- Fetches CY data independently (no mixed CASE logic with PY)
--- DateTime converted to NZ timezone, then extract hour (0-23)
-CY_RawData AS (
+-- [STEP 2]: COMBINED DATA FETCH (Single Pass Optimization)
+-- Fetches both CY and PY data in one scan of the table
+-- OPTIMIZATION: Only calculates Hour once per row, then conditionally aggregates
+RawDataCombined AS (
     SELECT
+        -- CPU INTENSIVE: Only calculate Hour once per row
         DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourNum,
-        SUM(NetAmount) AS CY_NetAmount,
-        SUM(TransactionCount) AS CY_TransactionCount
+
+        -- Conditional Aggregation for CY
+        SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END) AS CY_NetAmount,
+        SUM(CASE WHEN CalendarDate = @Date THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
+
+        -- Conditional Aggregation for PY
+        SUM(CASE WHEN CalendarDate = @PrevDate THEN NetAmount ELSE 0 END) AS PY_NetAmount,
+        SUM(CASE WHEN CalendarDate = @PrevDate THEN TransactionCount ELSE 0 END) AS PY_TransactionCount
     FROM {SalesFact}
     WHERE SiteId = @SiteId
-      AND CalendarDate = @Date
+      AND CalendarDate IN (@Date, @PrevDate) -- Filters for both dates simultaneously
       -- [EARLY FILTERING FOR INDEX PUSHDOWN]
       -- Critical filters applied FIRST so SQL Server uses optimal index
       AND DatePeriodDimensionId = 15
@@ -106,34 +114,7 @@ CY_RawData AS (
     GROUP BY DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time'))
 ),
 
--- [STEP 3b]: PREVIOUS YEAR DATA (shifted forward by 364 days)
--- Fetches PY data completely independently
--- Shifted by 364 days (52 weeks) to align day-of-week (e.g., Monday to Monday)
--- DateTime converted to NZ timezone
-PY_RawData AS (
-    SELECT
-        DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourNum,
-        SUM(NetAmount) AS PY_NetAmount,
-        SUM(TransactionCount) AS PY_TransactionCount
-    FROM {SalesFact}
-    WHERE SiteId = @SiteId
-      AND CalendarDate = DATEADD(DAY, -364, @Date)
-      -- [EARLY FILTERING FOR INDEX PUSHDOWN]
-      AND DatePeriodDimensionId = 15
-      AND ProductMenuId IS NULL
-      AND ProductSaleTypeId = 1
-      AND TenderTypeId IS NULL
-      AND OperationId IS NULL
-      AND OperationKindId IS NULL
-      AND SWCCashDrawerId IS NULL
-      AND SaleTypeId IS NULL
-      -- [AGGREGATE LEVEL FILTERS]
-      AND Pod = ''
-      AND ISNULL(PosId,0) = 0
-    GROUP BY DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time'))
-),
-
--- [STEP 4]: Merge Scaffold with CY and PY Data
+-- [STEP 3]: Merge Scaffold with Combined Data
 -- Left joins ensure every hour exists with 0 if no sales
 -- ISNULL converts NULL to 0.00 for empty cells
 CleanedData AS (
@@ -142,16 +123,15 @@ CleanedData AS (
         h.HourLabel,
         h.DayPartLabel,
         h.SortOrder,
-        ISNULL(cy.CY_NetAmount, 0) AS CY_NetAmount,
-        ISNULL(cy.CY_TransactionCount, 0) AS CY_TransactionCount,
-        ISNULL(py.PY_NetAmount, 0) AS PY_NetAmount,
-        ISNULL(py.PY_TransactionCount, 0) AS PY_TransactionCount
+        ISNULL(r.CY_NetAmount, 0) AS CY_NetAmount,
+        ISNULL(r.CY_TransactionCount, 0) AS CY_TransactionCount,
+        ISNULL(r.PY_NetAmount, 0) AS PY_NetAmount,
+        ISNULL(r.PY_TransactionCount, 0) AS PY_TransactionCount
     FROM HourLabels h
-    LEFT JOIN CY_RawData cy ON h.HourNum = cy.HourNum
-    LEFT JOIN PY_RawData py ON h.HourNum = py.HourNum
+    LEFT JOIN RawDataCombined r ON h.HourNum = r.HourNum
 ),
 
--- [STEP 5]: Calculate Daily Totals (00-24)
+-- [STEP 4]: Calculate Daily Totals (00-24)
 -- Sums all 24 hours to show full-day totals
 -- This row should mathematically equal the sum of all 24 hours
 -- Should align with parent screen day totals
@@ -168,7 +148,7 @@ TotalData AS (
     FROM CleanedData
 ),
 
--- [STEP 6]: Calculate Day Part Totals
+-- [STEP 5]: Calculate Day Part Totals
 -- Sums hours within each day part and creates total rows
 -- These rows appear after the last hour of each day part
 DayPartTotals AS (
@@ -196,18 +176,9 @@ DayPartTotals AS (
     GROUP BY DayPartLabel
 ),
 
--- [STEP 7]: Combine Individual Hours with Total Row and Day Part Totals
-CombinedSet AS (
-    SELECT * FROM CleanedData
-    UNION ALL
-    SELECT * FROM TotalData
-    UNION ALL
-    SELECT * FROM DayPartTotals
-),
-
--- [STEP 8]: Calculate Daily Total for % Total Calculation
--- Use window function to get daily total across all rows
-DailyTotals AS (
+-- [STEP 6]: Combine and Calculate Window Metrics
+-- Combines all row types and calculates daily totals via window functions
+FinalSet AS (
     SELECT
         HourLabel,
         DayPartLabel,
@@ -216,20 +187,27 @@ DailyTotals AS (
         CY_TransactionCount,
         PY_NetAmount,
         PY_TransactionCount,
-        -- Daily totals (from Total row where SortOrder = 0)
+
+        -- Window functions calculate daily total across the result set
         MAX(CASE WHEN SortOrder = 0 THEN CY_NetAmount ELSE 0 END) OVER () AS DailyTotal_Net,
         MAX(CASE WHEN SortOrder = 0 THEN CY_TransactionCount ELSE 0 END) OVER () AS DailyTotal_Txn
-    FROM CombinedSet
+    FROM (
+        SELECT * FROM CleanedData
+        UNION ALL
+        SELECT * FROM TotalData
+        UNION ALL
+        SELECT * FROM DayPartTotals
+    ) Combined
 )
 
--- [STEP 9]: Calculate Final Metrics & Project Output
+-- [STEP 7]: Calculate Final Metrics & Project Output
 SELECT
     HourLabel AS Hour,
     DayPartLabel,
 
     -- [CALC 1: Main Value]
     -- Dynamically selects metric based on @SelectedView parameter
-    CASE (SELECT Val FROM InputVar)
+    CASE @SelectedView
         WHEN 'D' THEN CY_NetAmount              -- Dollar Amount ($)
         WHEN 'G' THEN CAST(CY_TransactionCount AS DECIMAL(18,2))  -- Guest Count (#)
         WHEN 'A' THEN CASE WHEN CY_TransactionCount = 0 THEN 0 ELSE CY_NetAmount / CY_TransactionCount END  -- Average Check ($)
@@ -241,12 +219,12 @@ SELECT
     -- Returns 0 for Average view (statistically invalid)
     -- For Total row, returns 100%
     CASE
-        WHEN (SELECT Val FROM InputVar) = 'A' THEN 0
+        WHEN @SelectedView = 'A' THEN 0
         WHEN SortOrder = 0 THEN 100  -- Total row always 100%
-        WHEN (SELECT Val FROM InputVar) = 'D' THEN
+        WHEN @SelectedView = 'D' THEN
              CASE WHEN DailyTotal_Net = 0 THEN 0
                   ELSE CY_NetAmount * 100.0 / NULLIF(DailyTotal_Net, 0) END
-        WHEN (SELECT Val FROM InputVar) = 'G' THEN
+        WHEN @SelectedView = 'G' THEN
              CASE WHEN DailyTotal_Txn = 0 THEN 0
                   ELSE CAST(CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(DailyTotal_Txn, 0) END
         ELSE 0
@@ -255,7 +233,7 @@ SELECT
     -- [CALC 3: Year-over-Year Growth %]
     -- Formula: (CY - PY) / PY * 100
     -- Handles division by zero; returns 0 if no prior year data exists
-    CASE (SELECT Val FROM InputVar)
+    CASE @SelectedView
         WHEN 'D' THEN
             CASE WHEN PY_NetAmount = 0 THEN 0
             ELSE (CY_NetAmount - PY_NetAmount) * 100.0 / PY_NetAmount END
@@ -273,5 +251,6 @@ SELECT
 
     SortOrder
 
-FROM DailyTotals
-ORDER BY SortOrder ASC;
+FROM FinalSet
+ORDER BY SortOrder ASC
+OPTION (RECOMPILE);  -- Ensures optimal execution plan for each parameter set
