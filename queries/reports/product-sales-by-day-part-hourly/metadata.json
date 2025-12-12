@@ -1,0 +1,55 @@
+{
+  "query_name": "product-sales-by-day-part-hourly",
+  "display_name": "Product Sales By Day Part - Hourly Breakdown",
+  "category": "reports",
+  "created_date": "2025-12-12",
+  "author": "Claude Code",
+  "status": "in_testing",
+  "sql_server_version": "2014+",
+  "description": "Hourly sales breakdown for a single day showing 24 hours + 4 day part totals + Total with YoY comparison",
+  "output_format": "long_format",
+  "expected_rows": "29 (24 hourly rows + 4 day part totals + 1 Total row)",
+  "parameters": {
+    "SiteId": {
+      "type": "BIGINT",
+      "required": true,
+      "default": 3187,
+      "description": "Site identifier"
+    },
+    "Date": {
+      "type": "DATE",
+      "required": true,
+      "default": "2025-11-25",
+      "description": "NZ Date for the hourly breakdown (single day)"
+    },
+    "SelectedView": {
+      "type": "VARCHAR(1)",
+      "required": true,
+      "default": "D",
+      "options": ["D", "G", "A"],
+      "description": "View type: D=Dollar Sales, G=Guest Count, A=Average Check"
+    }
+  },
+  "tables_used": [
+    "SalesFact"
+  ],
+  "key_features": [
+    "24 hourly rows (00-01 through 23-24)",
+    "4 day part total rows (Overnight, Breakfast, Day, Night)",
+    "DayPartLabel auto-classification for each hour",
+    "NZ timezone conversion from UTC",
+    "Aggregate level (Pod = '', PosId = 0)",
+    "YoY comparison (364 days back)",
+    "Scaffold pattern for complete output",
+    "Total row (sum of all 24 hours)",
+    "Three view modes (Sales, GC, Av Chq)",
+    "Total row aligns with parent screen day totals"
+  ],
+  "related_queries": [
+    "product-sales-by-day-part",
+    "product-sales-by-pos-type-hourly"
+  ],
+  "outsystems_screen": "ProductSalesByDayPartHourlyScreen",
+  "parent_screen": "Product Sales By Day Part",
+  "notes": "This is a drill-down from Product Sales By Day Part. Total row should match parent screen day totals."
+}
