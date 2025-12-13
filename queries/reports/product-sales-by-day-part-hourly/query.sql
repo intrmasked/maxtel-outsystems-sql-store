@@ -43,10 +43,26 @@
    ===================================================================================
 */
 
--- Parameters (for local SQL Server testing)
-DECLARE @SiteId BIGINT = 3187;
-DECLARE @Date DATE = '2025-11-25';
-DECLARE @SelectedView VARCHAR(1) = 'D';  -- 'D' = Dollars, 'G' = Guests, 'A' = Average
+/*
+   ===================================================================================
+   OUTSYSTEMS SETUP INSTRUCTIONS
+   ===================================================================================
+
+   In OutSystems Advanced SQL Block, define these Input Parameters:
+
+   1. SiteId (Long Integer) - Expand Inline: No
+   2. Date (Date) - Expand Inline: No
+   3. SelectedView (Text) - Expand Inline: No
+
+   OutSystems will automatically convert these to @SiteId, @Date, @SelectedView
+
+   FOR LOCAL SQL SERVER TESTING ONLY, uncomment these lines:
+   -- DECLARE @SiteId BIGINT = 3187;
+   -- DECLARE @Date DATE = '2025-11-25';
+   -- DECLARE @SelectedView VARCHAR(1) = 'D';
+
+   ===================================================================================
+*/
 
 WITH
 

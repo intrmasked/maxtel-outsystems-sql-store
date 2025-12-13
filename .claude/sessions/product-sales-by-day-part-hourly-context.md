@@ -55,9 +55,27 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - [X] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query fully optimized and OutSystems compatible, ready for testing
+**Current step**: Query production-ready for OutSystems, DECLARE statements removed
 
-**Latest changes (2025-12-12) - OUTSYSTEMS COMPATIBILITY FIX:**
+**Latest changes (2025-12-12) - OUTSYSTEMS PRODUCTION FIX:**
+- **✅ FIXED**: DateTime Parse Error in OutSystems
+  - **Problem**: User got error "The string was not recognized as a valid DateTime. There is an unknown word starting at index 0."
+  - **Root Cause**: OutSystems Advanced SQL doesn't support DECLARE statements at all (even for @SiteId, @Date, @SelectedView)
+  - **Solution**: Removed ALL DECLARE statements from production query
+  - **Implementation**:
+    - Commented out all DECLARE lines (for local testing only)
+    - Added OutSystems Setup Instructions comment block in query
+    - Query now starts directly with WITH clause
+    - Parameters defined in OutSystems UI (SiteId, Date, SelectedView)
+  - **OutSystems Setup**:
+    - Define Input Parameters in Advanced SQL Block UI
+    - SiteId (Long Integer) - Expand Inline: No
+    - Date (Date) - Expand Inline: No
+    - SelectedView (Text) - Expand Inline: No
+  - **Documentation**: Added OutSystems Setup section to README
+  - **Status**: Production-ready for OutSystems
+
+**Earlier changes (2025-12-12) - OUTSYSTEMS COMPATIBILITY FIX:**
 - **✅ FIXED**: OutSystems Parameter Error
   - **Problem**: User got error "Unknown 'PrevDate' parameter used in 'SQL1'"
   - **Root Cause**: OutSystems Advanced SQL doesn't recognize DECLARE variables that aren't input parameters

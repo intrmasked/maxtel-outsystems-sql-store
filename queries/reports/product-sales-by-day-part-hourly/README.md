@@ -30,6 +30,22 @@ Provides hourly sales breakdown for a single day, showing how sales are distribu
 
 ---
 
+## OutSystems Setup
+
+**IMPORTANT**: In OutSystems Advanced SQL Block, you MUST define these Input Parameters:
+
+1. **SiteId** (Long Integer) - Set **Expand Inline = No**
+2. **Date** (Date) - Set **Expand Inline = No**
+3. **SelectedView** (Text) - Set **Expand Inline = No**
+
+OutSystems will automatically convert these to `@SiteId`, `@Date`, `@SelectedView` in the SQL query.
+
+**Do NOT include DECLARE statements** in the OutSystems query. The query starts directly with the `WITH` clause.
+
+**For local SQL Server testing only**, you can uncomment the DECLARE lines in the query file.
+
+---
+
 ## Output Columns
 
 | Column | Type | Description |
