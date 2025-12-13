@@ -55,9 +55,28 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - [X] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query production-ready for OutSystems, DECLARE statements removed
+**Current step**: Query ready for testing - column structure fixed to match OutSystems output
 
-**Latest changes (2025-12-12) - OUTSYSTEMS PRODUCTION FIX:**
+**Latest changes (2025-12-13) - OUTSYSTEMS OUTPUT STRUCTURE FIX:**
+- **✅ FIXED**: Column Count Mismatch Error
+  - **Problem**: User got error "Column count doesn't match output structure attribute count"
+  - **Root Cause**: Query was returning 6 columns (Hour, DayPartLabel, Value, PercentTotal, PercentInc, SortOrder) but OutSystems output structure has 5 columns
+  - **Discovery**: User provided screenshot showing OutSystems expects: Hour (Text), Pod (Text), Sales (Decimal), PercentTotal (Decimal), PercentInc (Decimal)
+  - **Solution**: Updated final SELECT to match exact output structure
+  - **Implementation**:
+    - Renamed `DayPartLabel` → `DayPartLabel AS Pod`
+    - Renamed `Value` → `Sales`
+    - Removed `SortOrder` from final SELECT (still used internally for ORDER BY)
+    - Updated README.md Output Columns section to reflect 5-column structure
+    - Updated README.md Example Output table
+  - **Files Changed**:
+    - `query.sql` lines 217-269 (final SELECT statement)
+    - `README.md` Output Columns section
+    - `README.md` Example Output table
+    - `tests/test-parameters.sql` (already fixed to 5 columns)
+  - **Status**: Ready for testing in OutSystems
+
+**Earlier changes (2025-12-12) - OUTSYSTEMS PRODUCTION FIX:**
 - **✅ FIXED**: DateTime Parse Error in OutSystems
   - **Problem**: User got error "The string was not recognized as a valid DateTime. There is an unknown word starting at index 0."
   - **Root Cause**: OutSystems Advanced SQL doesn't support DECLARE statements at all (even for @SiteId, @Date, @SelectedView)

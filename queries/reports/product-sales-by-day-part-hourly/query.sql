@@ -215,9 +215,10 @@ FinalSet AS (
 )
 
 -- [STEP 7]: Calculate Final Metrics & Project Output
+-- OutSystems Output Structure: Hour, Pod, Sales, PercentTotal, PercentInc (5 columns)
 SELECT
     HourLabel AS Hour,
-    DayPartLabel,
+    DayPartLabel AS Pod,
 
     -- [CALC 1: Main Value]
     -- Dynamically selects metric based on @SelectedView parameter
@@ -226,7 +227,7 @@ SELECT
         WHEN 'G' THEN CAST(CY_TransactionCount AS DECIMAL(18,2))  -- Guest Count (#)
         WHEN 'A' THEN CASE WHEN CY_TransactionCount = 0 THEN 0 ELSE CY_NetAmount / CY_TransactionCount END  -- Average Check ($)
         ELSE 0
-    END AS Value,
+    END AS Sales,
 
     -- [CALC 2: Percent of Daily Total]
     -- Shows what % of daily total this hour represents
@@ -261,9 +262,7 @@ SELECT
                 ELSE ((CY_NetAmount / CY_TransactionCount) - (PY_NetAmount / PY_TransactionCount)) * 100.0 / (PY_NetAmount / PY_TransactionCount)
             END
         ELSE 0
-    END AS PercentInc,
-
-    SortOrder
+    END AS PercentInc
 
 FROM FinalSet
 ORDER BY SortOrder ASC
