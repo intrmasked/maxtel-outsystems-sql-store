@@ -45,7 +45,7 @@
     "Three view modes (Sales, GC, Av Chq)",
     "Total row aligns with parent screen day totals",
     "OPTIMIZED: Single table scan with conditional aggregation",
-    "OPTIMIZED: Pre-calculated date variable",
+    "OPTIMIZED: Inline date calculation (OutSystems compatible)",
     "OPTIMIZED: RECOMPILE hint for optimal execution plan"
   ],
   "related_queries": [

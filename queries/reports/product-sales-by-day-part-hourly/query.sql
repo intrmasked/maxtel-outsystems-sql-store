@@ -8,13 +8,15 @@
    Shows how sales are distributed across each hour of the day with YoY comparison.
    Includes day part total rows after each day part for easy aggregation.
 
-   INPUT PARAMETERS:
-   - @Date: Single date for the hourly breakdown.
+   INPUT PARAMETERS (OutSystems):
    - @SiteId: The specific location ID.
+   - @Date: Single date for the hourly breakdown.
    - @SelectedView: Controls the metric displayed:
        'D' -> Net Amount ($ Sales)
        'G' -> Transaction Count (Guest Counts)
        'A' -> Average Check (Net Amount / Transaction Count)
+
+   NOTE: Previous year date (PY) is calculated inline as DATEADD(DAY, -364, @Date)
 
    HOUR FORMAT:
    - 00-01: Midnight to 1 AM (0:00 - 0:59)
@@ -33,7 +35,7 @@
 
    KEY OPTIMIZATIONS:
    1. SINGLE TABLE SCAN: Fetches CY and PY data in one pass using conditional SUM
-   2. PRE-CALCULATED DATE: @PrevDate variable avoids inline DATEADD recalculation
+   2. INLINE DATE CALCULATION: DATEADD(DAY, -364, @Date) calculated inline (OutSystems compatible)
    3. EARLY FILTERING: All WHERE conditions applied before aggregation for index pushdown
    4. WINDOW FUNCTIONS: Calculate daily totals without extra joins
    5. RECOMPILE HINT: Ensures optimal execution plan for each parameter set
@@ -45,10 +47,6 @@
 DECLARE @SiteId BIGINT = 3187;
 DECLARE @Date DATE = '2025-11-25';
 DECLARE @SelectedView VARCHAR(1) = 'D';  -- 'D' = Dollars, 'G' = Guests, 'A' = Average
-
--- [OPTIMIZATION 1]: Pre-calculate the PY Date variable
--- Avoids recalculating this inside the query plan
-DECLARE @PrevDate DATE = DATEADD(DAY, -364, @Date);
 
 WITH
 
@@ -92,11 +90,11 @@ RawDataCombined AS (
         SUM(CASE WHEN CalendarDate = @Date THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
 
         -- Conditional Aggregation for PY
-        SUM(CASE WHEN CalendarDate = @PrevDate THEN NetAmount ELSE 0 END) AS PY_NetAmount,
-        SUM(CASE WHEN CalendarDate = @PrevDate THEN TransactionCount ELSE 0 END) AS PY_TransactionCount
+        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN NetAmount ELSE 0 END) AS PY_NetAmount,
+        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN TransactionCount ELSE 0 END) AS PY_TransactionCount
     FROM {SalesFact}
     WHERE SiteId = @SiteId
-      AND CalendarDate IN (@Date, @PrevDate) -- Filters for both dates simultaneously
+      AND CalendarDate IN (@Date, DATEADD(DAY, -364, @Date)) -- Filters for both dates simultaneously
       -- [EARLY FILTERING FOR INDEX PUSHDOWN]
       -- Critical filters applied FIRST so SQL Server uses optimal index
       AND DatePeriodDimensionId = 15

@@ -55,15 +55,28 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - [X] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query fully optimized with single-scan approach, ready for testing
+**Current step**: Query fully optimized and OutSystems compatible, ready for testing
 
-**Latest changes (2025-12-12) - PERFORMANCE OPTIMIZATION:**
+**Latest changes (2025-12-12) - OUTSYSTEMS COMPATIBILITY FIX:**
+- **✅ FIXED**: OutSystems Parameter Error
+  - **Problem**: User got error "Unknown 'PrevDate' parameter used in 'SQL1'"
+  - **Root Cause**: OutSystems Advanced SQL doesn't recognize DECLARE variables that aren't input parameters
+  - **Solution**: Removed `DECLARE @PrevDate` and calculated inline throughout query
+  - **Implementation**:
+    - Changed `@PrevDate` → `DATEADD(DAY, -364, @Date)` in all 3 locations
+    - CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))
+    - SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) ...)
+  - **Performance Impact**: Minimal - SQL Server optimizes DATEADD calculations
+  - **Documentation**: Updated query comments, README, and metadata.json
+  - **Status**: OutSystems compatible, ready for testing
+
+**Earlier changes (2025-12-12) - PERFORMANCE OPTIMIZATION:**
 - **✅ OPTIMIZED**: Single-Scan Approach for CY/PY Data
   - **Replaced**: Separated CY/PY CTEs with combined conditional aggregation
   - **Implementation**:
-    - RawDataCombined CTE uses `CalendarDate IN (@Date, @PrevDate)`
+    - RawDataCombined CTE uses `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))`
     - Conditional SUM: `SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END)`
-    - Pre-calculated @PrevDate variable (avoids inline DATEADD)
+    - Inline date calculation: DATEADD(DAY, -364, @Date) (OutSystems compatible)
     - Removed InputVar CTE (not needed - using @SelectedView directly)
     - Added OPTION (RECOMPILE) for optimal execution plan
     - Reduced from 8 CTEs to 6 CTEs
@@ -117,7 +130,7 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 11. ✅ DayPartLabel auto-classification (Overnight/Breakfast/Day/Night)
 12. ✅ Day Part Total rows (4 totals after each day part)
 13. ✅ PERFORMANCE OPTIMIZATION: Single-scan conditional aggregation
-14. ✅ PERFORMANCE OPTIMIZATION: Pre-calculated @PrevDate variable
+14. ✅ OUTSYSTEMS FIX: Inline date calculation (was @PrevDate variable)
 15. ✅ PERFORMANCE OPTIMIZATION: OPTION (RECOMPILE) hint
 16. ✅ Simplified: Removed InputVar CTE (not needed)
 17. ✅ README documentation (updated with optimization details)
@@ -154,8 +167,8 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 - **Hourly breakdown**: 24 rows (00-01 through 23-24) + 1 Total row + 4 day part totals → Rationale: User screenshot shows hourly granularity, day part totals requested for aggregation
 - **Hour format "HH-HH"**: Use REPLICATE for padding (OutSystems compatible) → Rationale: No RIGHT() function in OutSystems, "00-01" format matches UI
-- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, @PrevDate)` → Rationale: User reviewed both approaches (separated vs combined), confirmed single-scan is better for this single-day use case. Cleaner, more efficient, fewer CTEs (6 vs 8)
-- **🚀 OPTIMIZATION: Pre-calculated @PrevDate**: DECLARE @PrevDate = DATEADD(DAY, -364, @Date) → Rationale: Avoids inline DATEADD recalculation in query plan, cleaner code
+- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` → Rationale: User reviewed both approaches (separated vs combined), confirmed single-scan is better for this single-day use case. Cleaner, more efficient, fewer CTEs (6 vs 8)
+- **🔧 OUTSYSTEMS FIX: Inline date calculation**: DATEADD(DAY, -364, @Date) calculated inline (not DECLARE variable) → Rationale: OutSystems Advanced SQL doesn't support DECLARE variables that aren't input parameters. SQL Server optimizes this automatically.
 - **🚀 OPTIMIZATION: RECOMPILE hint**: OPTION (RECOMPILE) at end → Rationale: Ensures optimal execution plan for each parameter set (recommended in CLAUDE.md)
 - **Removed InputVar CTE**: Not needed when using @SelectedView directly → Rationale: Simplifies query, InputVar was workaround for OutSystems quirk but not required here
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours

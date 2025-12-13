@@ -160,13 +160,13 @@ WHERE SiteId = @SiteId
 **OPTIMIZED**: This query uses a single-scan approach for maximum efficiency on single-day queries.
 
 1. **Single Table Scan** - Fetches both CY and PY data in one pass using conditional SUM aggregation
-   - Uses `CalendarDate IN (@Date, @PrevDate)` filter
+   - Uses `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` filter
    - Conditionally aggregates with `SUM(CASE WHEN CalendarDate = @Date THEN ... ELSE 0 END)`
    - Avoids double scan of SalesFact table
 
-2. **Pre-calculated Date Variable** - `@PrevDate = DATEADD(DAY, -364, @Date)` calculated once
-   - Avoids inline DATEADD recalculation in query plan
-   - Cleaner and more maintainable
+2. **Inline Date Calculation** - `DATEADD(DAY, -364, @Date)` calculated inline
+   - OutSystems compatible (no extra DECLARE parameters)
+   - SQL Server optimizes this calculation automatically
 
 3. **Early Filtering** - All dimension filters applied before aggregation for index pushdown
    - ProductMenuId, TenderTypeId, OperationId, etc. all set to NULL in WHERE clause
