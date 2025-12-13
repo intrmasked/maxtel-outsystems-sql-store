@@ -55,9 +55,23 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - [X] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query WORKING in OutSystems - InputVar pattern applied successfully
+**Current step**: Query WORKING in OutSystems - Ready for production use
 
-**Latest changes (2025-12-13) - INPUTVAR PATTERN FIX (CRITICAL):**
+**Latest changes (2025-12-13) - COLUMN NAMING UPDATES:**
+- **✅ UPDATED**: Total Row and Column Names
+  - **Change 1**: Total row Hour label changed from "Total" to "Total Day"
+  - **Change 2**: Column alias changed from "Pod" back to "DayPartLabel"
+  - **Rationale**: User provided screenshot showing expected format with "Total Day" as Hour label
+  - **Files Changed**:
+    - `query.sql` line 164: 'Total' → 'Total Day'
+    - `query.sql` line 230: DayPartLabel AS Pod → DayPartLabel
+    - `query.sql` line 227: Comment updated to reflect DayPartLabel column name
+    - `tests/test-parameters.sql`: Updated all column references
+    - `README.md`: Output Columns section updated
+    - `README.md`: Example Output table updated
+  - **Status**: Matches OutSystems output structure exactly
+
+**Earlier changes (2025-12-13) - INPUTVAR PATTERN FIX (CRITICAL):**
 - **✅ FIXED**: OutSystems "Lazy Parser" Parameter Binding Bug
   - **Problem**: OutSystems scans queries top-down; parameters used deep in query logic fail with "Must declare scalar variable" or DateTime parse errors
   - **Root Cause**: OutSystems Advanced SQL has a "Lazy Parser" quirk where it stops tracking parameters if they're not seen early enough in the query

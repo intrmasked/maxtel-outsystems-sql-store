@@ -50,8 +50,8 @@ OutSystems will automatically convert these to `@SiteId`, `@Date`, `@SelectedVie
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `Hour` | VARCHAR | Hour range label (e.g., "00-01", "01-02", ..., "Total") |
-| `Pod` | VARCHAR | Auto-classified day part (Overnight/Breakfast/Day/Night/Total) |
+| `Hour` | VARCHAR | Hour range label (e.g., "00-01", "01-02", ..., "Total Day") |
+| `DayPartLabel` | VARCHAR | Auto-classified day part (Overnight/Breakfast/Day/Night/Total) |
 | `Sales` | DECIMAL(18,2) | Sales metric based on @SelectedView |
 | `PercentTotal` | DECIMAL(18,2) | Percentage of daily total (0 for Average view) |
 | `PercentInc` | DECIMAL(18,2) | Year-over-year growth % (vs same day -364 days) |
@@ -71,9 +71,9 @@ The query returns **29 rows** for a single day:
 
 **Example Output** (SelectedView = 'D'):
 
-| Hour | Pod | Sales | PercentTotal | PercentInc |
-|------|-----|-------|--------------|------------|
-| Total | Total (00-24) | 18296.15 | 100.00 | 5.23 |
+| Hour | DayPartLabel | Sales | PercentTotal | PercentInc |
+|------|--------------|-------|--------------|------------|
+| Total Day | Total (00-24) | 18296.15 | 100.00 | 5.23 |
 | 00-01 | Overnight (00-05) | 535.24 | 2.93 | -2.45 |
 | 01-02 | Overnight (00-05) | 0.00 | 0.00 | 0.00 |
 | ... | Overnight (00-05) | ... | ... | ... |

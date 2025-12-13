@@ -161,7 +161,7 @@ CleanedData AS (
 TotalData AS (
     SELECT
         NULL AS HourNum,
-        'Total' AS HourLabel,
+        'Total Day' AS HourLabel,
         'Total (00-24)' AS DayPartLabel,
         0 AS SortOrder,  -- 0 ensures Total appears first in sort
         SUM(CY_NetAmount) AS CY_NetAmount,
@@ -224,10 +224,10 @@ FinalSet AS (
 )
 
 -- [STEP 7]: Calculate Final Metrics & Project Output
--- OutSystems Output Structure: Hour, Pod, Sales, PercentTotal, PercentInc (5 columns)
+-- OutSystems Output Structure: Hour, DayPartLabel, Sales, PercentTotal, PercentInc (5 columns)
 SELECT
     HourLabel AS Hour,
-    DayPartLabel AS Pod,
+    DayPartLabel,
 
     -- [CALC 1: Main Value]
     -- Dynamically selects metric based on @SelectedView parameter
