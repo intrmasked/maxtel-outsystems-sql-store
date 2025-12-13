@@ -57,21 +57,24 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 **Current step**: Query WORKING in OutSystems - Ready for production use
 
-**Latest changes (2025-12-13) - TOTAL LABEL STANDARDIZATION:**
-- **✅ UPDATED**: All Total Labels to "TotalDay"
-  - **Change**: Standardized all total row labels to use "TotalDay" suffix
-  - **Rationale**: User requested consistent naming for all total rows
+**Latest changes (2025-12-13) - UNIFIED TOTAL LABEL:**
+- **✅ UPDATED**: All Total Rows Use "Total Day" Label
+  - **Change**: All 5 total rows now use "Total Day" as the Hour label (differentiated by DayPartLabel column)
+  - **Rationale**: User requested simplified labeling - don't mention day part in Hour column
   - **Implementation**:
-    - "Total Day" → "TotalDay" (main total row)
-    - "Overnight Total" → "Overnight TotalDay"
-    - "Breakfast Total" → "Breakfast TotalDay"
-    - "Day Total" → "Day TotalDay"
-    - "Night Total" → "Night TotalDay"
+    - All total rows: Hour = "Total Day"
+    - DayPartLabel column differentiates which total:
+      - "Overnight (00-05)" → Total Day for overnight hours
+      - "Breakfast (05-11)" → Total Day for breakfast hours
+      - "Day (11-17)" → Total Day for day hours
+      - "Night (17-24)" → Total Day for night hours
+      - "Total (00-24)" → Overall total for entire day
   - **Files Changed**:
-    - `query.sql` line 164: 'Total Day' → 'TotalDay'
-    - `query.sql` lines 181-184: All day part totals updated
+    - `query.sql` line 164: HourLabel = 'Total Day'
+    - `query.sql` line 181: All day part totals use 'Total Day'
+    - `query.sql` lines 176-177: Comments updated
     - `README.md`: Output Columns, Output Structure, Example Output updated
-  - **Status**: All total labels now consistently use "TotalDay"
+  - **Status**: All total rows have uniform "Total Day" label in Hour column
 
 **Earlier changes (2025-12-13) - SORT ORDER REORGANIZATION:**
 - **✅ UPDATED**: Sort Order - All Totals at End

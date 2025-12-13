@@ -50,8 +50,8 @@ OutSystems will automatically convert these to `@SiteId`, `@Date`, `@SelectedVie
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `Hour` | VARCHAR | Hour range label (e.g., "00-01", "01-02", ..., "TotalDay") |
-| `DayPartLabel` | VARCHAR | Auto-classified day part (Overnight/Breakfast/Day/Night/Total) |
+| `Hour` | VARCHAR | Hour range label (e.g., "00-01", "01-02", ..., "Total Day") |
+| `DayPartLabel` | VARCHAR | Auto-classified day part (Overnight/Breakfast/Day/Night/Total) - differentiates total rows |
 | `Sales` | DECIMAL(18,2) | Sales metric based on @SelectedView |
 | `PercentTotal` | DECIMAL(18,2) | Percentage of daily total (0 for Average view) |
 | `PercentInc` | DECIMAL(18,2) | Year-over-year growth % (vs same day -364 days) |
@@ -62,12 +62,12 @@ OutSystems will automatically convert these to `@SiteId`, `@Date`, `@SelectedVie
 
 The query returns **29 rows** for a single day:
 - **24 hourly rows**: 00-01, 01-02, ..., 23-24 (SortOrder 1-24, appears first)
-- **4 day part total rows**: (SortOrder 25-28, after all hours)
-  - "Overnight TotalDay"
-  - "Breakfast TotalDay"
-  - "Day TotalDay"
-  - "Night TotalDay"
-- **1 TotalDay row**: "TotalDay" (SortOrder 29, appears last)
+- **5 total rows**: All labeled "Total Day" in Hour column (SortOrder 25-29, differentiated by DayPartLabel)
+  - Total Day (Overnight 00-05) - SortOrder 25
+  - Total Day (Breakfast 05-11) - SortOrder 26
+  - Total Day (Day 11-17) - SortOrder 27
+  - Total Day (Night 17-24) - SortOrder 28
+  - Total Day (Total 00-24) - SortOrder 29 (overall total, appears last)
 
 **Example Output** (SelectedView = 'D'):
 
@@ -86,11 +86,11 @@ The query returns **29 rows** for a single day:
 | 17-18 | Night (17-24) | 2100.60 | 11.48 | 4.52 |
 | ... | Night (17-24) | ... | ... | ... |
 | 23-24 | Night (17-24) | 782.50 | 4.28 | 8.12 |
-| **Overnight TotalDay** | **Overnight (00-05)** | **655.74** | **3.58** | **-1.85** |
-| **Breakfast TotalDay** | **Breakfast (05-11)** | **2624.07** | **14.34** | **2.89** |
-| **Day TotalDay** | **Day (11-17)** | **5629.06** | **30.77** | **6.54** |
-| **Night TotalDay** | **Night (17-24)** | **9507.78** | **51.97** | **8.45** |
-| **TotalDay** | **Total (00-24)** | **18296.15** | **100.00** | **5.23** |
+| **Total Day** | **Overnight (00-05)** | **655.74** | **3.58** | **-1.85** |
+| **Total Day** | **Breakfast (05-11)** | **2624.07** | **14.34** | **2.89** |
+| **Total Day** | **Day (11-17)** | **5629.06** | **30.77** | **6.54** |
+| **Total Day** | **Night (17-24)** | **9507.78** | **51.97** | **8.45** |
+| **Total Day** | **Total (00-24)** | **18296.15** | **100.00** | **5.23** |
 
 ---
 
