@@ -245,34 +245,30 @@ this is the current structure for the parent screen, ill handle pivoting on my o
   - **Filters**: Aggregate level (Pod = '', PosId = 0)
   - **Benefits**: Matches parent query pattern, OutSystems compatible
 
-**Complete items**:
+**Complete items (Final Design)**:
 1. ✅ Query folder structure created
 2. ✅ Main query with hourly breakdown (00-01 through 23-24)
 3. ✅ NZ timezone conversion using AT TIME ZONE
 4. ✅ YoY comparison (CalendarDate - 364 days)
-5. ✅ @SelectedView parameter handling (D/G/A)
-6. ✅ Sales calculation based on view
-7. ✅ PercentTotal calculation (Hour / Daily Total)
-8. ✅ PercentInc calculation (YoY growth %)
-9. ✅ Total row (sum of all 24 hours)
-10. ✅ Total row PercentTotal = 100%
-11. ✅ DayPartLabel auto-classification (Overnight/Breakfast/Day/Night)
-12. ✅ Day Part Total rows (4 totals after each day part)
-13. ✅ PERFORMANCE OPTIMIZATION: Single-scan conditional aggregation
-14. ✅ OUTSYSTEMS FIX: Inline date calculation (using InputVars CTE)
-15. ✅ PERFORMANCE OPTIMIZATION: OPTION (RECOMPILE) hint
-16. ✅ CRITICAL FIX: Applied InputVar CTE pattern (STEP 0) for OutSystems "Lazy Parser" bug
-17. ✅ OUTSYSTEMS FIX: Column structure (5 columns: Hour, Pod, Sales, PercentTotal, PercentInc)
-18. ✅ README documentation (updated with optimization details)
-19. ✅ metadata.json file (updated with optimization features)
-20. ✅ Session context file (this file)
-21. ✅ Query WORKING in OutSystems production
+5. ✅ Wide-format output with all metrics (Sales, GCs, Ave Chq)
+6. ✅ 9 output columns (Hour + 8 metric columns)
+7. ✅ Sales metrics: Sales, Sales_PctDay, Sales_PctInc
+8. ✅ Guest Count metrics: GCs, GCs_PctDay, GCs_PctInc
+9. ✅ Average Check metrics: AveChq, AveChq_PctInc
+10. ✅ Total Day row (sum of all 24 hours, 100% for % Day columns)
+11. ✅ PERFORMANCE OPTIMIZATION: Single-scan conditional aggregation
+12. ✅ PERFORMANCE OPTIMIZATION: Window functions for grand total
+13. ✅ PERFORMANCE OPTIMIZATION: OPTION (RECOMPILE) hint
+14. ✅ OUTSYSTEMS FIX: InputVar CTE pattern (STEP 0) for parameter binding
+15. ✅ README documentation (complete rewrite for drill-down view)
+16. ✅ metadata.json file (updated to wide_format, 9 columns)
+17. ✅ Session context file (this file)
+18. ✅ Query FINALIZED and production-ready
+19. ✅ User confirmed: "this works and it is finalized"
+20. ✅ Git commit: Complete rewrite documentation
 
 **Pending**:
-- User acceptance testing with production data
-- Validation that Total row aligns with parent screen day totals
-- Verification of hour formatting (00-01, 01-02, ..., 23-24)
-- Test query creation if needed
+- None - Query finalized and confirmed by user
 
 ---
 
@@ -284,13 +280,14 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 ## Queries Created
 
-- `queries/reports/product-sales-by-day-part-hourly/` - [IN TESTING - OPTIMIZED]
-  - Purpose: Hourly sales breakdown for a single day with YoY comparison
+- `queries/reports/product-sales-by-day-part-hourly/` - [PRODUCTION READY]
+  - Purpose: Comprehensive hourly sales breakdown showing Sales, Guest Counts, and Average Check metrics for a single day with YoY comparison (Drill Down View)
   - Tables used: SalesFact
-  - Output: 29 rows (1 Total + 24 hours + 4 day part totals)
-  - Parameters: @SiteId, @Date, @SelectedView, @PrevDate
-  - Optimization: Single-scan conditional aggregation with RECOMPILE hint
-  - Status: Query optimized and ready for testing
+  - Output: 25 rows (24 hourly rows + 1 Total Day row)
+  - Format: Wide-format with 9 columns (Hour + 8 metric columns)
+  - Parameters: @SiteId, @Date (no @SelectedView - all metrics returned at once)
+  - Optimization: Single-scan conditional aggregation, window functions, RECOMPILE hint
+  - Status: Query finalized and confirmed working by user
 
 ---
 
@@ -380,9 +377,17 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - `.claude/sessions/product-sales-by-day-part-hourly-context.md` (this file)
 
 **Git Commits**:
-- Not yet committed (pending testing)
 
-**Current State**: Query development complete, pending user testing and validation
+1. **Commit 6c1700e** (2025-12-13) - "COMPLETE REWRITE: Product Sales By Day Part Hourly - 9-column drill-down view"
+   - Critical design change from incorrect requirements
+   - Rewrote from 5-column to 9-column wide-format output
+   - Removed day part totals and @SelectedView parameter
+   - 25 rows (24 hours + 1 Total Day) with all metrics side-by-side
+   - Complete documentation updates (README.md, metadata.json)
+   - User confirmation: "this works and it is finalized"
+   - Files changed: query.sql, README.md, metadata.json, session context
+
+**Current State**: Query finalized and production-ready. User confirmed working.
 
 ---
 
