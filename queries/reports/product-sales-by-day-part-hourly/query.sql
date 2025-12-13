@@ -163,7 +163,7 @@ TotalData AS (
         NULL AS HourNum,
         'Total Day' AS HourLabel,
         'Total (00-24)' AS DayPartLabel,
-        0 AS SortOrder,  -- 0 ensures Total appears first in sort
+        29 AS SortOrder,  -- 29 ensures Total appears last (after all hours and day part totals)
         SUM(CY_NetAmount) AS CY_NetAmount,
         SUM(CY_TransactionCount) AS CY_TransactionCount,
         SUM(PY_NetAmount) AS PY_NetAmount,
@@ -173,7 +173,7 @@ TotalData AS (
 
 -- [STEP 5]: Calculate Day Part Totals
 -- Sums hours within each day part and creates total rows
--- These rows appear after the last hour of each day part
+-- These rows appear after all 24 hours, before Total Day
 DayPartTotals AS (
     SELECT
         NULL AS HourNum,
@@ -184,12 +184,12 @@ DayPartTotals AS (
             WHEN 'Night (17-24)' THEN 'Night Total'
         END AS HourLabel,
         DayPartLabel,
-        -- SortOrder places day part total after last hour of that day part
+        -- SortOrder: 25-28 (after all 24 hours, before Total Day at 29)
         CASE DayPartLabel
-            WHEN 'Overnight (00-05)' THEN 5.5   -- After 04-05 (SortOrder 5)
-            WHEN 'Breakfast (05-11)' THEN 11.5  -- After 10-11 (SortOrder 11)
-            WHEN 'Day (11-17)' THEN 17.5        -- After 16-17 (SortOrder 17)
-            WHEN 'Night (17-24)' THEN 24.5      -- After 23-24 (SortOrder 24)
+            WHEN 'Overnight (00-05)' THEN 25   -- After all hours
+            WHEN 'Breakfast (05-11)' THEN 26
+            WHEN 'Day (11-17)' THEN 27
+            WHEN 'Night (17-24)' THEN 28       -- Before Total Day (29)
         END AS SortOrder,
         SUM(CY_NetAmount) AS CY_NetAmount,
         SUM(CY_TransactionCount) AS CY_TransactionCount,
@@ -212,8 +212,8 @@ FinalSet AS (
         PY_TransactionCount,
 
         -- Window functions calculate daily total across the result set
-        MAX(CASE WHEN SortOrder = 0 THEN CY_NetAmount ELSE 0 END) OVER () AS DailyTotal_Net,
-        MAX(CASE WHEN SortOrder = 0 THEN CY_TransactionCount ELSE 0 END) OVER () AS DailyTotal_Txn
+        MAX(CASE WHEN SortOrder = 29 THEN CY_NetAmount ELSE 0 END) OVER () AS DailyTotal_Net,
+        MAX(CASE WHEN SortOrder = 29 THEN CY_TransactionCount ELSE 0 END) OVER () AS DailyTotal_Txn
     FROM (
         SELECT * FROM CleanedData
         UNION ALL
@@ -245,7 +245,7 @@ SELECT
     -- For Total row, returns 100%
     CASE
         WHEN (SELECT ViewVal FROM InputVars) = 'A' THEN 0
-        WHEN SortOrder = 0 THEN 100  -- Total row always 100%
+        WHEN SortOrder = 29 THEN 100  -- Total Day row always 100%
         WHEN (SELECT ViewVal FROM InputVars) = 'D' THEN
              CASE WHEN DailyTotal_Net = 0 THEN 0
                   ELSE CY_NetAmount * 100.0 / NULLIF(DailyTotal_Net, 0) END

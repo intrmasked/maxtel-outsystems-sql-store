@@ -57,7 +57,26 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 **Current step**: Query WORKING in OutSystems - Ready for production use
 
-**Latest changes (2025-12-13) - COLUMN NAMING UPDATES:**
+**Latest changes (2025-12-13) - SORT ORDER REORGANIZATION:**
+- **✅ UPDATED**: Sort Order - All Totals at End
+  - **Change**: Moved Total Day row and all day part totals to the end of output
+  - **Rationale**: User requested easier cycling through data - totals at end instead of scattered throughout
+  - **New Order**:
+    1. All 24 hourly rows (00-01 through 23-24) - SortOrder 1-24
+    2. Day part totals (Overnight, Breakfast, Day, Night) - SortOrder 25-28
+    3. Total Day row - SortOrder 29 (at very end)
+  - **Implementation Changes**:
+    - TotalData CTE: SortOrder changed from 0 → 29
+    - DayPartTotals CTE: SortOrder changed from 5.5, 11.5, 17.5, 24.5 → 25, 26, 27, 28
+    - Window function: Changed `WHEN SortOrder = 0` → `WHEN SortOrder = 29`
+    - PercentTotal calculation: Changed `WHEN SortOrder = 0` → `WHEN SortOrder = 29`
+  - **Files Changed**:
+    - `query.sql` lines 166, 188-192, 215-216, 248
+    - `README.md`: Output Structure section updated
+    - `README.md`: Example Output table reordered
+  - **Status**: All totals now grouped at end for easier data review
+
+**Earlier changes (2025-12-13) - COLUMN NAMING UPDATES:**
 - **✅ UPDATED**: Total Row and Column Names
   - **Change 1**: Total row Hour label changed from "Total" to "Total Day"
   - **Change 2**: Column alias changed from "Pod" back to "DayPartLabel"

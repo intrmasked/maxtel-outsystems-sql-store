@@ -61,36 +61,36 @@ OutSystems will automatically convert these to `@SiteId`, `@Date`, `@SelectedVie
 ## Output Structure
 
 The query returns **29 rows** for a single day:
-- **1 Total row**: "Total" (SortOrder 0, appears first)
-- **24 hourly rows**: 00-01, 01-02, ..., 23-24 (SortOrder 1-24)
-- **4 day part total rows**: (SortOrder 5.5, 11.5, 17.5, 24.5)
-  - "Overnight Total" (after 04-05)
-  - "Breakfast Total" (after 10-11)
-  - "Day Total" (after 16-17)
-  - "Night Total" (after 23-24)
+- **24 hourly rows**: 00-01, 01-02, ..., 23-24 (SortOrder 1-24, appears first)
+- **4 day part total rows**: (SortOrder 25-28, after all hours)
+  - "Overnight Total"
+  - "Breakfast Total"
+  - "Day Total"
+  - "Night Total"
+- **1 Total Day row**: "Total Day" (SortOrder 29, appears last)
 
 **Example Output** (SelectedView = 'D'):
 
 | Hour | DayPartLabel | Sales | PercentTotal | PercentInc |
 |------|--------------|-------|--------------|------------|
-| Total Day | Total (00-24) | 18296.15 | 100.00 | 5.23 |
 | 00-01 | Overnight (00-05) | 535.24 | 2.93 | -2.45 |
 | 01-02 | Overnight (00-05) | 0.00 | 0.00 | 0.00 |
 | ... | Overnight (00-05) | ... | ... | ... |
 | 04-05 | Overnight (00-05) | 120.50 | 0.66 | 1.23 |
-| **Overnight Total** | **Overnight (00-05)** | **655.74** | **3.58** | **-1.85** |
 | 05-06 | Breakfast (05-11) | 1250.30 | 6.84 | 3.12 |
 | ... | Breakfast (05-11) | ... | ... | ... |
 | 10-11 | Breakfast (05-11) | 980.25 | 5.36 | 2.45 |
-| **Breakfast Total** | **Breakfast (05-11)** | **2624.07** | **14.34** | **2.89** |
 | 11-12 | Day (11-17) | 3200.45 | 17.49 | 7.89 |
 | ... | Day (11-17) | ... | ... | ... |
 | 16-17 | Day (11-17) | 1100.80 | 6.02 | 4.12 |
-| **Day Total** | **Day (11-17)** | **5629.06** | **30.77** | **6.54** |
 | 17-18 | Night (17-24) | 2100.60 | 11.48 | 4.52 |
 | ... | Night (17-24) | ... | ... | ... |
 | 23-24 | Night (17-24) | 782.50 | 4.28 | 8.12 |
+| **Overnight Total** | **Overnight (00-05)** | **655.74** | **3.58** | **-1.85** |
+| **Breakfast Total** | **Breakfast (05-11)** | **2624.07** | **14.34** | **2.89** |
+| **Day Total** | **Day (11-17)** | **5629.06** | **30.77** | **6.54** |
 | **Night Total** | **Night (17-24)** | **9507.78** | **51.97** | **8.45** |
+| **Total Day** | **Total (00-24)** | **18296.15** | **100.00** | **5.23** |
 
 ---
 
