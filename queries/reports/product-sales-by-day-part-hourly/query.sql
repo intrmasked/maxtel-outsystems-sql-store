@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT SALES BY DAY PART - HOURLY BREAKDOWN (OPTIMIZED)
+   QUERY: PRODUCT SALES BY DAY PART - HOURLY BREAKDOWN (OPTIMIZED + InputVar Fix)
    ===================================================================================
 
    PURPOSE:
@@ -15,8 +15,6 @@
        'D' -> Net Amount ($ Sales)
        'G' -> Transaction Count (Guest Counts)
        'A' -> Average Check (Net Amount / Transaction Count)
-
-   NOTE: Previous year date (PY) is calculated inline as DATEADD(DAY, -364, @Date)
 
    HOUR FORMAT:
    - 00-01: Midnight to 1 AM (0:00 - 0:59)
@@ -34,8 +32,8 @@
    6. Day Part Total rows: Overnight Total, Breakfast Total, Day Total, Night Total (appear after last hour of each part)
 
    KEY OPTIMIZATIONS:
-   1. SINGLE TABLE SCAN: Fetches CY and PY data in one pass using conditional SUM
-   2. INLINE DATE CALCULATION: DATEADD(DAY, -364, @Date) calculated inline (OutSystems compatible)
+   1. INPUTVAR CTE PATTERN: Fixes OutSystems "Lazy Parser" parameter binding issue
+   2. SINGLE TABLE SCAN: Fetches CY and PY data in one pass using conditional SUM
    3. EARLY FILTERING: All WHERE conditions applied before aggregation for index pushdown
    4. WINDOW FUNCTIONS: Calculate daily totals without extra joins
    5. RECOMPILE HINT: Ensures optimal execution plan for each parameter set
@@ -66,6 +64,18 @@
 
 WITH
 
+-- [STEP 0]: INPUTVAR PATTERN - SAFE PARAMETER BINDING
+-- CRITICAL: This CTE MUST be first to fix OutSystems "Lazy Parser" bug
+-- OutSystems scans queries top-down; if parameters aren't seen early, it stops tracking them
+-- We select the inputs and calculate PY Date here, once, at the very top.
+InputVars AS (
+    SELECT
+        @Date AS CurrentDate,
+        DATEADD(DAY, -364, @Date) AS PrevDate,
+        @SiteId AS SiteIdVal,
+        @SelectedView AS ViewVal
+),
+
 -- [STEP 1]: Generate 24-Hour Scaffold
 -- Creates rows for 00-01, 01-02, ..., 23-24
 Hours AS (
@@ -79,7 +89,7 @@ Hours AS (
 HourLabels AS (
     SELECT
         HourNum,
-        -- Format: "00-01", "01-02", ..., "23-24"
+        -- Format: "00-01", "01-02", ..., "23-24" (OutSystems compatible - uses REPLICATE not RIGHT)
         REPLICATE('0', 2 - LEN(CAST(HourNum AS VARCHAR))) + CAST(HourNum AS VARCHAR) + '-' +
         REPLICATE('0', 2 - LEN(CAST(HourNum + 1 AS VARCHAR))) + CAST(HourNum + 1 AS VARCHAR) AS HourLabel,
         -- Day Part Classification
@@ -95,22 +105,21 @@ HourLabels AS (
 
 -- [STEP 2]: COMBINED DATA FETCH (Single Pass Optimization)
 -- Fetches both CY and PY data in one scan of the table
--- OPTIMIZATION: Only calculates Hour once per row, then conditionally aggregates
+-- Uses CROSS JOIN with InputVars to safely reference parameters
 RawDataCombined AS (
     SELECT
         -- CPU INTENSIVE: Only calculate Hour once per row
         DATEPART(HOUR, CONVERT(DATETIME, [DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time')) AS HourNum,
 
-        -- Conditional Aggregation for CY
-        SUM(CASE WHEN CalendarDate = @Date THEN NetAmount ELSE 0 END) AS CY_NetAmount,
-        SUM(CASE WHEN CalendarDate = @Date THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
+        -- Conditional Aggregation using InputVars CTE columns
+        SUM(CASE WHEN CalendarDate = v.CurrentDate THEN NetAmount ELSE 0 END) AS CY_NetAmount,
+        SUM(CASE WHEN CalendarDate = v.CurrentDate THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
 
-        -- Conditional Aggregation for PY
-        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN NetAmount ELSE 0 END) AS PY_NetAmount,
-        SUM(CASE WHEN CalendarDate = DATEADD(DAY, -364, @Date) THEN TransactionCount ELSE 0 END) AS PY_TransactionCount
-    FROM {SalesFact}
-    WHERE SiteId = @SiteId
-      AND CalendarDate IN (@Date, DATEADD(DAY, -364, @Date)) -- Filters for both dates simultaneously
+        SUM(CASE WHEN CalendarDate = v.PrevDate THEN NetAmount ELSE 0 END) AS PY_NetAmount,
+        SUM(CASE WHEN CalendarDate = v.PrevDate THEN TransactionCount ELSE 0 END) AS PY_TransactionCount
+    FROM {SalesFact}, InputVars v -- CROSS JOIN simulates using variables
+    WHERE SiteId = v.SiteIdVal
+      AND CalendarDate IN (v.CurrentDate, v.PrevDate) -- Filters for both dates simultaneously
       -- [EARLY FILTERING FOR INDEX PUSHDOWN]
       -- Critical filters applied FIRST so SQL Server uses optimal index
       AND DatePeriodDimensionId = 15
@@ -222,7 +231,8 @@ SELECT
 
     -- [CALC 1: Main Value]
     -- Dynamically selects metric based on @SelectedView parameter
-    CASE @SelectedView
+    -- Uses InputVars subquery pattern for safe parameter binding
+    CASE (SELECT ViewVal FROM InputVars)
         WHEN 'D' THEN CY_NetAmount              -- Dollar Amount ($)
         WHEN 'G' THEN CAST(CY_TransactionCount AS DECIMAL(18,2))  -- Guest Count (#)
         WHEN 'A' THEN CASE WHEN CY_TransactionCount = 0 THEN 0 ELSE CY_NetAmount / CY_TransactionCount END  -- Average Check ($)
@@ -234,12 +244,12 @@ SELECT
     -- Returns 0 for Average view (statistically invalid)
     -- For Total row, returns 100%
     CASE
-        WHEN @SelectedView = 'A' THEN 0
+        WHEN (SELECT ViewVal FROM InputVars) = 'A' THEN 0
         WHEN SortOrder = 0 THEN 100  -- Total row always 100%
-        WHEN @SelectedView = 'D' THEN
+        WHEN (SELECT ViewVal FROM InputVars) = 'D' THEN
              CASE WHEN DailyTotal_Net = 0 THEN 0
                   ELSE CY_NetAmount * 100.0 / NULLIF(DailyTotal_Net, 0) END
-        WHEN @SelectedView = 'G' THEN
+        WHEN (SELECT ViewVal FROM InputVars) = 'G' THEN
              CASE WHEN DailyTotal_Txn = 0 THEN 0
                   ELSE CAST(CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(DailyTotal_Txn, 0) END
         ELSE 0
@@ -248,7 +258,7 @@ SELECT
     -- [CALC 3: Year-over-Year Growth %]
     -- Formula: (CY - PY) / PY * 100
     -- Handles division by zero; returns 0 if no prior year data exists
-    CASE @SelectedView
+    CASE (SELECT ViewVal FROM InputVars)
         WHEN 'D' THEN
             CASE WHEN PY_NetAmount = 0 THEN 0
             ELSE (CY_NetAmount - PY_NetAmount) * 100.0 / PY_NetAmount END

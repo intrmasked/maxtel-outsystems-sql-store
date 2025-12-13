@@ -55,9 +55,26 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 - [X] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query ready for testing - column structure fixed to match OutSystems output
+**Current step**: Query WORKING in OutSystems - InputVar pattern applied successfully
 
-**Latest changes (2025-12-13) - OUTSYSTEMS OUTPUT STRUCTURE FIX:**
+**Latest changes (2025-12-13) - INPUTVAR PATTERN FIX (CRITICAL):**
+- **✅ FIXED**: OutSystems "Lazy Parser" Parameter Binding Bug
+  - **Problem**: OutSystems scans queries top-down; parameters used deep in query logic fail with "Must declare scalar variable" or DateTime parse errors
+  - **Root Cause**: OutSystems Advanced SQL has a "Lazy Parser" quirk where it stops tracking parameters if they're not seen early enough in the query
+  - **Solution**: Applied InputVar CTE pattern (STEP 0) as first CTE
+  - **Implementation**:
+    - Added `InputVars AS (SELECT @Date AS CurrentDate, DATEADD(DAY, -364, @Date) AS PrevDate, @SiteId AS SiteIdVal, @SelectedView AS ViewVal)` as FIRST CTE
+    - Changed RawDataCombined to use CROSS JOIN: `FROM {SalesFact}, InputVars v`
+    - All parameters now referenced through InputVars columns: `v.SiteIdVal`, `v.CurrentDate`, `v.PrevDate`
+    - Final SELECT uses subquery pattern: `(SELECT ViewVal FROM InputVars)` instead of direct `@SelectedView`
+  - **Pattern Source**: CLAUDE.md documented this exact pattern for OutSystems compatibility
+  - **User Confirmation**: User confirmed this version works in OutSystems
+  - **Files Changed**:
+    - `query.sql` - Complete rewrite with InputVars pattern (7 CTEs total, InputVars is STEP 0)
+    - Query header updated to reflect "OPTIMIZED + InputVar Fix"
+  - **Status**: WORKING in OutSystems production
+
+**Earlier changes (2025-12-13) - OUTSYSTEMS OUTPUT STRUCTURE FIX:**
 - **✅ FIXED**: Column Count Mismatch Error
   - **Problem**: User got error "Column count doesn't match output structure attribute count"
   - **Root Cause**: Query was returning 6 columns (Hour, DayPartLabel, Value, PercentTotal, PercentInc, SortOrder) but OutSystems output structure has 5 columns
@@ -167,12 +184,14 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 11. ✅ DayPartLabel auto-classification (Overnight/Breakfast/Day/Night)
 12. ✅ Day Part Total rows (4 totals after each day part)
 13. ✅ PERFORMANCE OPTIMIZATION: Single-scan conditional aggregation
-14. ✅ OUTSYSTEMS FIX: Inline date calculation (was @PrevDate variable)
+14. ✅ OUTSYSTEMS FIX: Inline date calculation (using InputVars CTE)
 15. ✅ PERFORMANCE OPTIMIZATION: OPTION (RECOMPILE) hint
-16. ✅ Simplified: Removed InputVar CTE (not needed)
-17. ✅ README documentation (updated with optimization details)
-18. ✅ metadata.json file (updated with optimization features)
-19. ✅ Session context file (this file)
+16. ✅ CRITICAL FIX: Applied InputVar CTE pattern (STEP 0) for OutSystems "Lazy Parser" bug
+17. ✅ OUTSYSTEMS FIX: Column structure (5 columns: Hour, Pod, Sales, PercentTotal, PercentInc)
+18. ✅ README documentation (updated with optimization details)
+19. ✅ metadata.json file (updated with optimization features)
+20. ✅ Session context file (this file)
+21. ✅ Query WORKING in OutSystems production
 
 **Pending**:
 - User acceptance testing with production data
@@ -204,10 +223,12 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 - **Hourly breakdown**: 24 rows (00-01 through 23-24) + 1 Total row + 4 day part totals → Rationale: User screenshot shows hourly granularity, day part totals requested for aggregation
 - **Hour format "HH-HH"**: Use REPLICATE for padding (OutSystems compatible) → Rationale: No RIGHT() function in OutSystems, "00-01" format matches UI
-- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` → Rationale: User reviewed both approaches (separated vs combined), confirmed single-scan is better for this single-day use case. Cleaner, more efficient, fewer CTEs (6 vs 8)
-- **🔧 OUTSYSTEMS FIX: Inline date calculation**: DATEADD(DAY, -364, @Date) calculated inline (not DECLARE variable) → Rationale: OutSystems Advanced SQL doesn't support DECLARE variables that aren't input parameters. SQL Server optimizes this automatically.
+- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` → Rationale: User reviewed both approaches (separated vs combined), confirmed single-scan is better for this single-day use case. Cleaner, more efficient, fewer CTEs
+- **🔥 CRITICAL: InputVar CTE Pattern (STEP 0)**: Added InputVars as FIRST CTE, all parameters referenced through it → Rationale: OutSystems "Lazy Parser" bug requires parameters to be seen early in query. Without this pattern, queries fail with "Must declare scalar variable" or DateTime parse errors. This is documented in CLAUDE.md as required for long queries.
+- **🔧 OUTSYSTEMS FIX: CROSS JOIN with InputVars**: `FROM {SalesFact}, InputVars v` pattern → Rationale: Safely references parameters throughout query via v.SiteIdVal, v.CurrentDate, v.PrevDate instead of direct @parameters
+- **🔧 OUTSYSTEMS FIX: Subquery pattern in final SELECT**: `(SELECT ViewVal FROM InputVars)` instead of `@SelectedView` → Rationale: Ensures parameter binding works in CASE statements deep in query logic
 - **🚀 OPTIMIZATION: RECOMPILE hint**: OPTION (RECOMPILE) at end → Rationale: Ensures optimal execution plan for each parameter set (recommended in CLAUDE.md)
-- **Removed InputVar CTE**: Not needed when using @SelectedView directly → Rationale: Simplifies query, InputVar was workaround for OutSystems quirk but not required here
+- **🔧 OUTSYSTEMS FIX: Output structure**: 5 columns (Hour, Pod, Sales, PercentTotal, PercentInc) → Rationale: Must match exact OutSystems output structure, no SortOrder column in output
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours
 - **Hour extraction**: DATEPART(HOUR, NZ_DateTime) → Rationale: Extract hour (0-23) in NZ timezone, not UTC
 - **YoY comparison 364 days back**: CalendarDate - 364 days → Rationale: 52 weeks = same day of week comparison
