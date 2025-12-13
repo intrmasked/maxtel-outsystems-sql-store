@@ -161,7 +161,7 @@ CleanedData AS (
 TotalData AS (
     SELECT
         NULL AS HourNum,
-        'Total Day' AS HourLabel,
+        'TotalDay' AS HourLabel,
         'Total (00-24)' AS DayPartLabel,
         29 AS SortOrder,  -- 29 ensures Total appears last (after all hours and day part totals)
         SUM(CY_NetAmount) AS CY_NetAmount,
@@ -173,23 +173,23 @@ TotalData AS (
 
 -- [STEP 5]: Calculate Day Part Totals
 -- Sums hours within each day part and creates total rows
--- These rows appear after all 24 hours, before Total Day
+-- These rows appear after all 24 hours, before TotalDay
 DayPartTotals AS (
     SELECT
         NULL AS HourNum,
         CASE DayPartLabel
-            WHEN 'Overnight (00-05)' THEN 'Overnight Total'
-            WHEN 'Breakfast (05-11)' THEN 'Breakfast Total'
-            WHEN 'Day (11-17)' THEN 'Day Total'
-            WHEN 'Night (17-24)' THEN 'Night Total'
+            WHEN 'Overnight (00-05)' THEN 'Overnight TotalDay'
+            WHEN 'Breakfast (05-11)' THEN 'Breakfast TotalDay'
+            WHEN 'Day (11-17)' THEN 'Day TotalDay'
+            WHEN 'Night (17-24)' THEN 'Night TotalDay'
         END AS HourLabel,
         DayPartLabel,
-        -- SortOrder: 25-28 (after all 24 hours, before Total Day at 29)
+        -- SortOrder: 25-28 (after all 24 hours, before TotalDay at 29)
         CASE DayPartLabel
             WHEN 'Overnight (00-05)' THEN 25   -- After all hours
             WHEN 'Breakfast (05-11)' THEN 26
             WHEN 'Day (11-17)' THEN 27
-            WHEN 'Night (17-24)' THEN 28       -- Before Total Day (29)
+            WHEN 'Night (17-24)' THEN 28       -- Before TotalDay (29)
         END AS SortOrder,
         SUM(CY_NetAmount) AS CY_NetAmount,
         SUM(CY_TransactionCount) AS CY_TransactionCount,

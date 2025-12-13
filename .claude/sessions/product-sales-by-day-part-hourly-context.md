@@ -57,7 +57,23 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 **Current step**: Query WORKING in OutSystems - Ready for production use
 
-**Latest changes (2025-12-13) - SORT ORDER REORGANIZATION:**
+**Latest changes (2025-12-13) - TOTAL LABEL STANDARDIZATION:**
+- **✅ UPDATED**: All Total Labels to "TotalDay"
+  - **Change**: Standardized all total row labels to use "TotalDay" suffix
+  - **Rationale**: User requested consistent naming for all total rows
+  - **Implementation**:
+    - "Total Day" → "TotalDay" (main total row)
+    - "Overnight Total" → "Overnight TotalDay"
+    - "Breakfast Total" → "Breakfast TotalDay"
+    - "Day Total" → "Day TotalDay"
+    - "Night Total" → "Night TotalDay"
+  - **Files Changed**:
+    - `query.sql` line 164: 'Total Day' → 'TotalDay'
+    - `query.sql` lines 181-184: All day part totals updated
+    - `README.md`: Output Columns, Output Structure, Example Output updated
+  - **Status**: All total labels now consistently use "TotalDay"
+
+**Earlier changes (2025-12-13) - SORT ORDER REORGANIZATION:**
 - **✅ UPDATED**: Sort Order - All Totals at End
   - **Change**: Moved Total Day row and all day part totals to the end of output
   - **Rationale**: User requested easier cycling through data - totals at end instead of scattered throughout
