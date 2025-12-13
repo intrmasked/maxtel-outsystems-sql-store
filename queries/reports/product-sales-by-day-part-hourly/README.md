@@ -1,17 +1,18 @@
-# Product Sales by Day Part - Hourly Breakdown
+# Product Sales by Day Part - Hourly Drill-Down View
 
 **Category**: Reports
 **Created**: 2025-12-12
-**Status**: In Testing
+**Updated**: 2025-12-13
+**Status**: Production Ready
 **Author**: Claude (MaxTel SQL Store)
 
 ---
 
 ## Purpose
 
-Provides hourly sales breakdown for a single day, showing how sales are distributed across each hour (00-01, 01-02, ..., 23-24) with year-over-year comparison. This is a drill-down view from the main "Product Sales by Day Part" report.
+Provides comprehensive hourly sales breakdown for a single day with Sales, Guest Counts, and Average Check metrics displayed side-by-side. This matches the "Drill Down View" design showing all metrics for each hour with YoY comparison.
 
-**NEW**: Includes day part total rows (Overnight Total, Breakfast Total, Day Total, Night Total) that appear after the last hour of each day part for easy aggregation.
+**Output**: 24 hourly rows (00-01 through 23-24) + 1 Total Day row = **25 rows total**
 
 ---
 
@@ -21,76 +22,60 @@ Provides hourly sales breakdown for a single day, showing how sales are distribu
 |-----------|------|-------------|---------|
 | `@SiteId` | BIGINT | Location ID | 3187 |
 | `@Date` | DATE | Single date for hourly breakdown | 2025-11-25 |
-| `@SelectedView` | VARCHAR(1) | Metric to display | 'D' |
 
-**SelectedView Options**:
-- `'D'` = Dollar Sales (NetAmount)
-- `'G'` = Guest Count (TransactionCount)
-- `'A'` = Average Check (NetAmount / TransactionCount)
+**Note**: No @SelectedView parameter - all metrics (Sales, GCs, Ave Chq) are returned in a single query.
 
 ---
 
 ## OutSystems Setup
 
-**IMPORTANT**: In OutSystems Advanced SQL Block, you MUST define these Input Parameters:
+**IMPORTANT**: In OutSystems Advanced SQL Block, define these Input Parameters:
 
 1. **SiteId** (Long Integer) - Set **Expand Inline = No**
 2. **Date** (Date) - Set **Expand Inline = No**
-3. **SelectedView** (Text) - Set **Expand Inline = No**
 
-OutSystems will automatically convert these to `@SiteId`, `@Date`, `@SelectedView` in the SQL query.
+OutSystems will automatically convert these to `@SiteId` and `@Date` in the SQL query.
 
-**Do NOT include DECLARE statements** in the OutSystems query. The query starts directly with the `WITH` clause.
-
-**For local SQL Server testing only**, you can uncomment the DECLARE lines in the query file.
+**Do NOT include DECLARE statements** in the OutSystems query (lines 11-12 are for local testing only).
 
 ---
 
-## Output Columns
+## Output Columns (9 columns)
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `Hour` | VARCHAR | Hour range label (e.g., "00-01", "01-02", ..., "Total Day") |
-| `DayPartLabel` | VARCHAR | Auto-classified day part (Overnight/Breakfast/Day/Night/Total) - differentiates total rows |
-| `Sales` | DECIMAL(18,2) | Sales metric based on @SelectedView |
-| `PercentTotal` | DECIMAL(18,2) | Percentage of daily total (0 for Average view) |
-| `PercentInc` | DECIMAL(18,2) | Year-over-year growth % (vs same day -364 days) |
+| **Hour** | VARCHAR | Hour range label (e.g., "00-01", "01-02", ..., "Total Day") |
+| **Sales** | DECIMAL(18,2) | Dollar sales (NetAmount) for this hour |
+| **Sales_PctDay** | DECIMAL(18,2) | Sales as % of total daily sales |
+| **Sales_PctInc** | DECIMAL(18,2) | YoY sales % increase (vs -364 days) |
+| **GCs** | DECIMAL(18,0) | Guest Counts (TransactionCount) for this hour |
+| **GCs_PctDay** | DECIMAL(18,2) | GCs as % of total daily GCs |
+| **GCs_PctInc** | DECIMAL(18,2) | YoY GCs % increase (vs -364 days) |
+| **AveChq** | DECIMAL(18,2) | Average Check (Sales / GCs) for this hour |
+| **AveChq_PctInc** | DECIMAL(18,2) | YoY Ave Check % increase (vs -364 days) |
 
 ---
 
 ## Output Structure
 
-The query returns **29 rows** for a single day:
-- **24 hourly rows**: 00-01, 01-02, ..., 23-24 (SortOrder 1-24, appears first)
-- **5 total rows**: All labeled "Total Day" in Hour column (SortOrder 25-29, differentiated by DayPartLabel)
-  - Total Day (Overnight 00-05) - SortOrder 25
-  - Total Day (Breakfast 05-11) - SortOrder 26
-  - Total Day (Day 11-17) - SortOrder 27
-  - Total Day (Night 17-24) - SortOrder 28
-  - Total Day (Total 00-24) - SortOrder 29 (overall total, appears last)
+The query returns **25 rows** for a single day:
 
-**Example Output** (SelectedView = 'D'):
+**24 hourly rows** (SortOrder 0-23):
+- 00-01, 01-02, 02-03, ..., 23-24
 
-| Hour | DayPartLabel | Sales | PercentTotal | PercentInc |
-|------|--------------|-------|--------------|------------|
-| 00-01 | Overnight (00-05) | 535.24 | 2.93 | -2.45 |
-| 01-02 | Overnight (00-05) | 0.00 | 0.00 | 0.00 |
-| ... | Overnight (00-05) | ... | ... | ... |
-| 04-05 | Overnight (00-05) | 120.50 | 0.66 | 1.23 |
-| 05-06 | Breakfast (05-11) | 1250.30 | 6.84 | 3.12 |
-| ... | Breakfast (05-11) | ... | ... | ... |
-| 10-11 | Breakfast (05-11) | 980.25 | 5.36 | 2.45 |
-| 11-12 | Day (11-17) | 3200.45 | 17.49 | 7.89 |
-| ... | Day (11-17) | ... | ... | ... |
-| 16-17 | Day (11-17) | 1100.80 | 6.02 | 4.12 |
-| 17-18 | Night (17-24) | 2100.60 | 11.48 | 4.52 |
-| ... | Night (17-24) | ... | ... | ... |
-| 23-24 | Night (17-24) | 782.50 | 4.28 | 8.12 |
-| **Total Day** | **Overnight (00-05)** | **655.74** | **3.58** | **-1.85** |
-| **Total Day** | **Breakfast (05-11)** | **2624.07** | **14.34** | **2.89** |
-| **Total Day** | **Day (11-17)** | **5629.06** | **30.77** | **6.54** |
-| **Total Day** | **Night (17-24)** | **9507.78** | **51.97** | **8.45** |
-| **Total Day** | **Total (00-24)** | **18296.15** | **100.00** | **5.23** |
+**1 Total Day row** (SortOrder 99):
+- Total Day (sum of all 24 hours, appears last)
+
+**Example Output** (1 Sep):
+
+| Hour | Sales | Sales_PctDay | Sales_PctInc | GCs | GCs_PctDay | GCs_PctInc | AveChq | AveChq_PctInc |
+|------|-------|--------------|--------------|-----|------------|------------|--------|---------------|
+| 00-01 | 719.30 | 2.4 | 94.7 | 26 | 1.4 | 23.8 | 27.67 | 57.3 |
+| 01-02 | 532.17 | 1.8 | 288.1 | 28 | 1.5 | 180.0 | 19.01 | 38.7 |
+| 02-03 | 298.67 | 1.0 | 49.1 | 17 | 0.9 | 41.7 | 17.57 | 5.3 |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| 23-24 | 813.59 | 2.8 | 65.3 | 56 | 3.0 | 93.1 | 14.53 | -14.4 |
+| **Total Day** | **######** | **100.0** | **61.5** | **1,869** | **100.0** | **37.8** | **15.75** | **17.1** |
 
 ---
 
@@ -110,43 +95,39 @@ The query returns **29 rows** for a single day:
 - Extracts hour (0-23) using `DATEPART(HOUR, ...)`
 - Hour buckets: 00-01 (0:00-0:59), 01-02 (1:00-1:59), ..., 23-24 (23:00-23:59)
 
-### 2. DayPartLabel Auto-Classification
-Each hour is automatically classified into a day part for easy extraction:
-- **Overnight (00-05)**: Hours 0-4 (00-01, 01-02, 02-03, 03-04, 04-05)
-- **Breakfast (05-11)**: Hours 5-10 (05-06, 06-07, 07-08, 08-09, 09-10, 10-11)
-- **Day (11-17)**: Hours 11-16 (11-12, 12-13, 13-14, 14-15, 15-16, 16-17)
-- **Night (17-24)**: Hours 17-23 (17-18, 18-19, 19-20, 20-21, 21-22, 22-23, 23-24)
-- **Total (00-24)**: Total row (sum of all 24 hours)
-
-This allows you to filter and aggregate by day part manually if needed.
-
-### 3. Day Part Total Rows
-After the last hour of each day part, a total row is inserted:
-- **Overnight Total**: Sum of hours 00-01 through 04-05 (SortOrder 5.5, appears after 04-05)
-- **Breakfast Total**: Sum of hours 05-06 through 10-11 (SortOrder 11.5, appears after 10-11)
-- **Day Total**: Sum of hours 11-12 through 16-17 (SortOrder 17.5, appears after 16-17)
-- **Night Total**: Sum of hours 17-18 through 23-24 (SortOrder 24.5, appears after 23-24)
-
-These rows make it easy to:
-- Compare day part performance without manual aggregation
-- Verify that individual hours sum to day part totals
-- Pivot data in OutSystems or Excel by filtering on "Total" suffix
-
-### 4. Aggregate Level Filtering
+### 2. Aggregate Level Filtering
 - **Pod = ''** (empty string = site-wide aggregate)
 - **ISNULL(PosId,0) = 0** (no specific POS = site-wide aggregate)
 - **ProductSaleTypeId = 1** (product sales only)
 - All other dimensions set to NULL (ProductMenuId, TenderTypeId, etc.)
 
-### 5. Year-over-Year Comparison
+### 3. Year-over-Year Comparison
 - **Current Year**: CalendarDate = @Date
 - **Previous Year**: CalendarDate = DATEADD(DAY, -364, @Date)
 - Uses 364 days (52 weeks) to align day-of-week
 
-### 6. Total Row Alignment
-- **Total row should match parent screen day totals**
-- Formula: SUM of all 24 hours
-- Total row always has PercentTotal = 100%
+### 4. Metrics Calculation
+
+**Sales Metrics**:
+- Sales = CY_NetAmount
+- Sales_PctDay = (CY_NetAmount / GrandTotal_Net) * 100
+- Sales_PctInc = ((CY_NetAmount - PY_NetAmount) / PY_NetAmount) * 100
+
+**Guest Count Metrics**:
+- GCs = CY_TransactionCount
+- GCs_PctDay = (CY_TransactionCount / GrandTotal_Txn) * 100
+- GCs_PctInc = ((CY_TransactionCount - PY_TransactionCount) / PY_TransactionCount) * 100
+
+**Average Check Metrics**:
+- AveChq = CY_NetAmount / CY_TransactionCount
+- AveChq_PctInc = ((CY_Ave - PY_Ave) / PY_Ave) * 100
+
+### 5. Total Row
+- **Hour = "Total Day"**
+- **Sales_PctDay = 100%** (sum of all hours)
+- **GCs_PctDay = 100%** (sum of all hours)
+- **AveChq = Total Sales / Total GCs** (weighted average)
+- All YoY % increases calculated from totals
 
 ---
 
@@ -155,7 +136,7 @@ These rows make it easy to:
 **SalesFact Mandatory Filters**:
 ```sql
 WHERE SiteId = @SiteId
-  AND CalendarDate = @Date (or -364 for PY)
+  AND CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))
   AND DatePeriodDimensionId = 15
   AND ProductMenuId IS NULL
   AND ProductSaleTypeId = 1
@@ -172,29 +153,23 @@ WHERE SiteId = @SiteId
 
 ## Performance Optimizations
 
-**OPTIMIZED**: This query uses a single-scan approach for maximum efficiency on single-day queries.
+1. **InputVar CTE Pattern** - Fixes OutSystems "Lazy Parser" parameter binding issue
+   - Pre-calculates CurrentDate, PrevDate, SiteIdVal
+   - All parameters referenced through InputVars to avoid parsing failures
 
-1. **Single Table Scan** - Fetches both CY and PY data in one pass using conditional SUM aggregation
+2. **Single Table Scan** - Fetches CY and PY data in one pass using conditional SUM
    - Uses `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` filter
-   - Conditionally aggregates with `SUM(CASE WHEN CalendarDate = @Date THEN ... ELSE 0 END)`
+   - Conditionally aggregates with `SUM(CASE WHEN CalendarDate = ... THEN ... ELSE 0 END)`
    - Avoids double scan of SalesFact table
 
-2. **Inline Date Calculation** - `DATEADD(DAY, -364, @Date)` calculated inline
-   - OutSystems compatible (no extra DECLARE parameters)
-   - SQL Server optimizes this calculation automatically
+3. **Window Functions** - Calculates grand totals without extra joins
+   - `MAX(CASE WHEN SortOrder = 99 ...) OVER()` pattern
+   - Grand total available on every row for % calculations
 
-3. **Early Filtering** - All dimension filters applied before aggregation for index pushdown
-   - ProductMenuId, TenderTypeId, OperationId, etc. all set to NULL in WHERE clause
-   - Enables SQL Server to use optimal indexes
-
-4. **Window Functions** - Daily totals calculated using OVER() to avoid extra joins
-   - `MAX(CASE WHEN SortOrder = 0 ...) OVER()` pattern
-   - No additional table scans needed
-
-5. **Hour Scaffold** - Ensures all 24 hours exist in output, even with 0 sales
+4. **Hour Scaffold** - Ensures all 24 hours exist in output, even with 0 sales
    - LEFT JOIN pattern fills missing hours with 0 values
 
-6. **RECOMPILE Hint** - `OPTION (RECOMPILE)` forces optimal execution plan
+5. **RECOMPILE Hint** - `OPTION (RECOMPILE)` forces optimal execution plan
    - SQL Server optimizes for actual parameter values each run
    - Critical for queries with varying date ranges
 
@@ -219,13 +194,13 @@ WHERE SiteId = @SiteId
 ## Usage Example
 
 ```sql
--- Get hourly dollar sales breakdown for 2025-11-25
+-- Get hourly breakdown for 1 Sep 2025
 DECLARE @SiteId BIGINT = 3187;
-DECLARE @Date DATE = '2025-11-25';
-DECLARE @SelectedView VARCHAR(1) = 'D';
+DECLARE @Date DATE = '2025-09-01';
 
 -- Run the query
--- Returns 29 rows (1 Total + 24 hourly rows + 4 day part totals)
+-- Returns 25 rows (24 hours + 1 Total Day row)
+-- Output: Hour, Sales, Sales_PctDay, Sales_PctInc, GCs, GCs_PctDay, GCs_PctInc, AveChq, AveChq_PctInc
 ```
 
 ---
@@ -237,8 +212,9 @@ DECLARE @SelectedView VARCHAR(1) = 'D';
 - Date range support (multiple days)
 
 **This Query (Hourly Drill-Down)**:
-- Shows 24 individual hours for a **single day**
-- Total row should match parent query's daily total
+- Shows all metrics (Sales, GCs, Ave Chq) for **24 individual hours** + Total
+- Single day only
+- Total Day row should align with parent query's daily total
 - Same filters (Pod = '', PosId = 0, ProductSaleTypeId = 1)
 
 ---
@@ -246,18 +222,17 @@ DECLARE @SelectedView VARCHAR(1) = 'D';
 ## Notes
 
 - **OutSystems Compatible**: Uses `REPLICATE()` for hour formatting (no `RIGHT()` function)
-- **InputVar CTE**: Handles OutSystems parameter binding quirk
+- **InputVar CTE**: Handles OutSystems parameter binding quirk (required for long queries)
 - **Timezone Handling**: Automatic daylight saving transition (NZDT vs NZST)
 - **Hour Format**: "00-01", "01-02", ... matches UI display format
-- **Total Row First**: SortOrder = 0 ensures Total appears at top
+- **No SelectedView**: Unlike previous design, this query returns all metrics at once
 
 ---
 
 ## Testing
 
 Test queries are located in `tests/` subfolder:
-- `test-[feature].sql` - Feature-specific tests
-- `test-diagnostic.sql` - Data verification tests
+- `test-parameters.sql` - Parameter validation test
 
 ---
 
@@ -266,6 +241,7 @@ Test queries are located in `tests/` subfolder:
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-12-12 | Initial creation - Hourly breakdown query | Claude |
+| 2025-12-13 | **COMPLETE REWRITE** - Changed to drill-down view with 9 columns (Sales/GCs/AveChq) | Claude |
 
 ---
 

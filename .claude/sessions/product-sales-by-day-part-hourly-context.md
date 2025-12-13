@@ -51,13 +51,36 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 ## Status
 
-- [ ] Complete
-- [X] In Testing (User Acceptance)
+- [X] Complete
+- [ ] In Testing (User Acceptance)
 - [ ] Needs Review
 
-**Current step**: Query WORKING in OutSystems - Ready for production use
+**Current step**: Query FINALIZED - Production ready
 
-**Latest changes (2025-12-13) - UNIFIED TOTAL LABEL:**
+**Latest changes (2025-12-13) - COMPLETE QUERY REWRITE:**
+- **🔥 COMPLETE REWRITE**: Changed to drill-down view design with 9 columns
+  - **Problem**: Original design was based on incorrect requirements - built 5-column query with day part totals
+  - **Discovery**: User provided screenshot of actual "Drill Down View" showing completely different structure
+  - **New Design**: Wide-format query with Sales, GCs, and Ave Chq metrics side-by-side
+  - **Implementation**:
+    - **25 rows total**: 24 hourly rows (00-01 through 23-24) + 1 Total Day row
+    - **9 columns**: Hour, Sales, Sales_PctDay, Sales_PctInc, GCs, GCs_PctDay, GCs_PctInc, AveChq, AveChq_PctInc
+    - **Removed**: Day part totals (Overnight, Breakfast, Day, Night)
+    - **Removed**: @SelectedView parameter (all metrics returned at once)
+    - **Removed**: DayPartLabel column
+    - **Simplified**: Only 2 parameters (@SiteId, @Date)
+  - **New Structure**:
+    - Section 1: Sales metrics (3 columns)
+    - Section 2: Guest Count metrics (3 columns)
+    - Section 3: Average Check metrics (2 columns)
+    - Total Day row at end (SortOrder 99)
+  - **Files Changed**:
+    - `query.sql` - Complete rewrite (184 lines)
+    - `README.md` - Complete rewrite to reflect new structure
+    - `metadata.json` - Updated output_columns, parameters, key_features
+  - **Status**: User confirmed "this works and it is finalized"
+
+**Earlier changes (2025-12-13) - UNIFIED TOTAL LABEL (SUPERSEDED):**
 - **✅ UPDATED**: All Total Rows Use "Total Day" Label
   - **Change**: All 5 total rows now use "Total Day" as the Hour label (differentiated by DayPartLabel column)
   - **Rationale**: User requested simplified labeling - don't mention day part in Hour column
@@ -273,26 +296,23 @@ this is the current structure for the parent screen, ill handle pivoting on my o
 
 ## Key Decisions
 
-- **Hourly breakdown**: 24 rows (00-01 through 23-24) + 1 Total row + 4 day part totals → Rationale: User screenshot shows hourly granularity, day part totals requested for aggregation
+**FINAL DESIGN (2025-12-13)**:
+- **🔥 Wide-format drill-down**: 9 columns showing Sales, GCs, Ave Chq metrics side-by-side → Rationale: User provided actual "Drill Down View" screenshot showing this is the correct design. Previous 5-column design was based on misunderstanding.
+- **25 rows total**: 24 hourly rows + 1 Total Day row → Rationale: No day part totals needed - just hourly breakdown with overall total at end
+- **No @SelectedView parameter**: All metrics returned at once → Rationale: Drill-down view shows all metrics simultaneously, not switchable views
 - **Hour format "HH-HH"**: Use REPLICATE for padding (OutSystems compatible) → Rationale: No RIGHT() function in OutSystems, "00-01" format matches UI
-- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` → Rationale: User reviewed both approaches (separated vs combined), confirmed single-scan is better for this single-day use case. Cleaner, more efficient, fewer CTEs
-- **🔥 CRITICAL: InputVar CTE Pattern (STEP 0)**: Added InputVars as FIRST CTE, all parameters referenced through it → Rationale: OutSystems "Lazy Parser" bug requires parameters to be seen early in query. Without this pattern, queries fail with "Must declare scalar variable" or DateTime parse errors. This is documented in CLAUDE.md as required for long queries.
-- **🔧 OUTSYSTEMS FIX: CROSS JOIN with InputVars**: `FROM {SalesFact}, InputVars v` pattern → Rationale: Safely references parameters throughout query via v.SiteIdVal, v.CurrentDate, v.PrevDate instead of direct @parameters
-- **🔧 OUTSYSTEMS FIX: Subquery pattern in final SELECT**: `(SELECT ViewVal FROM InputVars)` instead of `@SelectedView` → Rationale: Ensures parameter binding works in CASE statements deep in query logic
+- **🔥 CRITICAL: InputVar CTE Pattern (STEP 0)**: Added InputVars as FIRST CTE, all parameters referenced through it → Rationale: OutSystems "Lazy Parser" bug requires parameters to be seen early in query. Without this pattern, queries fail with "Must declare scalar variable" or DateTime parse errors.
+- **🔧 OUTSYSTEMS FIX: CROSS JOIN with InputVars**: `FROM {SalesFact}, InputVars v` pattern → Rationale: Safely references parameters throughout query via v.SiteIdVal, v.CurrentDate, v.PrevDate
+- **🚀 OPTIMIZATION: Single-scan conditional aggregation**: Combined CY/PY fetch with `CalendarDate IN (@Date, DATEADD(DAY, -364, @Date))` → Rationale: Single table scan, cleaner code, better performance
+- **🚀 OPTIMIZATION: Window functions for grand totals**: `MAX(CASE WHEN SortOrder = 99 ...) OVER()` → Rationale: Grand total available on every row for % calculations without extra joins
 - **🚀 OPTIMIZATION: RECOMPILE hint**: OPTION (RECOMPILE) at end → Rationale: Ensures optimal execution plan for each parameter set (recommended in CLAUDE.md)
-- **🔧 OUTSYSTEMS FIX: Output structure**: 5 columns (Hour, Pod, Sales, PercentTotal, PercentInc) → Rationale: Must match exact OutSystems output structure, no SortOrder column in output
 - **NZ timezone conversion**: AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' → Rationale: Database is UTC, report needs NZ business hours
 - **Hour extraction**: DATEPART(HOUR, NZ_DateTime) → Rationale: Extract hour (0-23) in NZ timezone, not UTC
 - **YoY comparison 364 days back**: CalendarDate - 364 days → Rationale: 52 weeks = same day of week comparison
-- **@SelectedView parameter**: 'D', 'G', 'A' → Rationale: Matches parent query (Sales/GC/Av Chq views)
-- **PercentTotal = 0 for Av Chq**: Not applicable for average check → Rationale: User specified "not relevant for AveChq"
-- **Total row SortOrder = 0**: Ensures Total appears first → Rationale: User said "Bottom row is the totals" (will be sorted first, displayed at top or bottom by UI)
-- **Total row PercentTotal = 100%**: Total always 100% of itself → Rationale: Represents the full daily total
-- **Aggregate level filters**: Pod = '', PosId = 0 → Rationale: User said "no filters" = site-wide aggregate (matching parent query pattern)
+- **Aggregate level filters**: Pod = '', PosId = 0 → Rationale: Site-wide totals (matching parent query pattern)
+- **Total Day SortOrder = 99**: Ensures Total appears last → Rationale: Total row at bottom of output, hourly rows sorted 0-23
 - **DatePeriodDimensionId = 15**: 15-minute intervals → Rationale: Same as parent query
 - **ProductSaleTypeId = 1**: Product sales only → Rationale: Matches parent query pattern
-- **Window functions for daily total**: MAX(CASE WHEN SortOrder = 0 ...) OVER () → Rationale: Calculate daily total without extra joins
-- **InputVar CTE**: Handle OutSystems parameter binding quirk → Rationale: Long queries with parameters only at end fail without this
 
 ---
 

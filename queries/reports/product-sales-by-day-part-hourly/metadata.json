@@ -1,14 +1,26 @@
 {
   "query_name": "product-sales-by-day-part-hourly",
-  "display_name": "Product Sales By Day Part - Hourly Breakdown",
+  "display_name": "Product Sales By Day Part - Hourly Drill-Down View",
   "category": "reports",
   "created_date": "2025-12-12",
+  "updated_date": "2025-12-13",
   "author": "Claude Code",
-  "status": "in_testing_optimized",
+  "status": "production_ready",
   "sql_server_version": "2014+",
-  "description": "Hourly sales breakdown for a single day showing 24 hours + 4 day part totals + Total with YoY comparison",
-  "output_format": "long_format",
-  "expected_rows": "29 (24 hourly rows + 4 day part totals + 1 Total row)",
+  "description": "Comprehensive hourly sales breakdown showing Sales, Guest Counts, and Average Check metrics for a single day with YoY comparison. Matches 'Drill Down View' design.",
+  "output_format": "wide_format",
+  "expected_rows": "25 (24 hourly rows + 1 Total Day row)",
+  "output_columns": [
+    "Hour",
+    "Sales",
+    "Sales_PctDay",
+    "Sales_PctInc",
+    "GCs",
+    "GCs_PctDay",
+    "GCs_PctInc",
+    "AveChq",
+    "AveChq_PctInc"
+  ],
   "parameters": {
     "SiteId": {
       "type": "BIGINT",
@@ -21,38 +33,49 @@
       "required": true,
       "default": "2025-11-25",
       "description": "NZ Date for the hourly breakdown (single day)"
-    },
-    "SelectedView": {
-      "type": "VARCHAR(1)",
-      "required": true,
-      "default": "D",
-      "options": ["D", "G", "A"],
-      "description": "View type: D=Dollar Sales, G=Guest Count, A=Average Check"
     }
   },
   "tables_used": [
     "SalesFact"
   ],
   "key_features": [
-    "24 hourly rows (00-01 through 23-24)",
-    "4 day part total rows (Overnight, Breakfast, Day, Night)",
-    "DayPartLabel auto-classification for each hour",
+    "24 hourly rows (00-01 through 23-24) + 1 Total Day row",
+    "9 output columns (Hour + 8 metric columns)",
+    "Sales metrics: Sales, % Day, % Inc YoY",
+    "Guest Count metrics: GCs, % Day, % Inc YoY",
+    "Average Check metrics: Ave Chq, % Inc YoY",
     "NZ timezone conversion from UTC",
     "Aggregate level (Pod = '', PosId = 0)",
-    "YoY comparison (364 days back)",
-    "Scaffold pattern for complete output",
-    "Total row (sum of all 24 hours)",
-    "Three view modes (Sales, GC, Av Chq)",
+    "YoY comparison (364 days back for same day-of-week)",
+    "Scaffold pattern ensures all 24 hours appear",
+    "Total Day row (sum of all 24 hours) at end",
     "Total row aligns with parent screen day totals",
+    "OPTIMIZED: InputVar CTE pattern (OutSystems compatible)",
     "OPTIMIZED: Single table scan with conditional aggregation",
-    "OPTIMIZED: Inline date calculation (OutSystems compatible)",
+    "OPTIMIZED: Window functions for grand total calculation",
     "OPTIMIZED: RECOMPILE hint for optimal execution plan"
   ],
+  "metrics_calculated": {
+    "sales": {
+      "base": "CY_NetAmount",
+      "pct_day": "(CY_NetAmount / GrandTotal_Net) * 100",
+      "pct_inc": "((CY_NetAmount - PY_NetAmount) / PY_NetAmount) * 100"
+    },
+    "guest_counts": {
+      "base": "CY_TransactionCount",
+      "pct_day": "(CY_TransactionCount / GrandTotal_Txn) * 100",
+      "pct_inc": "((CY_TransactionCount - PY_TransactionCount) / PY_TransactionCount) * 100"
+    },
+    "average_check": {
+      "base": "CY_NetAmount / CY_TransactionCount",
+      "pct_inc": "((CY_Ave - PY_Ave) / PY_Ave) * 100"
+    }
+  },
   "related_queries": [
     "product-sales-by-day-part",
     "product-sales-by-pos-type-hourly"
   ],
-  "outsystems_screen": "ProductSalesByDayPartHourlyScreen",
+  "outsystems_screen": "ProductSalesByDayPartHourlyDrillDown",
   "parent_screen": "Product Sales By Day Part",
-  "notes": "This is a drill-down from Product Sales By Day Part. Total row should match parent screen day totals."
+  "notes": "This is a drill-down from Product Sales By Day Part. Shows all metrics (Sales, GCs, Ave Chq) in a single wide-format query. Total Day row should match parent screen day totals. Complete rewrite from original 5-column design to 9-column drill-down view."
 }
