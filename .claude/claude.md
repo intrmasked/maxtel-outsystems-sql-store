@@ -172,8 +172,42 @@ This allows easy testing by changing values at the top.
 - Remove ALL `DECLARE @Variable` statements from query
 - Add parameters in OutSystems Advanced SQL block:
   - Name matches SQL variable name (without @)
-  - Set **Expand Inline = No** for all parameters
+  - Set **Expand Inline = No** for most parameters
   - OutSystems automatically converts to `@ParameterName` in SQL
+
+**🔥 CRITICAL: Comma-Separated Lists (Multi-Site Support):**
+- **Problem**: SQL Server can't use `IN (@StringParam)` - it treats the whole string as one value
+- **Solution**: Use OutSystems **Expand Inline = YES** for comma-separated parameters!
+- When `Expand Inline = YES`, OutSystems injects values directly into SQL text:
+  ```sql
+  -- You write:
+  WHERE SiteId IN (@SiteIds)
+  
+  -- OutSystems generates (when @SiteIds = '3187,3188,3189'):
+  WHERE SiteId IN (3187,3188,3189)
+  ```
+- **When to use**: Multi-site queries where OutSystems passes comma-separated Site IDs
+- **Security**: OutSystems handles tenant filtering in application layer, then passes safe list
+
+**Comma-Separated List Pattern:**
+```sql
+-- OutSystems Production Query (Expand Inline = YES)
+SiteList AS (
+    SELECT s.Id AS SiteId, ISNULL(s.DisplayName, s.Name) AS SiteName
+    FROM {Site} s
+    WHERE s.Id IN (@SiteIds)  -- Works with Expand Inline = YES!
+)
+```
+
+**SSMS Testing for Comma-Separated Lists:**
+- Expand Inline only works in OutSystems, NOT in SSMS
+- For SSMS testing, create a separate test file using `STRING_SPLIT()`:
+  ```sql
+  -- SSMS Test Version (SQL Server 2016+)
+  WHERE s.Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
+  ```
+- Keep SSMS test queries in `tests/test-ssms.sql` subfolder
+- Production query stays clean (OutSystems-specific)
 
 **Example 1 - Hour Formatting (OutSystems compatible):**
 ```sql
