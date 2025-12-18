@@ -1,30 +1,25 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT SALES BY DAY PART - v4.0.0 (OutSystems Production)
+   TEST QUERY: PRODUCT SALES BY DAY PART - SSMS VERSION
    ===================================================================================
-
-   PURPOSE:
-   Sales/transaction data by 4 day-part time buckets with YoY comparison.
-   Multi-site support via comma-separated Site ID list.
-
-   OUTSYSTEMS PARAMETERS:
-   - SiteIds (Text)      → ⚠️ Expand Inline = YES ⚠️
-   - StartDate (Date)    → Expand Inline = No
-   - EndDate (Date)      → Expand Inline = No
-   - SelectedView (Text) → Expand Inline = No  ('D'=Dollar, 'G'=Guest, 'A'=Average)
-
-   DAY PARTS:
-   - Overnight (00-05), Breakfast (05-11), Day (11-17), Night (17-24)
-
-   KEY OPTIMIZATIONS (v4.0.0):
-   - Expand Inline = YES for @SiteIds (no SQL parsing needed)
-   - Single-scan: Reads SalesFact ONCE for CY+PY data
-   - Pre-calculated NZ timezone before aggregation
-   - Conditional aggregation with YearType flag
-
-   FOR SSMS TESTING: See tests/test-ssms.sql
+   
+   This is the SSMS-compatible version for testing in SQL Server Management Studio.
+   Uses STRING_SPLIT() to parse comma-separated @SiteIds parameter.
+   
+   NOTE: The production query (../query.sql) uses OutSystems Expand Inline = YES
+   which doesn't require STRING_SPLIT - OutSystems injects values directly.
+   
+   REQUIREMENTS:
+   - SQL Server 2016+ (for STRING_SPLIT function)
+   - Replace {Site} and {SalesFact} with actual table names (e.g., [dbo].[Site])
+   
    ===================================================================================
 */
+
+DECLARE @SiteIds NVARCHAR(MAX) = '3187';  -- Comma-separated Site IDs
+DECLARE @StartDate DATE = '2025-12-01';
+DECLARE @EndDate DATE = '2025-12-07';
+DECLARE @SelectedView VARCHAR(1) = 'D';
 
 WITH
 
@@ -39,7 +34,10 @@ Numbers AS (
 ),
 AllNumbers AS (
     SELECT ROW_NUMBER() OVER (ORDER BY (SELECT 1)) - 1 AS N
-    FROM Numbers n1 CROSS JOIN Numbers n2 CROSS JOIN Numbers n3 CROSS JOIN Numbers n4
+    FROM Numbers n1
+    CROSS JOIN Numbers n2
+    CROSS JOIN Numbers n3
+    CROSS JOIN Numbers n4
 ),
 DateList AS (
     SELECT DATEADD(DAY, N, @StartDate) AS ReportDate
@@ -54,14 +52,22 @@ DayPartDefs AS (
     UNION ALL SELECT 'Night (17-24)', 4
 ),
 
+-- SSMS: Use STRING_SPLIT to parse comma-separated Site IDs
 SiteList AS (
-    SELECT s.Id AS SiteId, ISNULL(s.DisplayName, s.Name) AS SiteName
-    FROM {Site} s
-    WHERE s.Id IN (@SiteIds)
+    SELECT
+        s.Id AS SiteId,
+        ISNULL(s.DisplayName, s.Name) AS SiteName
+    FROM [dbo].[Site] s
+    WHERE s.Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
 ),
 
 Scaffold AS (
-    SELECT d.ReportDate, p.DayPartLabel, p.SortOrder, site.SiteId, site.SiteName
+    SELECT
+        d.ReportDate,
+        p.DayPartLabel,
+        p.SortOrder,
+        site.SiteId,
+        site.SiteName
     FROM DateList d
     CROSS JOIN DayPartDefs p
     CROSS JOIN SiteList site
@@ -75,8 +81,8 @@ RawData AS (
         CASE WHEN sf.CalendarDate BETWEEN @StartDate AND @EndDate THEN sf.CalendarDate ELSE DATEADD(DAY, 364, sf.CalendarDate) END AS ReportDate,
         sf.NetAmount,
         sf.TransactionCount
-    FROM {SalesFact} sf
-    WHERE sf.SiteId IN (@SiteIds)
+    FROM [dbo].[SalesFact] sf
+    WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND @EndDate
       AND sf.DatePeriodDimensionId = 15
       AND sf.ProductMenuId IS NULL
@@ -129,19 +135,20 @@ CleanedData AS (
 
 TotalData AS (
     SELECT ReportDate, SiteId, SiteName, 'Total (00-24)' AS DayPartLabel, 0 AS SortOrder,
-        SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount)
+        SUM(CY_NetAmount) AS CY_NetAmount, SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount, SUM(PY_TransactionCount) AS PY_TransactionCount
     FROM CleanedData
     GROUP BY ReportDate, SiteId, SiteName
 ),
 
 CombinedSet AS (
-    SELECT * FROM CleanedData UNION ALL SELECT * FROM TotalData
+    SELECT * FROM CleanedData
+    UNION ALL
+    SELECT * FROM TotalData
 )
 
 SELECT
-    ReportDate AS Date,
-    SiteName,
-    DayPartLabel,
+    ReportDate AS Date, SiteName, DayPartLabel,
     CASE (SELECT SelectedView FROM InputVar)
         WHEN 'D' THEN CY_NetAmount
         WHEN 'G' THEN CAST(CY_TransactionCount AS DECIMAL(18,2))
@@ -168,4 +175,4 @@ SELECT
     END AS PercentInc,
     SortOrder
 FROM CombinedSet
-ORDER BY Date ASC, SiteName ASC, SortOrder ASC
+ORDER BY Date ASC, SiteName ASC, SortOrder ASC;

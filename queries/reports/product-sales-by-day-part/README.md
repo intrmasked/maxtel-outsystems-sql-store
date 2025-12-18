@@ -2,7 +2,7 @@
 
 **Category**: Reports
 **Created**: 2025-12-18
-**Status**: In Development
+**Status**: In Development (v4.0.0)
 
 ## Purpose
 
@@ -108,7 +108,9 @@ Returns sales/transaction data grouped by 4 day-part time buckets across a date 
 ### 2. Multi-Site Support via @SiteIds
 - Accepts comma-separated list of Site IDs (e.g., '3187,3188,3189')
 - OutSystems pre-filters sites based on tenant and active/inactive status
-- SQL uses `STRING_SPLIT()` to parse list into table
+- ⚠️ **CRITICAL**: Set `Expand Inline = YES` for SiteIds parameter!
+- OutSystems injects values directly into SQL: `WHERE Id IN (3187,3188,3189)`
+- No SQL parsing needed (no STRING_SPLIT, no XML, no CTEs)
 - Site names from `Site.DisplayName` column
 - **Cleaner separation**: Application layer handles filtering, SQL handles aggregation
 
@@ -117,10 +119,12 @@ Returns sales/transaction data grouped by 4 day-part time buckets across a date 
 - Missing data shows as 0 (not NULL)
 - Prevents UI grid errors from missing rows
 
-### 4. Separated CY/PY Fetch
-- Current Year and Previous Year fetched independently
-- Prevents double-counting from conditional CASE logic
-- More accurate aggregations
+### 4. Single-Scan Optimization (v4.0.0)
+- 🔥 **Single SalesFact read** for both CY and PY data (was 2 scans)
+- Pre-calculates NZ timezone conversion BEFORE aggregation
+- Uses YearType flag ('CY'/'PY') to classify rows in single pass
+- Conditional aggregation with `CASE WHEN YearType = 'CY' THEN ...`
+- **Result**: ~0.6 second performance for typical queries
 
 ### 5. Year-over-Year Comparison
 - Previous Year = Current Year - 364 days (52 weeks)
@@ -194,7 +198,7 @@ DECLARE @SelectedView VARCHAR(1) = 'G';
 
 **Advanced SQL Block**:
 1. Create Input Parameters:
-   - `SiteIds` (Text) - Expand Inline: **No** - Comma-separated list
+   - `SiteIds` (Text) - ⚠️ **Expand Inline: YES** ⚠️ - Comma-separated list
    - `StartDate` (Date) - Expand Inline: **No**
    - `EndDate` (Date) - Expand Inline: **No**
    - `SelectedView` (Text) - Expand Inline: **No**
@@ -241,6 +245,9 @@ See `tests/` folder for diagnostic queries.
 
 ## Change Log
 
-| Date | Change | Author |
-|------|--------|--------|
-| 2025-12-18 | Initial creation - parent query setup | Claude |
+| Date | Version | Change | Author |
+|------|---------|--------|--------|
+| 2025-12-18 | v1.0.0 | Initial creation - parent query setup | Claude |
+| 2025-12-18 | v2.0.0 | Multi-site support with SQL filtering | Claude |
+| 2025-12-18 | v3.0.0 | Refactored to @SiteIds approach | Claude |
+| 2025-12-18 | v4.0.0 | **Major optimization**: Expand Inline = YES for SiteIds (no parsing), single-scan optimization (1 SalesFact read vs 2), pre-calculated timezone, conditional aggregation | Claude |

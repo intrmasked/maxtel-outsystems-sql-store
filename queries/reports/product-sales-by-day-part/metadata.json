@@ -4,8 +4,8 @@
   "created_date": "2025-12-18",
   "author": "Claude",
   "status": "in_development",
-  "description": "Returns sales/transaction data grouped by 4 day-part time buckets across a date range and sites with YoY comparison. Supports multi-site reporting with tenant filtering handled by OutSystems application layer. Parent query for hourly drill-down view.",
-  "version": "3.0.0",
+  "description": "Returns sales/transaction data grouped by 4 day-part time buckets across a date range and sites with YoY comparison. Multi-site support via Expand Inline. Single-scan optimization for ~0.6s performance.",
+  "version": "4.0.0",
   "target_platform": "OutSystems Advanced SQL",
   "sql_version": "SQL Server 2014+",
   "parameters": [
@@ -14,13 +14,15 @@
       "type": "NVARCHAR(MAX)",
       "required": true,
       "default": "3187,3188,3189",
-      "description": "Comma-separated list of Site IDs. OutSystems pre-filters based on tenant and active status."
+      "expand_inline": "YES",
+      "description": "Comma-separated list of Site IDs. ⚠️ CRITICAL: Set Expand Inline = YES in OutSystems!"
     },
     {
       "name": "@StartDate",
       "type": "DATE",
       "required": true,
       "default": "2025-12-01",
+      "expand_inline": "NO",
       "description": "Start of date range"
     },
     {
@@ -28,6 +30,7 @@
       "type": "DATE",
       "required": true,
       "default": "2025-12-07",
+      "expand_inline": "NO",
       "description": "End of date range"
     },
     {
@@ -35,6 +38,7 @@
       "type": "VARCHAR(1)",
       "required": true,
       "default": "D",
+      "expand_inline": "NO",
       "description": "Metric to display: D=Dollar Sales, G=Guest Count, A=Average Check"
     }
   ],
@@ -88,33 +92,31 @@
     }
   ],
   "key_features": [
-    "Multi-site support via @SiteIds (comma-separated list)",
+    "⚠️ Expand Inline = YES for @SiteIds (no SQL parsing needed!)",
+    "🔥 Single-scan optimization (reads SalesFact ONCE for CY+PY)",
+    "Pre-calculated NZ timezone conversion (expensive op done once)",
+    "YearType flag + conditional aggregation for CY/PY pivot",
+    "Multi-site support via comma-separated Site IDs",
     "Tenant filtering handled by OutSystems application layer",
-    "Active/inactive filtering handled by OutSystems application layer",
-    "STRING_SPLIT() to parse site list in SQL",
     "Date range support (multiple days)",
     "4 day-part time buckets (Overnight, Breakfast, Day, Night)",
     "NZ timezone conversion (UTC → NZST/NZDT)",
     "Year-over-year comparison (-364 days)",
     "View switching (Dollar/Guest Count/Average Check)",
     "Scaffold pattern (guarantees all date/daypart/site rows)",
-    "Separated CY/PY fetch",
     "Window functions for % calculations (partitioned by site)",
-    "Numbers CTE for large date ranges",
-    "Clean separation: Application filters, SQL aggregates"
+    "Numbers CTE for large date ranges"
   ],
   "performance": {
-    "expected_runtime": "1-8 seconds (varies by site count and date range)",
-    "optimization_level": "High",
-    "single_site": "< 1 second for 7-day range, 1-2 seconds for 30-day range",
-    "multi_site": "1-3 seconds for 10 sites (7-day), 3-8 seconds for 50 sites (7-day)",
+    "expected_runtime": "~0.6 seconds (typical 7-day range)",
+    "optimization_level": "Very High (v4.0.0)",
     "techniques": [
-      "SiteList CTE with STRING_SPLIT() for comma-separated parsing",
-      "IN clause for fast site filtering",
-      "Application-layer tenant filtering (faster than SQL logic)",
+      "Expand Inline = YES (no SQL parsing needed)",
+      "Single-scan for CY+PY data (was 2 separate scans)",
+      "Pre-calculated NZ timezone before aggregation",
+      "YearType flag + conditional aggregation",
       "Early filtering for index pushdown",
-      "Separate CY/PY CTEs",
-      "Window functions instead of joins (partitioned by site)",
+      "Window functions instead of joins",
       "Numbers CTE (no recursion limit)"
     ]
   },
@@ -173,7 +175,7 @@
   },
   "testing": {
     "test_queries": [],
-    "validation": "Pending initial testing",
+    "validation": "Pending OutSystems testing",
     "known_issues": []
   },
   "change_log": [
@@ -186,13 +188,19 @@
     {
       "date": "2025-12-18",
       "version": "2.0.0",
-      "change": "Added multi-site support - @SiteId now nullable (NULL = all sites), added @ActiveOnly parameter, added SiteName column, Site table join, SiteFilter CTE, scaffold expanded to Date x DayPart x Site, % calculations partitioned by site",
+      "change": "Added multi-site support - @SiteId nullable, @ActiveOnly parameter, Site table join, SiteFilter CTE",
       "author": "Claude"
     },
     {
       "date": "2025-12-18",
       "version": "3.0.0",
-      "change": "REFACTORED to @SiteIds approach - Removed @SiteId (nullable) and @ActiveOnly parameters, added @SiteIds (NVARCHAR(MAX)) for comma-separated list, removed SiteFilter CTE, added SiteList CTE with STRING_SPLIT(), tenant/active filtering moved to OutSystems application layer for cleaner separation and better performance",
+      "change": "REFACTORED to @SiteIds approach - comma-separated list, tenant filtering moved to OutSystems",
+      "author": "Claude"
+    },
+    {
+      "date": "2025-12-18",
+      "version": "4.0.0",
+      "change": "MAJOR OPTIMIZATION: (1) Expand Inline = YES for SiteIds (no SQL parsing needed), (2) Single-scan for CY+PY data (was 2 scans), (3) Pre-calculated NZ timezone before aggregation, (4) YearType flag + conditional aggregation. Target: ~0.6s performance.",
       "author": "Claude"
     }
   ]
