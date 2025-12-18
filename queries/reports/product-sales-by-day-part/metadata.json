@@ -1,0 +1,199 @@
+{
+  "query_name": "Product Sales By Day Part",
+  "category": "reports",
+  "created_date": "2025-12-18",
+  "author": "Claude",
+  "status": "in_development",
+  "description": "Returns sales/transaction data grouped by 4 day-part time buckets across a date range and sites with YoY comparison. Supports multi-site reporting with tenant filtering handled by OutSystems application layer. Parent query for hourly drill-down view.",
+  "version": "3.0.0",
+  "target_platform": "OutSystems Advanced SQL",
+  "sql_version": "SQL Server 2014+",
+  "parameters": [
+    {
+      "name": "@SiteIds",
+      "type": "NVARCHAR(MAX)",
+      "required": true,
+      "default": "3187,3188,3189",
+      "description": "Comma-separated list of Site IDs. OutSystems pre-filters based on tenant and active status."
+    },
+    {
+      "name": "@StartDate",
+      "type": "DATE",
+      "required": true,
+      "default": "2025-12-01",
+      "description": "Start of date range"
+    },
+    {
+      "name": "@EndDate",
+      "type": "DATE",
+      "required": true,
+      "default": "2025-12-07",
+      "description": "End of date range"
+    },
+    {
+      "name": "@SelectedView",
+      "type": "VARCHAR(1)",
+      "required": true,
+      "default": "D",
+      "description": "Metric to display: D=Dollar Sales, G=Guest Count, A=Average Check"
+    }
+  ],
+  "output_columns": [
+    {
+      "name": "Date",
+      "type": "DATE",
+      "description": "Report date"
+    },
+    {
+      "name": "SiteName",
+      "type": "VARCHAR",
+      "description": "Site display name"
+    },
+    {
+      "name": "DayPartLabel",
+      "type": "VARCHAR",
+      "description": "Day part name (Total, Overnight, Breakfast, Day, Night)"
+    },
+    {
+      "name": "Value",
+      "type": "DECIMAL(18,2)",
+      "description": "Main metric based on @SelectedView parameter"
+    },
+    {
+      "name": "PercentTotal",
+      "type": "DECIMAL(18,2)",
+      "description": "Percentage of that site's daily total (0 for Average view)"
+    },
+    {
+      "name": "PercentInc",
+      "type": "DECIMAL(18,2)",
+      "description": "Year-over-year percentage change"
+    },
+    {
+      "name": "SortOrder",
+      "type": "INT",
+      "description": "Sort order (0=Total, 1-4=day parts)"
+    }
+  ],
+  "tables_used": [
+    {
+      "table": "SalesFact",
+      "alias": "sf",
+      "purpose": "Sales transaction data with DateTime and metrics"
+    },
+    {
+      "table": "Site",
+      "alias": "s",
+      "purpose": "Site master data (joined on Site.Id = SalesFact.SiteId)"
+    }
+  ],
+  "key_features": [
+    "Multi-site support via @SiteIds (comma-separated list)",
+    "Tenant filtering handled by OutSystems application layer",
+    "Active/inactive filtering handled by OutSystems application layer",
+    "STRING_SPLIT() to parse site list in SQL",
+    "Date range support (multiple days)",
+    "4 day-part time buckets (Overnight, Breakfast, Day, Night)",
+    "NZ timezone conversion (UTC → NZST/NZDT)",
+    "Year-over-year comparison (-364 days)",
+    "View switching (Dollar/Guest Count/Average Check)",
+    "Scaffold pattern (guarantees all date/daypart/site rows)",
+    "Separated CY/PY fetch",
+    "Window functions for % calculations (partitioned by site)",
+    "Numbers CTE for large date ranges",
+    "Clean separation: Application filters, SQL aggregates"
+  ],
+  "performance": {
+    "expected_runtime": "1-8 seconds (varies by site count and date range)",
+    "optimization_level": "High",
+    "single_site": "< 1 second for 7-day range, 1-2 seconds for 30-day range",
+    "multi_site": "1-3 seconds for 10 sites (7-day), 3-8 seconds for 50 sites (7-day)",
+    "techniques": [
+      "SiteList CTE with STRING_SPLIT() for comma-separated parsing",
+      "IN clause for fast site filtering",
+      "Application-layer tenant filtering (faster than SQL logic)",
+      "Early filtering for index pushdown",
+      "Separate CY/PY CTEs",
+      "Window functions instead of joins (partitioned by site)",
+      "Numbers CTE (no recursion limit)"
+    ]
+  },
+  "related_queries": [
+    {
+      "name": "Product Sales By Day Part Hourly",
+      "path": "queries/reports/product-sales-by-day-part-hourly",
+      "relationship": "child_drill_down",
+      "description": "Hourly breakdown for single day"
+    },
+    {
+      "name": "Product Sales By POS Type Hourly",
+      "path": "queries/reports/product-sales-by-pos-type-hourly",
+      "relationship": "similar_pattern",
+      "description": "Hourly breakdown by Pod"
+    }
+  ],
+  "day_part_definitions": [
+    {
+      "label": "Overnight (00-05)",
+      "hours": "0-4",
+      "time_range": "0:00 AM - 4:59 AM",
+      "description": "Graveyard shift sales"
+    },
+    {
+      "label": "Breakfast (05-11)",
+      "hours": "5-10",
+      "time_range": "5:00 AM - 10:59 AM",
+      "description": "Morning service"
+    },
+    {
+      "label": "Day (11-17)",
+      "hours": "11-16",
+      "time_range": "11:00 AM - 4:59 PM",
+      "description": "Lunch & afternoon"
+    },
+    {
+      "label": "Night (17-24)",
+      "hours": "17-23",
+      "time_range": "5:00 PM - 11:59 PM",
+      "description": "Dinner & evening"
+    }
+  ],
+  "output_structure": {
+    "format": "narrow_format",
+    "rows_per_day_per_site": 5,
+    "row_types": [
+      "Total (00-24)",
+      "Overnight (00-05)",
+      "Breakfast (05-11)",
+      "Day (11-17)",
+      "Night (17-24)"
+    ],
+    "sort_order": "Date ASC, SiteName ASC, SortOrder ASC",
+    "multi_site_example": "3 sites × 7 days = 105 rows (3 × 7 × 5)"
+  },
+  "testing": {
+    "test_queries": [],
+    "validation": "Pending initial testing",
+    "known_issues": []
+  },
+  "change_log": [
+    {
+      "date": "2025-12-18",
+      "version": "1.0.0",
+      "change": "Initial creation - parent query setup from user-provided code",
+      "author": "Claude"
+    },
+    {
+      "date": "2025-12-18",
+      "version": "2.0.0",
+      "change": "Added multi-site support - @SiteId now nullable (NULL = all sites), added @ActiveOnly parameter, added SiteName column, Site table join, SiteFilter CTE, scaffold expanded to Date x DayPart x Site, % calculations partitioned by site",
+      "author": "Claude"
+    },
+    {
+      "date": "2025-12-18",
+      "version": "3.0.0",
+      "change": "REFACTORED to @SiteIds approach - Removed @SiteId (nullable) and @ActiveOnly parameters, added @SiteIds (NVARCHAR(MAX)) for comma-separated list, removed SiteFilter CTE, added SiteList CTE with STRING_SPLIT(), tenant/active filtering moved to OutSystems application layer for cleaner separation and better performance",
+      "author": "Claude"
+    }
+  ]
+}
