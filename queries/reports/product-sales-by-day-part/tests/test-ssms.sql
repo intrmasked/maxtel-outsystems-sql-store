@@ -57,7 +57,7 @@ SiteList AS (
     SELECT
         s.Id AS SiteId,
         ISNULL(s.DisplayName, s.Name) AS SiteName
-    FROM [dbo].[Site] s
+    FROM {Site} s
     WHERE s.Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
 ),
 
@@ -81,7 +81,7 @@ RawData AS (
         CASE WHEN sf.CalendarDate BETWEEN @StartDate AND @EndDate THEN sf.CalendarDate ELSE DATEADD(DAY, 364, sf.CalendarDate) END AS ReportDate,
         sf.NetAmount,
         sf.TransactionCount
-    FROM [dbo].[SalesFact] sf
+    FROM {SalesFact} sf
     WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND @EndDate
       AND sf.DatePeriodDimensionId = 15
