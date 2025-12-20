@@ -21,6 +21,7 @@
 DECLARE @SiteIds NVARCHAR(MAX) = '3187';
 DECLARE @StartDate DATE = '2025-12-01';
 DECLARE @EndDate DATE = '2025-12-02'; -- Recommend keeping range short for granular view
+DECLARE @Pod NVARCHAR(50) = NULL;         -- Optional: Set to 'Drive-Thru' or 'Counter' to filter
 
 -- 1. Fetch Raw Data
 WITH RawDataPoints AS (
@@ -36,6 +37,7 @@ WITH RawDataPoints AS (
     FROM {SalesFact} sf
     WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
+      AND (@Pod IS NULL OR sf.Pod = @Pod) -- Filter by Pod if set
       AND sf.DatePeriodDimensionId = 15
       AND sf.ProductSaleTypeId = 1
       AND sf.ProductMenuId IS NULL
