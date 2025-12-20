@@ -39,15 +39,15 @@ DateList AS (
 
 RawDataPoints AS (
     SELECT
-        sf.SiteId,
         sf.CalendarDate AS ReportDate,
+        sf.[DateTime],
         sf.Pod,
-        sf.PosId,         -- [dedup]
-        sf.[DateTime],    -- [dedup]
-        sf.NetAmount AS CY_NetAmount,
+        sf.PosId,
+        sf.SiteId,
         sf.TransactionCount AS CY_TransactionCount,
-        0 AS PY_NetAmount,
-        0 AS PY_TransactionCount
+        sf.NetAmount AS CY_NetAmount,
+        0 AS PY_TransactionCount,
+        0 AS PY_NetAmount
     FROM {SalesFact} sf
     WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
@@ -65,14 +65,14 @@ RawDataPoints AS (
     UNION ALL
 
     SELECT
-        sf.SiteId,
         DATEADD(DAY, 364, sf.CalendarDate) AS ReportDate,
+        sf.[DateTime],
         sf.Pod,
-        sf.PosId,         -- [dedup]
-        sf.[DateTime],    -- [dedup]
+        sf.PosId,
+        sf.SiteId,
         0, 0,
-        sf.NetAmount,
-        sf.TransactionCount
+        sf.TransactionCount,
+        sf.NetAmount
     FROM {SalesFact} sf
     WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND DATEADD(DAY, -364, @EndDate)

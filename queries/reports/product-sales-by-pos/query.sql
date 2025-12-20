@@ -46,22 +46,23 @@ DateList AS (
     WHERE ReportDate < @EndDate
 ),
 
--- [STEP 2]: Fetch Data using UNION ALL (UNCHANGED FILTERS!)
+-- [STEP 2]: Fetch Data using UNION ALL (Matches Granular Test Logic)
 RawDataPoints AS (
     -- Query A: Current Year
     SELECT
         SiteId,
         CalendarDate AS ReportDate,
+        [DateTime],
         Pod,
-        PosId,         -- [dedup] Unique key component
-        [DateTime],    -- [dedup] Unique key component
-        NetAmount AS CY_NetAmount,
+        PosId,
         TransactionCount AS CY_TransactionCount,
-        0 AS PY_NetAmount,
-        0 AS PY_TransactionCount
+        NetAmount AS CY_NetAmount,
+        0 AS PY_TransactionCount,
+        0 AS PY_NetAmount
     FROM {SalesFact}
     WHERE SiteId IN (@SiteIds)
       AND CalendarDate BETWEEN @StartDate AND @EndDate
+      -- Filters match 'test-granular-view.sql' exactly
       AND DatePeriodDimensionId = 15
       AND ProductSaleTypeId = 1
       AND ProductMenuId IS NULL
@@ -79,15 +80,16 @@ RawDataPoints AS (
     SELECT
         SiteId,
         DATEADD(DAY, 364, CalendarDate) AS ReportDate,
+        [DateTime],
         Pod,
-        PosId,         -- [dedup] Unique key component
-        [DateTime],    -- [dedup] Unique key component
+        PosId,
         0, 0,
-        NetAmount,
-        TransactionCount
+        TransactionCount,
+        NetAmount
     FROM {SalesFact}
     WHERE SiteId IN (@SiteIds)
       AND CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND DATEADD(DAY, -364, @EndDate)
+      -- Filters match 'test-granular-view.sql' exactly
       AND DatePeriodDimensionId = 15
       AND ProductSaleTypeId = 1
       AND ProductMenuId IS NULL
