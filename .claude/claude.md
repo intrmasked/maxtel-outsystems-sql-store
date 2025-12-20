@@ -63,6 +63,13 @@ queries/[category]/[story-name]/
     └── ...
 ```
 
+### Database & Schema Quirks (SalesFact)
+- **THE DOUBLE COUNT TRAP**: `SalesFact` contains both **Detailed** (`PosId > 0`) AND **Summary** (`PosId = 0`) rows.
+  - **NEVER** use `WHERE PosId IS NOT NULL` (Counts double!).
+  - **ALWAYS** specify `WHERE PosId <> 0` (for Details) OR `WHERE PosId = 0` (for Summaries).
+- **DUPLICATE HEADERS**: Rows with same `(SiteId, Date, PosId, DateTime)` can exist multiple times.
+  - **SAFEGUARD**: Always use `GROUP BY ...` with `MAX(TransactionCount)` to dedup before summing.
+
 ### Test Queries:
 **All test/diagnostic queries go in the `tests/` subfolder within the query directory**
 - Use descriptive names starting with `test-`

@@ -1,12 +1,13 @@
-# Session: Product Sales By POS (Date Range) - 2025-12-09
+# Session: Sales Reports (POS & Day Part) - 2025-12-09
 
 ## Original Story/Requirements
 
 **User Request:**
-User provided existing query code and requested: "make a folder for this query call is product-sales-by-pos"
+1. "make a folder for this query call is product-sales-by-pos"
+2. "check the daypart query and if we have that shit oging on there too fix that too" (2025-12-20)
 
 **Query Purpose:**
-Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-over-year comparison over a date range. Supports multiple view modes (Sales, Guest Count, Average Check).
+Reporting queries for Daily Sales breakdown by different dimensions (POS/Pod and Day Part).
 
 ---
 
@@ -16,7 +17,7 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [ ] In Development
 - [ ] Needs Review
 
-**Current step**: v2.2.3 - FIXED. Summary Row Double Counting Resolved. Duplicates Deduped.
+**Current step**: v2.2.4 (Day Part) & v2.2.3 (POS) - ALL FIXED.
 
 > [!CAUTION]
 > ### 🛑 SALESFACT TABLE KNOWLEDGE - READ THIS!
@@ -34,17 +35,17 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 
 ---
 
-## Latest Changes (2025-12-20) - INVESTIGATION & REFINEMENT
+## Latest Changes (2025-12-20)
 
-**v2.2.3 Changes (FINAL FIX):**
-- **Excluded Summary Rows**: Added `AND PosId <> 0` to query.sql and test-ssms.sql. This killed the 2x double counting.
-- **Deduplication Logic**: Maintained the `DedupedData` CTE with `MAX()` aggregation as a safety net against duplicates.
+**v2.2.4 - Product Sales By Day Part (SAFEGUARDED)**
+- **Audit**: Query correctly targeted Summary Rows (`PosId=0`). No double counting found.
+- **Safety Net**: Implemented `MAX()` deduplication logic anyway to protect against header overlaps in summary rows.
+- **Output**: Added `SiteId` to final SELECT (as requested).
+- **Testing**: Added `test-granular-view.sql` for 15-min interval visualization.
 
-**v2.2.2 Changes:**
-- Synced query logic strictly with granular test method.
-
-**v2.2.1 Changes:**
-- Implemented Dedup Logic.
+**v2.2.3 - Product Sales By POS (FIXED)**
+- **Fix**: Excluded Summary Rows (`AND PosId <> 0`). Solved the "Double Counting" bug.
+- **Safety Net**: Maintained `MAX()` deduplication.
 
 ---
 
@@ -61,13 +62,6 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 
 ## Quick Resume
 
-1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.2.3 - Clean & Deduped)
-2. **SSMS test**: `queries/reports/product-sales-by-pos/tests/test-ssms.sql`
-3. **Granular Test**: `queries/reports/product-sales-by-pos/tests/test-granular-view.sql` (Use this to verify data flow if confused).
-
----
-
-## Related Queries
-
-- **product-sales-by-pos-type-hourly**: Child query (hourly breakdown).
-- **product-sales-by-day-part**: Similar multi-site pattern implemented.
+1. **POS Query**: `queries/reports/product-sales-by-pos/query.sql`
+2. **Day Part Query**: `queries/reports/product-sales-by-day-part/query.sql`
+3. **Tests**: Check `tests/` folder in each query directory.

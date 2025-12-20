@@ -147,7 +147,10 @@ CleanedData AS (
 
 TotalData AS (
     SELECT ReportDate, SiteId, SiteName, 'Total (00-24)' AS DayPartLabel, 0 AS SortOrder,
-        SUM(CY_NetAmount), SUM(CY_TransactionCount), SUM(PY_NetAmount), SUM(PY_TransactionCount)
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount
     FROM CleanedData
     GROUP BY ReportDate, SiteId, SiteName
 ),
