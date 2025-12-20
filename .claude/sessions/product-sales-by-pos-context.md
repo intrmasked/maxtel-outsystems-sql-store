@@ -16,7 +16,7 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [ ] In Development
 - [ ] Needs Review
 
-**Current step**: v2.2.1 - Deduplication Logic Implemented. Fixed duplicate header issue. Ready for final verification.
+**Current step**: v2.2.1 - Deduplication Logic VERIFIED. Test confirmed 0 duplicates after fix.
 
 ---
 
@@ -27,7 +27,10 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
   - `RawDataPoints` now fetches `PosId` and `[DateTime]`.
   - Added `DedupedData` CTE: Groups by `(SiteId, Date, Pod, PosId, DateTime)` and uses `MAX()` aggregation.
   - This resolves the "duplicate header" issue where `TransactionCount` was inflated.
-- **SSMS Test Updated**: `tests/test-ssms.sql` updated with same dedup logic.
+- **Verification Results**:
+  - Before Fix: 484 duplicated transactions.
+  - After Fix: 0 duplicated transactions ✅.
+  - Excess columns removed: 861.
 
 **v2.2.0 Changes:**
 - **Reverted filters**: Restored `PosId IS NOT NULL` and others to match legacy query exactly.
