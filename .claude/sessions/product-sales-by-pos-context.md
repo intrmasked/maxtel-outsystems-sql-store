@@ -41,6 +41,7 @@ Reporting queries for Daily Sales breakdown by different dimensions (POS/Pod and
 - **Audit**: Query correctly targeted Summary Rows (`PosId=0`). No double counting found.
 - **Safety Net**: Implemented `MAX()` deduplication logic anyway to protect against header overlaps in summary rows.
 - **Output**: Added `SiteId` to final SELECT (as requested).
+- **Fix**: Resolved "No column name" error by adding aliases to `TotalData` CTE.
 - **Testing**: Added `test-granular-view.sql` for 15-min interval visualization.
 
 **v2.2.3 - Product Sales By POS (FIXED)**
