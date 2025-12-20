@@ -16,28 +16,35 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [ ] In Development
 - [ ] Needs Review
 
-**Current step**: v2.2.1 - Deduplication Logic VERIFIED. Test confirmed 0 duplicates after fix.
+**Current step**: v2.2.3 - FIXED. Summary Row Double Counting Resolved. Duplicates Deduped.
+
+> [!CAUTION]
+> ### 🛑 SALESFACT TABLE KNOWLEDGE - READ THIS!
+> We burned a lot of time debugging this. **Do not ignore these rules:**
+>
+> 1. **THE "DOUBLE COUNT" TRAP (`PosId = 0`)**
+>    - `SalesFact` contains **both** Detailed Rows (`PosId > 0`) **AND** Pre-aggregated Summary Rows (`PosId = 0` / Service Charge Rows).
+>    - **NEVER** use `PosId IS NOT NULL` alone. It grabs EVERYTHING and **doubles your report totals**.
+>    - **ALWAYS** specify: `AND sf.PosId <> 0` (if you want Details) OR `WHERE PosId = 0` (if you want Summaries).
+>
+> 2. **DUPLICATE HEADERS (The "Overlap")**
+>    - Even with valid filters, `SalesFact` can contain **duplicate/overlapping headers** for the same transaction (`SiteId` + `Date` + `PosId` + `DateTime`).
+>    - If you `SUM(TransactionCount)`, you will inflate the count.
+>    - **Safety Net**: Always `GROUP BY` the unique transaction key (`PosId`, `DateTime`) and use **`MAX()`** for `TransactionCount` and `NetAmount` before final aggregation.
 
 ---
 
 ## Latest Changes (2025-12-20) - INVESTIGATION & REFINEMENT
 
-**v2.2.1 Changes (FIX):**
-- **Deduplication Logic Implemented**:
-  - `RawDataPoints` now fetches `PosId` and `[DateTime]`.
-  - Added `DedupedData` CTE: Groups by `(SiteId, Date, Pod, PosId, DateTime)` and uses `MAX()` aggregation.
-  - This resolves the "duplicate header" issue where `TransactionCount` was inflated.
-- **Verification Results**:
-  - Before Fix: 484 duplicated transactions.
-  - After Fix: 0 duplicated transactions ✅.
-  - Excess columns removed: 861.
+**v2.2.3 Changes (FINAL FIX):**
+- **Excluded Summary Rows**: Added `AND PosId <> 0` to query.sql and test-ssms.sql. This killed the 2x double counting.
+- **Deduplication Logic**: Maintained the `DedupedData` CTE with `MAX()` aggregation as a safety net against duplicates.
 
-**v2.2.0 Changes:**
-- **Reverted filters**: Restored `PosId IS NOT NULL` and others to match legacy query exactly.
-- **Added `SiteId` to output**: For UI linking.
-- **Diagnostic Scripts**:
-  - `tests/test-verify-totals.sql`: Checks raw `SalesFact` totals vs query logic.
-  - `tests/test-check-overlap.sql`: Confirmed duplicate rows in `SalesFact`.
+**v2.2.2 Changes:**
+- Synced query logic strictly with granular test method.
+
+**v2.2.1 Changes:**
+- Implemented Dedup Logic.
 
 ---
 
@@ -46,21 +53,17 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 **Performance Strategy:**
 - UNION ALL approach for parallel CY+PY index seeks.
 - Pre-aggregation before scaffold building.
-- **Deduplication Cost**: Grouping by `PosId` + `DateTime` adds a bit of overhead, but necessary for correctness.
 
 **Debugging Notes:**
-- "Parent vs Child" discrepancy was caused by duplicate rows in `SalesFact` matching the Parent Query filters.
-- `MAX()` aggregation is used for deduping because duplicate headers typically repeat the same total values.
+- "Parent vs Child" discrepancy was caused by Parent including `PosId=0` (Double Count) and Child only using `PosId=0` (Single Count).
 
 ---
 
 ## Quick Resume
 
-**To continue this work:**
-
-1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.2.1 - Deduped)
+1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.2.3 - Clean & Deduped)
 2. **SSMS test**: `queries/reports/product-sales-by-pos/tests/test-ssms.sql`
-3. **Verify**: Run `queries/reports/product-sales-by-pos/tests/test-verify-totals.sql` to confirm fix.
+3. **Granular Test**: `queries/reports/product-sales-by-pos/tests/test-granular-view.sql` (Use this to verify data flow if confused).
 
 ---
 
