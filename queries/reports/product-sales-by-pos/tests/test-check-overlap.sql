@@ -29,13 +29,13 @@ WITH TargetRows AS (
         sf.CalendarDate,
         sf.[DateTime],
         sf.PosId,
-        sf.TransactionNumber, -- Assuming this exists (or TransactionId)
+        sf.TransactionCount, -- Using TransactionCount as requested
         sf.ProductMenuId,     -- Just to be safe
         sf.Netamount,
         
         -- Generate a unique hash or row identifier if no single PK exists
-        -- (SiteId + DateTime + PosId + TransactionNumber is usually unique enough for a check)
-        CONCAT(sf.SiteId, '|', FORMAT(sf.[DateTime], 'yyyyMMddHHmmss'), '|', sf.PosId, '|', sf.TransactionNumber) AS RowSignature
+        -- (SiteId + DateTime + PosId + TransactionCount is usually unique enough for a check)
+        CONCAT(sf.SiteId, '|', FORMAT(sf.[DateTime], 'yyyyMMddHHmmss'), '|', sf.PosId, '|', sf.TransactionCount) AS RowSignature
     FROM {SalesFact} sf
     WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
