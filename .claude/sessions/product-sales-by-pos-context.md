@@ -16,19 +16,23 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [ ] In Development
 - [ ] Needs Review
 
-**Current step**: v2.0.0 complete - Multi-site support added and tested in OutSystems
+**Current step**: v2.2.0 - Multi-site support with `SiteIds`, reverted to original filters (including PosId IS NOT NULL) to match original behavior, plus `SiteId` in output. Investigating data discrepancies.
 
 ---
 
-## Latest Changes (2025-12-19) - MULTI-SITE SUPPORT v2.0.0
+## Latest Changes (2025-12-20) - INVESTIGATION & REFINEMENT
 
-**Key Changes:**
+**v2.2.0 Changes:**
+- **Reverted filters**: Restored `PosId IS NOT NULL` and other original filters to ensure data consistency with legacy query.
+- **Added `SiteId` to output**: For UI linking/debugging.
+- **Multi-site support**: Kept `@SiteIds` (Expand Inline = YES) and `SiteName` logic.
+- **InputVar CTE**: Kept for OutSystems lazy parser fix.
+
+**v2.0.0 Changes (Previous):**
 - Changed `@SiteId BIGINT` → `@SiteIds NVARCHAR(MAX)` (comma-separated list)
 - ⚠️ **CRITICAL**: `SiteIds` must have **Expand Inline = YES** in OutSystems!
 - Added `SiteList` CTE with Site table join for display names
 - Added `SiteName` column to output
-- Updated all GROUP BY, PARTITION BY, ORDER BY to include SiteId/SiteName
-- Added `InputVar` CTE for @SelectedView and @EndDate (OutSystems lazy parser fix)
 - Created SSMS test file: `tests/test-ssms.sql`
 
 **OutSystems Setup:**
@@ -41,6 +45,7 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 | Column | Type |
 |--------|------|
 | Date | Date |
+| SiteId | Long Integer |
 | SiteName | Text |
 | Pod | Text |
 | Value | Decimal |
@@ -67,13 +72,13 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 
 **To continue this work:**
 
-1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.0.0)
+1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.2.0)
 2. **SSMS test**: `queries/reports/product-sales-by-pos/tests/test-ssms.sql`
-3. **Status**: Multi-site support complete, tested in OutSystems
+3. **Status**: Multi-site support implemented, currently debugging data mismatch with child screens.
 
 ---
 
 ## Related Queries
 
-- **product-sales-by-pos-type-hourly**: Hourly version (may need same multi-site update)
-- **product-sales-by-day-part**: Similar multi-site pattern implemented
+- **product-sales-by-pos-type-hourly**: Child query (hourly breakdown).
+- **product-sales-by-day-part**: Similar multi-site pattern implemented.

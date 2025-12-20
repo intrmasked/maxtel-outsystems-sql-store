@@ -124,7 +124,7 @@ FinalSet AS (
 )
 
 SELECT
-    ReportDate AS Date, SiteName, Pod,
+    ReportDate AS Date, SiteId, SiteName, Pod,
     CASE @SelectedView
         WHEN 'D' THEN CY_NetAmount
         WHEN 'G' THEN CAST(CY_TransactionCount AS DECIMAL(18,2))
