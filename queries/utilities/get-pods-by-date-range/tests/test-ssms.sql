@@ -1,30 +1,22 @@
 /*
    ===================================================================================
-   QUERY: GET AVAILABLE PODS FOR DATE RANGE - v2.0.0 (Multi-Site)
+   TEST QUERY: GET AVAILABLE PODS FOR DATE RANGE - SSMS VERSION
    ===================================================================================
-
-   PURPOSE:
-   Retrieve distinct PODs active in date range across one or more sites.
-   Used for dropdowns and filters in reports.
-
-   OUTSYSTEMS PARAMETERS:
-   - SiteIds (Text)   → ⚠️ Expand Inline = YES ⚠️
-   - StartDate (Date) → Expand Inline = No
-   - EndDate (Date)   → Expand Inline = No
-
-   OUTPUT:
-   - podid: Pod code (FC, DT, CSO, DELIVERY, or 'Total')
-   - podname: Display name (Counter, Drive-Thru, Kiosk, Delivery)
-   - SortOrder: 0 = Total, then alphabetically
-
-   FOR SSMS TESTING: See tests/test-ssms.sql
+   
+   SSMS-compatible version using STRING_SPLIT for comma-separated @SiteIds.
+   Production query uses OutSystems Expand Inline = YES.
+   
    ===================================================================================
 */
+
+DECLARE @SiteIds NVARCHAR(MAX) = '3187';
+DECLARE @StartDate DATE = '2025-12-01';
+DECLARE @EndDate DATE = '2025-12-07';
 
 WITH ActivePods AS (
     SELECT DISTINCT sf.Pod
     FROM {SalesFact} sf
-    WHERE sf.SiteId IN (@SiteIds)
+    WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
       AND sf.DatePeriodDimensionId = 15
       AND sf.Pod IS NOT NULL AND sf.Pod <> ''
@@ -58,4 +50,4 @@ PodList AS (
 
 SELECT podid, podname, SortOrder
 FROM PodList
-ORDER BY SortOrder
+ORDER BY SortOrder;
