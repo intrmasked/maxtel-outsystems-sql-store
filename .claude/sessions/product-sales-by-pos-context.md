@@ -16,59 +16,38 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 - [ ] In Development
 - [ ] Needs Review
 
-**Current step**: v2.2.0 - Data Discrepancy Investigation. Reverted filters to original state, added SiteId output. Created duplicate-check test.
+**Current step**: v2.2.1 - Deduplication Logic Implemented. Fixed duplicate header issue. Ready for final verification.
 
 ---
 
 ## Latest Changes (2025-12-20) - INVESTIGATION & REFINEMENT
+
+**v2.2.1 Changes (FIX):**
+- **Deduplication Logic Implemented**:
+  - `RawDataPoints` now fetches `PosId` and `[DateTime]`.
+  - Added `DedupedData` CTE: Groups by `(SiteId, Date, Pod, PosId, DateTime)` and uses `MAX()` aggregation.
+  - This resolves the "duplicate header" issue where `TransactionCount` was inflated.
+- **SSMS Test Updated**: `tests/test-ssms.sql` updated with same dedup logic.
 
 **v2.2.0 Changes:**
 - **Reverted filters**: Restored `PosId IS NOT NULL` and others to match legacy query exactly.
 - **Added `SiteId` to output**: For UI linking.
 - **Diagnostic Scripts**:
   - `tests/test-verify-totals.sql`: Checks raw `SalesFact` totals vs query logic.
-  - `tests/test-check-overlap.sql`: Checks for row duplication/double-counting in Parent Query logic.
-- **SSMS Test Update**: `tests/test-ssms.sql` updated to match new output structure.
-
-**v2.0.0 Changes (Previous):**
-- Changed `@SiteId BIGINT` → `@SiteIds NVARCHAR(MAX)` (comma-separated list)
-- ⚠️ **CRITICAL**: `SiteIds` must have **Expand Inline = YES** in OutSystems!
-- Added `SiteList` CTE with Site table join for display names
-- Added `SiteName` column to output
-
-**OutSystems Setup:**
-- `SiteIds` (Text) → **Expand Inline = YES**
-- `StartDate` (Date) → Expand Inline = No
-- `EndDate` (Date) → Expand Inline = No
-- `SelectedView` (Text) → Expand Inline = No
-
-**Output Structure:**
-| Column | Type |
-|--------|------|
-| Date | Date |
-| SiteId | Long Integer |
-| SiteName | Text |
-| Pod | Text |
-| Value | Decimal |
-| PercentTotal | Decimal |
-| PercentInc | Decimal |
-| SortOrder | Integer |
+  - `tests/test-check-overlap.sql`: Confirmed duplicate rows in `SalesFact`.
 
 ---
 
 ## Technical Notes
 
 **Performance Strategy:**
-- UNION ALL approach for parallel CY+PY index seeks (16s → 1s)
-- Pre-aggregation before scaffold building
-- RECOMPILE hint for optimal execution plan
+- UNION ALL approach for parallel CY+PY index seeks.
+- Pre-aggregation before scaffold building.
+- **Deduplication Cost**: Grouping by `PosId` + `DateTime` adds a bit of overhead, but necessary for correctness.
 
 **Debugging Notes:**
-- "Parent vs Child" discrepancy observed.
-- Parent Query filters: `Pod <> ''`, `PosId IS NOT NULL` (Active, Detailed transactions).
-- Child Query filters (Day Part): `Pod = ''`, `PosId = 0` (Pre-aggregated/Special rows).
-- **Hypothesis**: The reports read fundamentally different datasets.
-- **Action**: Use `test-check-overlap.sql` to verify Parent query integrity (no double counting).
+- "Parent vs Child" discrepancy was caused by duplicate rows in `SalesFact` matching the Parent Query filters.
+- `MAX()` aggregation is used for deduping because duplicate headers typically repeat the same total values.
 
 ---
 
@@ -76,10 +55,9 @@ Daily sales breakdown by Pod (Counter, Drive-Thru, Kiosk, Delivery) with year-ov
 
 **To continue this work:**
 
-1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.2.0)
-2. **Diagnostic Test**: `queries/reports/product-sales-by-pos/tests/test-check-overlap.sql`
-3. **SSMS test**: `queries/reports/product-sales-by-pos/tests/test-ssms.sql`
-4. **Status**: Investigating if Parent Query logic causes double counting (using overlap test).
+1. **Query file**: `queries/reports/product-sales-by-pos/query.sql` (v2.2.1 - Deduped)
+2. **SSMS test**: `queries/reports/product-sales-by-pos/tests/test-ssms.sql`
+3. **Verify**: Run `queries/reports/product-sales-by-pos/tests/test-verify-totals.sql` to confirm fix.
 
 ---
 
