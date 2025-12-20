@@ -73,8 +73,12 @@ RawData AS (
         CONVERT(DATETIME, sf.[DateTime] AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time') AS NZ_DateTime,
         CASE WHEN sf.CalendarDate BETWEEN @StartDate AND @EndDate THEN 'CY' ELSE 'PY' END AS YearType,
         CASE WHEN sf.CalendarDate BETWEEN @StartDate AND @EndDate THEN sf.CalendarDate ELSE DATEADD(DAY, 364, sf.CalendarDate) END AS ReportDate,
+        -- Fetch raw values for deduping
         sf.NetAmount,
-        sf.TransactionCount
+        sf.TransactionCount,
+        -- Dedup keys
+        sf.PosId,
+        sf.[DateTime]
     FROM {SalesFact} sf
     WHERE sf.SiteId IN (@SiteIds)
       AND sf.CalendarDate BETWEEN DATEADD(DAY, -364, @StartDate) AND @EndDate
@@ -88,6 +92,19 @@ RawData AS (
       AND sf.SaleTypeId IS NULL
       AND sf.Pod = ''
       AND ISNULL(sf.PosId, 0) = 0
+),
+
+-- [DEDUP LOGIC]: Safeguard against duplicate headers in summary rows
+DedupedData AS (
+    SELECT
+        SiteId,
+        NZ_DateTime,
+        YearType,
+        ReportDate,
+        MAX(NetAmount) AS NetAmount,
+        MAX(TransactionCount) AS TransactionCount
+    FROM RawData
+    GROUP BY SiteId, NZ_DateTime, YearType, ReportDate, PosId, [DateTime]
 ),
 
 AggregatedData AS (
@@ -105,7 +122,7 @@ AggregatedData AS (
         SUM(CASE WHEN YearType = 'CY' THEN TransactionCount ELSE 0 END) AS CY_TransactionCount,
         SUM(CASE WHEN YearType = 'PY' THEN NetAmount ELSE 0 END) AS PY_NetAmount,
         SUM(CASE WHEN YearType = 'PY' THEN TransactionCount ELSE 0 END) AS PY_TransactionCount
-    FROM RawData
+    FROM DedupedData
     GROUP BY
         SiteId, CAST(NZ_DateTime AS DATE), ReportDate,
         CASE
@@ -115,6 +132,7 @@ AggregatedData AS (
             WHEN DATEPART(HOUR, NZ_DateTime) >= 17 THEN 'Night (17-24)'
         END
 ),
+
 
 CleanedData AS (
     SELECT
@@ -140,6 +158,7 @@ CombinedSet AS (
 
 SELECT
     ReportDate AS Date,
+    SiteId, -- Added SiteId as requested
     SiteName,
     DayPartLabel,
     CASE (SELECT SelectedView FROM InputVar)
