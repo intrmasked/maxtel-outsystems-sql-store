@@ -42,6 +42,8 @@ RawDataPoints AS (
         sf.SiteId,
         sf.CalendarDate AS ReportDate,
         sf.Pod,
+        sf.PosId,         -- [dedup]
+        sf.[DateTime],    -- [dedup]
         sf.NetAmount AS CY_NetAmount,
         sf.TransactionCount AS CY_TransactionCount,
         0 AS PY_NetAmount,
@@ -66,6 +68,8 @@ RawDataPoints AS (
         sf.SiteId,
         DATEADD(DAY, 364, sf.CalendarDate) AS ReportDate,
         sf.Pod,
+        sf.PosId,         -- [dedup]
+        sf.[DateTime],    -- [dedup]
         0, 0,
         sf.NetAmount,
         sf.TransactionCount
@@ -84,11 +88,24 @@ RawDataPoints AS (
       AND sf.Pod IS NOT NULL AND sf.Pod <> ''
 ),
 
+DedupedData AS (
+    SELECT
+        SiteId,
+        ReportDate,
+        Pod,
+        MAX(CY_NetAmount) AS CY_NetAmount,
+        MAX(CY_TransactionCount) AS CY_TransactionCount,
+        MAX(PY_NetAmount) AS PY_NetAmount,
+        MAX(PY_TransactionCount) AS PY_TransactionCount
+    FROM RawDataPoints
+    GROUP BY SiteId, ReportDate, Pod, PosId, [DateTime]
+),
+
 AggregatedData AS (
     SELECT SiteId, ReportDate, Pod,
         SUM(CY_NetAmount) AS CY_NetAmount, SUM(CY_TransactionCount) AS CY_TransactionCount,
         SUM(PY_NetAmount) AS PY_NetAmount, SUM(PY_TransactionCount) AS PY_TransactionCount
-    FROM RawDataPoints
+    FROM DedupedData
     GROUP BY SiteId, ReportDate, Pod
 ),
 

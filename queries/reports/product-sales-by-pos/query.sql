@@ -53,6 +53,8 @@ RawDataPoints AS (
         SiteId,
         CalendarDate AS ReportDate,
         Pod,
+        PosId,         -- [dedup] Unique key component
+        [DateTime],    -- [dedup] Unique key component
         NetAmount AS CY_NetAmount,
         TransactionCount AS CY_TransactionCount,
         0 AS PY_NetAmount,
@@ -78,6 +80,8 @@ RawDataPoints AS (
         SiteId,
         DATEADD(DAY, 364, CalendarDate) AS ReportDate,
         Pod,
+        PosId,         -- [dedup] Unique key component
+        [DateTime],    -- [dedup] Unique key component
         0, 0,
         NetAmount,
         TransactionCount
@@ -96,7 +100,22 @@ RawDataPoints AS (
       AND Pod IS NOT NULL AND Pod <> ''
 ),
 
--- [STEP 3]: Aggregate
+-- [STEP 3]: Dedup Raw Data (Handle Duplicate Headers)
+-- Groups by unique transaction keys and takes MAX() to avoid double counting
+DedupedData AS (
+    SELECT
+        SiteId,
+        ReportDate,
+        Pod,
+        MAX(CY_NetAmount) AS CY_NetAmount,
+        MAX(CY_TransactionCount) AS CY_TransactionCount,
+        MAX(PY_NetAmount) AS PY_NetAmount,
+        MAX(PY_TransactionCount) AS PY_TransactionCount
+    FROM RawDataPoints
+    GROUP BY SiteId, ReportDate, Pod, PosId, [DateTime]
+),
+
+-- [STEP 4]: Aggregate
 AggregatedData AS (
     SELECT
         SiteId,
@@ -106,7 +125,7 @@ AggregatedData AS (
         SUM(CY_TransactionCount) AS CY_TransactionCount,
         SUM(PY_NetAmount) AS PY_NetAmount,
         SUM(PY_TransactionCount) AS PY_TransactionCount
-    FROM RawDataPoints
+    FROM DedupedData
     GROUP BY SiteId, ReportDate, Pod
 ),
 
