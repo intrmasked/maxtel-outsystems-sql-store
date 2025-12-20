@@ -59,7 +59,8 @@ RawDataPoints AS (
       AND sf.OperationKindId IS NULL
       AND sf.SWCCashDrawerId IS NULL
       AND sf.SaleTypeId IS NULL
-      AND sf.PosId IS NOT NULL
+      AND sf.SaleTypeId IS NULL
+      AND sf.PosId IS NOT NULL AND sf.PosId <> 0 -- Exclude Summary Rows
       AND sf.Pod IS NOT NULL AND sf.Pod <> ''
 
     UNION ALL
@@ -84,7 +85,7 @@ RawDataPoints AS (
       AND sf.OperationKindId IS NULL
       AND sf.SWCCashDrawerId IS NULL
       AND sf.SaleTypeId IS NULL
-      AND sf.PosId IS NOT NULL
+      AND sf.PosId IS NOT NULL AND sf.PosId <> 0 -- Exclude Summary Rows
       AND sf.Pod IS NOT NULL AND sf.Pod <> ''
 ),
 
