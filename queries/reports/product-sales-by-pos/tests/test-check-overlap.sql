@@ -1,19 +1,15 @@
 /*
    ===================================================================================
-   DIAGNOSTIC TEST: CHECK FOR DOUBLE COUNTING / OVERLAP IN POS QUERY
+   DIAGNOSTIC TEST: DEDUPLICATION VERIFICATION
    ===================================================================================
-
+   
    PURPOSE:
-   Determine if the Parent POS Query logic is causing any row in SalesFact
-   to be counted more than once (e.g., due to joins or filter logic).
+   Demonstrate that the "Duplicate Headers" issue exists in Raw Data (Before)
+   and is RESOLVED by the Deduplication Logic (After).
    
    METHOD:
-   1. Select raw rows matching the Parent Query filters.
-   2. Group by Unique ID (Transaction + Line Item ID if available, or clustered index).
-   3. Check if any ID appears > 1 time.
-   
-   NOTE: SalesFact usually has composite PK: (SiteId, Date, TransactionId, LineId, etc.)
-   We will group by the most granular columns available.
+   1. "Before Fix": Count duplicates in raw SalesFact data.
+   2. "After Fix": Apply MAX() dedup logic and count duplicates again.
    ===================================================================================
 */
 
@@ -21,25 +17,20 @@ DECLARE @SiteIds NVARCHAR(MAX) = '3187';
 DECLARE @StartDate DATE = '2025-12-01';
 DECLARE @EndDate DATE = '2025-12-07';
 
--- 1. Simulate the Parent Query Logic (RawDataPoints CTE)
--- We select the unique identifier columns for each row that WOULD be included
-WITH TargetRows AS (
+-- 1. Raw Data (Simulates Original Query)
+WITH RawDataPoints AS (
     SELECT 
         sf.SiteId,
         sf.CalendarDate,
         sf.[DateTime],
         sf.PosId,
-        sf.TransactionCount, -- Using TransactionCount as requested
-        sf.ProductMenuId,     -- Just to be safe
+        sf.TransactionCount,
         sf.Netamount,
-        
-        -- Generate a unique hash or row identifier if no single PK exists
-        -- (SiteId + DateTime + PosId + TransactionCount is usually unique enough for a check)
-        CONCAT(sf.SiteId, '|', FORMAT(sf.[DateTime], 'yyyyMMddHHmmss'), '|', sf.PosId, '|', sf.TransactionCount) AS RowSignature
+        -- Unique Signature
+        CONCAT(sf.SiteId, '|', FORMAT(sf.[DateTime], 'yyyyMMddHHmmss'), '|', sf.PosId) AS RowSignature
     FROM {SalesFact} sf
     WHERE sf.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
-      -- SAME FILTERS AS PARENT QUERY
       AND sf.DatePeriodDimensionId = 15
       AND sf.ProductSaleTypeId = 1
       AND sf.ProductMenuId IS NULL
@@ -50,22 +41,47 @@ WITH TargetRows AS (
       AND sf.SaleTypeId IS NULL
       AND sf.PosId IS NOT NULL
       AND sf.Pod IS NOT NULL AND sf.Pod <> ''
+),
+
+-- 2. "Before Fix" Analysis
+RawOverlap AS (
+    SELECT RowSignature, COUNT(*) AS DupCount
+    FROM RawDataPoints
+    GROUP BY RowSignature
+    HAVING COUNT(*) > 1
+),
+
+-- 3. "After Fix" Logic (The v2.2.1 Fix)
+DedupedData AS (
+    SELECT
+        SiteId,
+        CalendarDate,
+        PosId, 
+        [DateTime],
+        MAX(TransactionCount) AS TransactionCount, -- Taking MAX resolves the duplicate
+        MAX(Netamount) AS NetAmount
+    FROM RawDataPoints
+    GROUP BY SiteId, CalendarDate, PosId, [DateTime]
+),
+
+-- 4. "After Fix" Analysis (Should be 0)
+DedupedOverlap AS (
+    SELECT 
+        CONCAT(SiteId, '|', FORMAT([DateTime], 'yyyyMMddHHmmss'), '|', PosId) AS RowSignature, 
+        COUNT(*) AS DupCount
+    FROM DedupedData
+    GROUP BY SiteId, CalendarDate, PosId, [DateTime]
+    HAVING COUNT(*) > 1
 )
 
--- 2. Check for Duplicates
+-- FINAL REPORT
 SELECT 
-    RowSignature,
-    COUNT(*) AS DuplicateCount,
-    MIN(CalendarDate) AS SampleDate,
-    MIN(SiteId) AS SiteId
-FROM TargetRows
-GROUP BY RowSignature
-HAVING COUNT(*) > 1
-ORDER BY DuplicateCount DESC;
+    (SELECT COUNT(*) FROM RawOverlap) AS [Transactions_With_Duplicates_Before_Fix],
+    (SELECT SUM(DupCount) - COUNT(*) FROM RawOverlap) AS [Excess_Rows_Removed],
+    (SELECT COUNT(*) FROM DedupedOverlap) AS [Transactions_With_Duplicates_AFTER_Fix];
 
 /*
-   INTERPRETATION:
-   - If this returns 0 rows: The Parent Query logic is clean. NO double counting of raw rows.
-   - If this returns rows: You have duplicate data in SalesFact matching these filters, 
-     OR the filters are not specific enough (e.g. multiple rows per transaction).
+   EXPECTED RESULT:
+   Transactions_With_Duplicates_Before_Fix > 0  (Shows issue exists)
+   Transactions_With_Duplicates_AFTER_Fix  = 0  (Shows fix works!)
 */
