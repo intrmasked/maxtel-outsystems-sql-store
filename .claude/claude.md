@@ -67,7 +67,12 @@ queries/[category]/[story-name]/
 **All test/diagnostic queries go in the `tests/` subfolder within the query directory**
 - Use descriptive names starting with `test-`
 - Test queries help diagnose issues, verify data, or prototype logic
-- Keep them organized in the `tests/` subfolder
+- KEEP THEM ORGANIZED in the `tests/` subfolder
+- **SSMS FORMAT REQUIRED**:
+  - Tests run in a sandbox environment → MUST be valid T-SQL (SSMS compatible).
+  - Use `DECLARE` for parameters (not Input Parameters).
+  - Use `STRING_SPLIT` for comma-separated lists (simulate `Expand Inline = YES`).
+  - Use placeholders like `{TableName}` if standard, or actual table names if needed.
 - Example: `queries/reports/product-sales-by-drawer/tests/test-salesfact.sql`
 
 **🚨 CRITICAL: OutSystems Sandbox Limitation**
