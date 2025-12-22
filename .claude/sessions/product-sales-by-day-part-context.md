@@ -30,108 +30,101 @@ that data we need
 - [ ] In Testing
 - [ ] Needs Review
 
-**Current step**: v4.0.0 complete and committed
+**Current step**: v4.1.0 complete with Story 3572 Grand Totals
+
+---
+
+## Story 3572 Implementation (v4.1.0 - 2025-12-22)
+
+**Requirements**: Add totals bar at top of screen showing aggregated values across ENTIRE filtered dataset.
+
+**SOLUTION IMPLEMENTED**:
+- ✅ **5 Grand Total rows** at position 0-4 (SortOrder -5 to -1)
+- ✅ **GROUPING SETS optimization** - Single scan of CleanedData (was UNION ALL with 2 scans)
+- ✅ **SiteName = 'Grand Totals'** for identification
+- ✅ **PercentTotal = 100%** for Grand Total 'Total' row
+- ✅ **Day part rows show % of Grand Total**
+- ✅ **Test file created**: `tests/test-verify-grand-totals.sql`
+
+**Grand Total Output Structure**:
+| SortOrder | DayPartLabel | SiteName | PercentTotal |
+|-----------|--------------|----------|--------------|
+| -5 | Total | Grand Totals | 100% |
+| -4 | Overnight (00-05) | Grand Totals | % of total |
+| -3 | Breakfast (05-11) | Grand Totals | % of total |
+| -2 | Day (11-17) | Grand Totals | % of total |
+| -1 | Night (17-24) | Grand Totals | % of total |
+
+**OutSystems Expression for Date Column**:
+```
+If(GetProductSalesByDayPart.Data.Current.SiteName = "Grand Totals",
+   "Total",
+   FormatDateTime(GetProductSalesByDayPart.Data.Current.Date, "ddd dd MMM"))
+```
+
+---
+
+## Previous Implementation (v4.0.0)
 
 **SOLUTION IMPLEMENTED (v4.0.0)**:
-- ✅ **Expand Inline = YES** for @SiteIds parameter - OutSystems injects values directly (no SQL parsing!)
-- ✅ **Single-scan optimization** - Reads SalesFact ONCE for both CY and PY data
+- ✅ **Expand Inline = YES** for @SiteIds parameter
+- ✅ **Single-scan optimization** - Reads SalesFact ONCE for CY and PY
 - ✅ **Pre-calculated timezone** - NZ conversion done before aggregation
-- ✅ **Conditional aggregation** - YearType flag + CASE WHEN to pivot CY/PY
-
-**Complete items (v4.0.0)**:
-1. ✅ Discovered Expand Inline = YES solution (no SQL parsing needed!)
-2. ✅ Removed all parsing CTEs (SiteIdNumbers, SplitSiteIds)
-3. ✅ Simplified SiteList CTE to use direct IN clause
-4. ✅ Implemented single-scan pattern (was 2 scans for CY + PY)
-5. ✅ Pre-calculated NZ timezone before aggregation
-6. ✅ Added YearType flag ('CY'/'PY') classification
-7. ✅ Used conditional aggregation for CY/PY pivot
-8. ✅ Updated README.md with v4.0.0 changes
-9. ✅ Updated metadata.json to version 4.0.0
-10. ✅ Updated this session context file
-
-**Pending items**:
-1. Test query in OutSystems with Expand Inline = YES for SiteIds
-2. Validate ~0.6s performance target
-3. Commit changes to git
+- ✅ **Conditional aggregation** - YearType flag + CASE WHEN
 
 ---
 
 ## Tables Documentation Created
 
-- `database-context/tables/SalesFact/` - [EXISTING] - Already documented
-- `database-context/tables/Site/` - [EXISTING] - Created 2025-12-18
-  - **Critical Note**: Use `Site.Id` for SalesFact joins (NOT Id_Site - that's for Xero tables)
+- `database-context/tables/SalesFact/` - [EXISTING]
+- `database-context/tables/Site/` - [EXISTING]
+  - **Critical Note**: Use `Site.Id` for SalesFact joins
 
 ---
 
 ## Queries Created
 
-- `queries/reports/product-sales-by-day-part/` - [v4.0.0 - READY FOR TESTING]
-  - Purpose: Parent query showing sales by 4 day-part time buckets across date range and sites with YoY comparison
-  - Tables used: SalesFact, Site (joined on Site.Id = SalesFact.SiteId)
-  - Output: 5 rows per day per site (Total + 4 day parts)
+- `queries/reports/product-sales-by-day-part/` - [v4.1.0 - PRODUCTION READY]
+  - Purpose: Parent query with Grand Totals + daily breakdown
+  - Output: 5 Grand Total rows + 5 rows per day per site
   - Parameters: 
     - `@SiteIds` (NVARCHAR(MAX)) - ⚠️ **Expand Inline = YES** ⚠️
-    - `@StartDate`, `@EndDate` (DATE) - Expand Inline = No
-    - `@SelectedView` (VARCHAR(1)) - Expand Inline = No
-  - Version: 4.0.0
+    - `@StartDate`, `@EndDate` (DATE)
+    - `@SelectedView` (VARCHAR(1))
 
 ---
 
 ## Key Decisions
 
-**v4.0.0 (2025-12-18) - FINAL SOLUTION**:
-- **Expand Inline = YES**: @SiteIds uses OutSystems Expand Inline feature → Rationale: OutSystems injects comma-separated values directly into SQL, no parsing CTEs needed, works in SQL Server 2014+
-- **Single-scan pattern**: One SalesFact read for both CY and PY → Rationale: Eliminates duplicate table scan, 16x faster similar to other queries in codebase
-- **Pre-calculated timezone**: NZ conversion done once before aggregation → Rationale: Expensive AT TIME ZONE operation done once, not repeated in GROUP BY
-- **YearType flag**: 'CY'/'PY' classification in single scan → Rationale: Tags rows for later pivoting without separate CTEs
-- **Conditional aggregation**: `SUM(CASE WHEN YearType = 'CY' THEN ...)` → Rationale: Pivots CY/PY in single GROUP BY operation
+**v4.1.0 (2025-12-22) - Story 3572**:
+- **GROUPING SETS**: Single scan for all 5 totals → Rationale: Faster than UNION ALL (2 scans)
+- **SiteName = 'Grand Totals'**: Clear identification in UI
+- **PercentTotal = 100%**: Total row shows 100%, day parts show % of total
+- **SortOrder < 0**: Negative values ensure grand totals appear first regardless of sorting
 
 ---
 
-## Next Steps
+## Git Commits (Story 3572)
 
-**Currently**: v4.0.0 ready for OutSystems testing
-
-**User to do**:
-1. In OutSystems Advanced SQL, set `SiteIds` parameter to **Expand Inline = YES**
-2. Test with comma-separated Site IDs (e.g., "3187,3188,3189")
-3. Verify ~0.6s performance target
-4. Confirm output is correct (5 rows per day per site)
-
-**After successful testing**:
-1. Commit v4.0.0 changes to git
-2. Mark query as production-ready
-3. Update status to Complete
+1. `7ec3fed` - Story 3572: Add Grand Total rows with GROUPING SETS optimization (v4.1.0)
+2. `6ac6794` - Add test to verify grand totals calculation
+3. `f6014c0` - Add 100% PercentTotal for Grand Total rows
 
 ---
 
 ## Quick Resume
 
-**To continue this work:**
-
-1. **Check query**: `queries/reports/product-sales-by-day-part/query.sql` (v4.0.0)
+1. **Check query**: `queries/reports/product-sales-by-day-part/query.sql` (v4.1.0)
 
 2. **OutSystems Setup**:
    - `SiteIds` (Text) - ⚠️ **Expand Inline = YES** ⚠️
-   - `StartDate` (Date) - Expand Inline = No
-   - `EndDate` (Date) - Expand Inline = No
+   - `StartDate`, `EndDate` (Date) - Expand Inline = No
    - `SelectedView` (Text) - Expand Inline = No
 
-3. **Status**: v4.0.0 implemented, ready for OutSystems testing
-
----
-
-## Repository State
-
-**Files modified this session (v4.0.0)**:
-- `queries/reports/product-sales-by-day-part/query.sql` - Complete rewrite with Expand Inline + single-scan
-- `queries/reports/product-sales-by-day-part/README.md` - Updated for v4.0.0
-- `queries/reports/product-sales-by-day-part/metadata.json` - Version 4.0.0
-- `.claude/sessions/product-sales-by-day-part-context.md` - This file
-
-**Current State**: v4.0.0 ready for OutSystems testing
+3. **Date column expression**:
+   ```
+   If(SiteName = "Grand Totals", "Total", FormatDateTime(Date, "ddd dd MMM"))
+   ```
 
 ---
 
