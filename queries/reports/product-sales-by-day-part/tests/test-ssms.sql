@@ -205,6 +205,16 @@ SELECT
     END AS Value,
     CASE
         WHEN (SELECT SelectedView FROM InputVar) = 'A' THEN 0
+        -- Grand Total 'Total' row (SortOrder = -5) shows 100%
+        WHEN SortOrder = -5 THEN 100.0
+        -- Grand Total day part rows show % of grand total
+        WHEN SortOrder < 0 AND (SELECT SelectedView FROM InputVar) = 'D' THEN
+            CASE WHEN SUM(CASE WHEN SortOrder = -5 THEN CY_NetAmount ELSE 0 END) OVER() = 0 THEN 0
+                 ELSE CY_NetAmount * 100.0 / NULLIF(SUM(CASE WHEN SortOrder = -5 THEN CY_NetAmount ELSE 0 END) OVER(), 0) END
+        WHEN SortOrder < 0 AND (SELECT SelectedView FROM InputVar) = 'G' THEN
+            CASE WHEN SUM(CASE WHEN SortOrder = -5 THEN CY_TransactionCount ELSE 0 END) OVER() = 0 THEN 0
+                 ELSE CAST(CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / NULLIF(SUM(CASE WHEN SortOrder = -5 THEN CY_TransactionCount ELSE 0 END) OVER(), 0) END
+        -- Daily rows - % of daily total (SortOrder = 0)
         WHEN (SELECT SelectedView FROM InputVar) = 'D' THEN
              CASE WHEN MAX(CASE WHEN SortOrder = 0 THEN CY_NetAmount ELSE 0 END) OVER (PARTITION BY ReportDate, SiteId) = 0 THEN 0
                   ELSE CY_NetAmount * 100.0 / NULLIF(MAX(CASE WHEN SortOrder = 0 THEN CY_NetAmount ELSE 0 END) OVER (PARTITION BY ReportDate, SiteId), 0) END
