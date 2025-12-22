@@ -139,6 +139,29 @@ FinalSet AS (
         SUM(CY_NetAmount), SUM(CY_TransactionCount), 0 AS SortOrder
     FROM GridData
     GROUP BY SiteId, SiteName, ReportDate
+),
+
+-- [STORY 3572]: Grand Total rows
+GrandTotal AS (
+    SELECT 
+        NULL AS SiteId,
+        'Grand Totals' AS SiteName,
+        NULL AS ReportDate,
+        CASE WHEN GROUPING(Pod) = 1 THEN 'Total' ELSE Pod END AS Pod,
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount,
+        SUM(CY_NetAmount) AS DailyTotal_Net,
+        SUM(CY_TransactionCount) AS DailyTotal_Txn,
+        CASE WHEN GROUPING(Pod) = 1 THEN -99 ELSE -50 + ROW_NUMBER() OVER (ORDER BY Pod) END AS SortOrder
+    FROM GridData
+    GROUP BY GROUPING SETS ((), (Pod))
+),
+
+CombinedSet AS (
+    SELECT * FROM GrandTotal
+    UNION ALL SELECT * FROM FinalSet
 )
 
 SELECT
@@ -151,6 +174,9 @@ SELECT
     END AS Value,
     CASE
         WHEN @SelectedView = 'A' THEN 0
+        WHEN SortOrder = -99 THEN 100.0
+        WHEN SortOrder < 0 AND @SelectedView = 'D' THEN CASE WHEN DailyTotal_Net = 0 THEN 0 ELSE CY_NetAmount * 100.0 / DailyTotal_Net END
+        WHEN SortOrder < 0 AND @SelectedView = 'G' THEN CASE WHEN DailyTotal_Txn = 0 THEN 0 ELSE CAST(CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / DailyTotal_Txn END
         WHEN @SelectedView = 'D' THEN CASE WHEN DailyTotal_Net = 0 THEN 0 ELSE CY_NetAmount * 100.0 / DailyTotal_Net END
         WHEN @SelectedView = 'G' THEN CASE WHEN DailyTotal_Txn = 0 THEN 0 ELSE CAST(CY_TransactionCount AS DECIMAL(18,2)) * 100.0 / DailyTotal_Txn END
         ELSE 0
@@ -164,8 +190,8 @@ SELECT
         ELSE 0
     END AS PercentInc,
     SortOrder
-FROM FinalSet
-WHERE ReportDate <= @EndDate
-  AND ReportDate < CAST(SYSDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' AS DATE)
-ORDER BY Date ASC, SiteName ASC, SortOrder ASC
+FROM CombinedSet
+WHERE ReportDate IS NULL OR (ReportDate <= @EndDate
+  AND ReportDate < CAST(SYSDATETIME() AT TIME ZONE 'UTC' AT TIME ZONE 'New Zealand Standard Time' AS DATE))
+ORDER BY CASE WHEN SortOrder < 0 THEN 0 ELSE 1 END, SortOrder ASC, Date ASC, SiteName ASC
 OPTION (MAXRECURSION 1000, RECOMPILE);
