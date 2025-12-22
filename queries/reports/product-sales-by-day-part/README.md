@@ -2,7 +2,7 @@
 
 **Category**: Reports
 **Created**: 2025-12-18
-**Status**: In Development (v4.0.0)
+**Status**: Production Ready (v4.1.0)
 
 ## Purpose
 
@@ -38,12 +38,17 @@ Returns sales/transaction data grouped by 4 day-part time buckets across a date 
 
 ## Output Structure
 
-**5 rows per day per site**:
-1. Total (00-24) - Full day total
-2. Overnight (00-05)
-3. Breakfast (05-11)
-4. Day (11-17)
-5. Night (17-24)
+**Rows per site per day + 1 Grand Total row**:
+1. **Grand Total** - Aggregates across ENTIRE date range and all sites (position 0)
+2. Total (00-24) - Full day total per site per day
+3. Overnight (00-05)
+4. Breakfast (05-11)
+5. Day (11-17)
+6. Night (17-24)
+
+**Output Structure (v4.1.0 - Story 3572)**:
+- First row: Grand Total (`SortOrder = -1`, Date/SiteId/SiteName = NULL)
+- Then per-day per-site breakdown with daily totals
 
 **Examples**:
 - Single site, 7-day range = 35 rows (1 site × 7 days × 5 rows per day)
@@ -250,4 +255,5 @@ See `tests/` folder for diagnostic queries.
 | 2025-12-18 | v1.0.0 | Initial creation - parent query setup | Claude |
 | 2025-12-18 | v2.0.0 | Multi-site support with SQL filtering | Claude |
 | 2025-12-18 | v3.0.0 | Refactored to @SiteIds approach | Claude |
-| 2025-12-18 | v4.0.0 | **Major optimization**: Expand Inline = YES for SiteIds (no parsing), single-scan optimization (1 SalesFact read vs 2), pre-calculated timezone, conditional aggregation | Claude |
+| 2025-12-18 | v4.0.0 | **Major optimization**: Expand Inline = YES for SiteIds, single-scan optimization | Claude |
+| 2025-12-22 | v4.1.0 | **Story 3572**: Added Grand Total row at position 0 (aggregates entire dataset) | Claude |

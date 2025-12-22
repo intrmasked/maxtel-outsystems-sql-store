@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT SALES BY DAY PART - v4.0.0 (OutSystems Production)
+   QUERY: PRODUCT SALES BY DAY PART - v4.1.0 (OutSystems Production)
    ===================================================================================
 
    PURPOSE:
@@ -155,8 +155,42 @@ TotalData AS (
     GROUP BY ReportDate, SiteId, SiteName
 ),
 
+-- [STORY 3572]: Grand Total rows - aggregates across ENTIRE filtered dataset
+-- Uses GROUPING SETS for single-scan optimization (avoids scanning CleanedData twice)
+-- Returns 5 rows: Total + 4 individual day parts (all aggregated across date range)
+GrandTotal AS (
+    SELECT 
+        NULL AS ReportDate,
+        NULL AS SiteId,
+        'Grand Totals' AS SiteName,   -- Display "Grand Totals" in SiteName column
+        CASE 
+            WHEN GROUPING(DayPartLabel) = 1 THEN 'Total'  -- Overall total
+            ELSE DayPartLabel                              -- Individual day part
+        END AS DayPartLabel,
+        CASE 
+            WHEN GROUPING(DayPartLabel) = 1 THEN -5        -- Overall Total first
+            ELSE CASE DayPartLabel
+                WHEN 'Overnight (00-05)' THEN -4
+                WHEN 'Breakfast (05-11)' THEN -3
+                WHEN 'Day (11-17)' THEN -2
+                WHEN 'Night (17-24)' THEN -1
+            END
+        END AS SortOrder,
+        SUM(CY_NetAmount) AS CY_NetAmount,
+        SUM(CY_TransactionCount) AS CY_TransactionCount,
+        SUM(PY_NetAmount) AS PY_NetAmount,
+        SUM(PY_TransactionCount) AS PY_TransactionCount
+    FROM CleanedData
+    GROUP BY GROUPING SETS (
+        (),             -- Overall Total (all day parts)
+        (DayPartLabel)  -- Per-DayPart Totals
+    )
+),
+
 CombinedSet AS (
-    SELECT * FROM CleanedData UNION ALL SELECT * FROM TotalData
+    SELECT * FROM GrandTotal          -- Grand totals FIRST (5 rows)
+    UNION ALL SELECT * FROM CleanedData 
+    UNION ALL SELECT * FROM TotalData
 )
 
 SELECT
@@ -190,4 +224,7 @@ SELECT
     END AS PercentInc,
     SortOrder
 FROM CombinedSet
-ORDER BY Date ASC, SiteName ASC, SortOrder ASC
+ORDER BY 
+    CASE WHEN SortOrder < 0 THEN 0 ELSE 1 END,  -- Grand Totals first (SortOrder < 0)
+    SortOrder ASC,                              -- Within grand totals: -5, -4, -3, -2, -1
+    Date ASC, SiteName ASC
