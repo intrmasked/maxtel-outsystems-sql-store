@@ -17,7 +17,7 @@ Reporting queries for Daily Sales breakdown by different dimensions (POS/Pod and
 - [ ] In Development
 - [ ] Needs Review
 
-**Current step**: v2.2.4 (Day Part) & v2.2.3 (POS) - ALL FIXED.
+**Current step**: v2.1.0 - Story 3572 Grand Totals complete with PercentTotal fix.
 
 > [!CAUTION]
 > ### 🛑 SALESFACT TABLE KNOWLEDGE - READ THIS!
@@ -35,14 +35,24 @@ Reporting queries for Daily Sales breakdown by different dimensions (POS/Pod and
 
 ---
 
-## Latest Changes (2025-12-20)
+## Story 3572 Implementation (v2.1.0 - 2025-12-23)
 
-**v2.2.4 - Product Sales By Day Part (SAFEGUARDED)**
-- **Audit**: Query correctly targeted Summary Rows (`PosId=0`). No double counting found.
-- **Safety Net**: Implemented `MAX()` deduplication logic anyway to protect against header overlaps in summary rows.
-- **Output**: Added `SiteId` to final SELECT (as requested).
-- **Fix**: Resolved "No column name" error by adding aliases to `TotalData` CTE.
-- **Testing**: Added `test-granular-view.sql` for 15-min interval visualization.
+**Requirements**: Add totals bar at top of screen showing aggregated values across ENTIRE filtered dataset.
+
+**SOLUTION IMPLEMENTED**:
+- ✅ **N+1 Grand Total rows** at positions 0-N (Total + N active Pods)
+- ✅ **GROUPING SETS optimization** - Single scan of GridData
+- ✅ **SiteName = 'Grand Totals'** for identification
+- ✅ **PercentTotal = 100%** for Grand Total 'Total' row
+- ✅ **Pod rows show % of grand total** (fixed: SUM(SUM(...)) OVER())
+
+**Bug Fix (937d631)**:
+- Fixed PercentTotal showing 100% for all Pod rows
+- Changed `SUM(CY_NetAmount)` → `SUM(SUM(CY_NetAmount)) OVER()` for DailyTotal
+
+---
+
+## Previous Changes (v2.2.3 - 2025-12-20)
 
 **v2.2.3 - Product Sales By POS (FIXED)**
 - **Fix**: Excluded Summary Rows (`AND PosId <> 0`). Solved the "Double Counting" bug.
