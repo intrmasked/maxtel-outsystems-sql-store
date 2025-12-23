@@ -152,8 +152,8 @@ GrandTotal AS (
         SUM(CY_TransactionCount) AS CY_TransactionCount,
         SUM(PY_NetAmount) AS PY_NetAmount,
         SUM(PY_TransactionCount) AS PY_TransactionCount,
-        SUM(CY_NetAmount) AS DailyTotal_Net,
-        SUM(CY_TransactionCount) AS DailyTotal_Txn,
+        SUM(SUM(CY_NetAmount)) OVER() AS DailyTotal_Net,
+        SUM(SUM(CY_TransactionCount)) OVER() AS DailyTotal_Txn,
         CASE WHEN GROUPING(Pod) = 1 THEN -99 ELSE -50 + ROW_NUMBER() OVER (ORDER BY Pod) END AS SortOrder
     FROM GridData
     GROUP BY GROUPING SETS ((), (Pod))
