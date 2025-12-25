@@ -1,0 +1,60 @@
+{
+    "name": "Operating Periods Tenders",
+    "version": "1.0.0",
+    "description": "Retrieves dynamic tender lists and fixed metrics for the Operating Periods screen, including Grand Totals.",
+    "parameters": [
+        {
+            "name": "SiteIds",
+            "type": "Text",
+            "expandInline": true
+        },
+        {
+            "name": "StartDate",
+            "type": "Date"
+        },
+        {
+            "name": "EndDate",
+            "type": "Date"
+        },
+        {
+            "name": "SelectedView",
+            "type": "Text",
+            "description": "D=Dollars, G=Guests, A=Average"
+        }
+    ],
+    "tables": [
+        "SWCPeriod",
+        "SWCPeriodTender",
+        "TenderType"
+    ],
+    "outputStructure": [
+        {
+            "name": "SiteId",
+            "type": "LongInteger"
+        },
+        {
+            "name": "SiteName",
+            "type": "Text"
+        },
+        {
+            "name": "BusDate",
+            "type": "Date"
+        },
+        {
+            "name": "TenderTypeId",
+            "type": "LongInteger"
+        },
+        {
+            "name": "Name",
+            "type": "Text"
+        },
+        {
+            "name": "Value",
+            "type": "Decimal"
+        },
+        {
+            "name": "SortOrder",
+            "type": "Integer"
+        }
+    ]
+}
