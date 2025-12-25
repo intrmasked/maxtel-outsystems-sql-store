@@ -4,9 +4,11 @@
             "command": "uv",
             "args": [
                 "run",
-                "main.py"
+                "--project",
+                "/Users/abdulhaseeb/Desktop/heziico/sql-store-maxtel/maxtel-outsystems-sql-store/tools/mcp-sql-bridge",
+                "python",
+                "/Users/abdulhaseeb/Desktop/heziico/sql-store-maxtel/maxtel-outsystems-sql-store/tools/mcp-sql-bridge/main.py"
             ],
-            "cwd": "/Users/abdulhaseeb/Desktop/heziico/sql-store-maxtel/maxtel-outsystems-sql-store/tools/mcp-sql-bridge",
             "env": {
                 "SQL_SANDBOX_USER": "<YOUR_EMAIL>",
                 "SQL_SANDBOX_PASS": "<YOUR_PASSWORD>"
