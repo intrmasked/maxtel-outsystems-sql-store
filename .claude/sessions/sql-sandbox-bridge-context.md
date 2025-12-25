@@ -4,9 +4,9 @@
 Create an MCP bridge (Python + Puppeteer/Playwright) to automate SQL execution in the OutSystems Sandbox. Use `uv` for package management, handle persistent login via a user data directory, and track Module IDs.
 
 ## Status
-- [ ] Complete / [x] In Progress / [ ] Needs Review
-- Current step: Finalizing `pyproject.toml` and server logic.
-- Incomplete items: Verification test, handling potential UI selectors for specific Sandbox pages.
+- [x] Complete / [ ] In Progress / [ ] Needs Review
+- Current step: Verified automated login and SQL editor detection.
+- Incomplete items: Integration into Claude/Cursor MCP settings.
 
 ## Tables Documentation Created
 - N/A (Infrastructure Session)
@@ -15,15 +15,19 @@ Create an MCP bridge (Python + Puppeteer/Playwright) to automate SQL execution i
 - N/A
 
 ## Key Decisions
-- **Playwright over Puppeteer**: Better Python support (Playwright-Python) and more reliable persistent context handling.
-- **UV**: Used for environment isolation and fast dependency resolution.
-- **Persistent Profile**: Stored in `~/mcp_playwright_profile` to bypass recurring MFA/Auth challenges after initial manual login.
-- **Module Registry**: Stored in both `server.py` and `claude.md` for easy reference.
+- **Automated Login**: Switched from manual profile to automated `myinfoweb` login with popup clearing to ensure stable session transfer.
+- **Environment Variables**: Moved to `SQL_SANDBOX_USER` and `SQL_SANDBOX_PASS` for secure credential management.
+- **Single Session**: Ensured navigation from login to module happens in one persistent context.
 
 ## Next Steps
-1. Verify the `execute_sandbox_sql` selector against the live UI.
-2. Test a simple `SELECT 1` through the bridge.
-3. Integrate the bridge into the Claude/Cursor MCP settings.
+1. Verify result scraping with a `SELECT 1` test.
+2. Hook up the MCP server to the IDE/Claude.
+3. Start refactoring Screen 3.
+
+## Quick Resume
+To continue:
+1. Run `SQL_SANDBOX_USER="..." SQL_SANDBOX_PASS="..." uv run main.py` to start the server.
+2. Test tool execution via `test_tool.py`.
 
 ## Notes for Next Session
 - Login URL: `https://dev.maxtel.com/myinfoweb/`

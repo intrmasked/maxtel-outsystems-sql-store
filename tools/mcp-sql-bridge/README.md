@@ -25,8 +25,15 @@ Install the Playwright browser engine:
 uv run playwright install chromium
 ```
 
-### 3. Persistent Login (Crucial)
-The sandbox requires authentication. To avoid complex login automation, we use a persistent browser profile. Run this once, log in manually at the redirected page, and close the browser.
+### 3. Automated Login (Recommended)
+The bridge now supports automated login. Set the following environment variables in your `.env` file or terminal:
+```bash
+export SQL_SANDBOX_USER="your-email@example.com"
+export SQL_SANDBOX_PASS="your-password"
+```
+
+### 4. Persistent Login (Fallback)
+If you prefer not to use environment variables, you can log in manually once using a persistent browser profile:
 ```bash
 # MacOS Example
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
