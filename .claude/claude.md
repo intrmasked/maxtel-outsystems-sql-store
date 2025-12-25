@@ -814,3 +814,15 @@ To continue:
 - Use `database-context/tables/template-table/README.md` as template for new tables.
 - Session context.md = resume ticket for anyone to continue your work.
 - Context is for the TEAM - keep it updated throughout development, not just at the end.
+
+---
+
+## SQL Sandbox Module Registry
+Use these IDs for the MCP SQL Sandbox Bridge.
+
+| Module Name | Module ID | Description |
+| ----------- | --------- | ----------- |
+| SALES_UI    | 2758      | Main Sales UI module |
+
+> [!NOTE]
+> If a module is not listed, ask the user for its ID and add it here.
