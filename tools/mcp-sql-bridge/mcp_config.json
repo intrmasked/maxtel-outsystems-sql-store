@@ -1,0 +1,16 @@
+{
+    "mcpServers": {
+        "sql-sandbox": {
+            "command": "uv",
+            "args": [
+                "run",
+                "main.py"
+            ],
+            "cwd": "/Users/abdulhaseeb/Desktop/heziico/sql-store-maxtel/maxtel-outsystems-sql-store/tools/mcp-sql-bridge",
+            "env": {
+                "SQL_SANDBOX_USER": "intrmasked@gmail.com",
+                "SQL_SANDBOX_PASS": "Ly7-Mo5=G3"
+            }
+        }
+    }
+}

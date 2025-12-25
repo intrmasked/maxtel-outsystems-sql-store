@@ -5,8 +5,8 @@ Create an MCP bridge (Python + Puppeteer/Playwright) to automate SQL execution i
 
 ## Status
 - [x] Complete / [ ] In Progress / [ ] Needs Review
-- Current step: Verified automated login and SQL editor detection.
-- Incomplete items: Integration into Claude/Cursor MCP settings.
+- Current step: Published to Git and verified end-to-end.
+- Incomplete items: Ready for Screen 3 refactor.
 
 ## Tables Documentation Created
 - N/A (Infrastructure Session)
@@ -16,13 +16,12 @@ Create an MCP bridge (Python + Puppeteer/Playwright) to automate SQL execution i
 
 ## Key Decisions
 - **Automated Login**: Switched from manual profile to automated `myinfoweb` login with popup clearing to ensure stable session transfer.
-- **Environment Variables**: Moved to `SQL_SANDBOX_USER` and `SQL_SANDBOX_PASS` for secure credential management.
-- **Single Session**: Ensured navigation from login to module happens in one persistent context.
+- **Metadata Extraction**: Captured query timing (e.g. 67ms) and row counts from the UI for performance tracking.
+- **Structured JSON**: Changed tool output to JSON with `metadata` and `data` objects.
 
 ## Next Steps
-1. Verify result scraping with a `SELECT 1` test.
-2. Hook up the MCP server to the IDE/Claude.
-3. Start refactoring Screen 3.
+1. Start refactoring **Screen 3**.
+2. Use the bridge to verify Screen 3 queries.
 
 ## Quick Resume
 To continue:
