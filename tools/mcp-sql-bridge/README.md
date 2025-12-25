@@ -38,7 +38,7 @@ The sandbox requires authentication. To avoid complex login automation, we use a
 
 Use `uv run` to start the server immediately:
 ```bash
-uv run server.py
+uv run main.py
 ```
 
 ## 🛠️ Available Tools

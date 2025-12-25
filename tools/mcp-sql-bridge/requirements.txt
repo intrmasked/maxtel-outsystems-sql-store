@@ -1,4 +1,0 @@
-mcp
-playwright
-beautifulsoup4
-pandas
