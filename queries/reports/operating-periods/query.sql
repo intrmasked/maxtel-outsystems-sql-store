@@ -65,23 +65,39 @@ TotalTenderRaw AS (
 
 -- Combine Row and Total Raw Data
 CombinedRaw AS (
-    SELECT * FROM RowTenderRaw
+    SELECT tp.BusDate, r.* FROM RowTenderRaw r INNER JOIN TargetPeriods tp ON r.OperatingPeriodId = tp.OperatingPeriodId
     UNION ALL
-    SELECT * FROM TotalTenderRaw
+    -- Daily Grand Totals Raw
+    SELECT tp.BusDate, NULL AS OperatingPeriodId, r.TenderTypeId, r.Name, SUM(r.Amt) AS Amt, SUM(r.Cnt) AS Cnt
+    FROM RowTenderRaw r
+    INNER JOIN TargetPeriods tp ON r.OperatingPeriodId = tp.OperatingPeriodId
+    GROUP BY tp.BusDate, r.TenderTypeId, r.Name
+    UNION ALL
+    -- Overall Grand Totals Raw
+    SELECT NULL AS BusDate, NULL AS OperatingPeriodId, TenderTypeId, Name, SUM(Amt) AS Amt, SUM(Cnt) AS Cnt
+    FROM RowTenderRaw
+    GROUP BY TenderTypeId, Name
 ),
 
 -- Final Formatting of Columns (Expected, Tenders, Actual, Variance, Information)
 FinalItems AS (
-    -- A. Expected Total Takings (Position 10)
+    -- A. Expected Total Takings (Position 10) - DOLLARS ONLY
     SELECT 
         tp.OperatingPeriodId, tp.SiteId, tp.SiteName, tp.BusDate,
         NULL AS TenderTypeId, 'Expected Total Takings' AS Name, 10 AS SortOrder,
-        CASE WHEN @SelectedView = 'D' THEN tp.ExpectedTotal ELSE 0 END AS Value
+        tp.ExpectedTotal AS Value
     FROM TargetPeriods tp
+    WHERE @SelectedView = 'D'
     UNION ALL
-    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Expected Total Takings', 10, 
-        CASE WHEN @SelectedView = 'D' THEN SUM(ExpectedTotal) ELSE 0 END 
-    FROM TargetPeriods
+    -- Daily Grand Total
+    SELECT NULL, 0, 'Grand Total', tp.BusDate, NULL, 'Expected Total Takings', 10, SUM(tp.ExpectedTotal)
+    FROM TargetPeriods tp
+    WHERE @SelectedView = 'D'
+    GROUP BY tp.BusDate
+    UNION ALL
+    -- Overall Grand Total
+    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Expected Total Takings', 10, Total
+    FROM (SELECT SUM(ExpectedTotal) AS Total FROM TargetPeriods WHERE @SelectedView = 'D' HAVING COUNT(*) > 0) t
 
     UNION ALL
 
@@ -90,7 +106,7 @@ FinalItems AS (
         c.OperatingPeriodId, 
         ISNULL(tp.SiteId, 0) AS SiteId, 
         ISNULL(tp.SiteName, 'Grand Total') AS SiteName, 
-        tp.BusDate,
+        c.BusDate,
         c.TenderTypeId, c.Name, 50,
         CASE @SelectedView 
             WHEN 'D' THEN c.Amt
@@ -111,6 +127,16 @@ FinalItems AS (
             WHEN 'A' THEN tp.ActualTotal / NULLIF(tp.RowTotalGuests, 0) ELSE 0 END
     FROM TargetPeriods tp
     UNION ALL
+    -- Daily Grand Total
+    SELECT NULL, 0, 'Grand Total', tp.BusDate, NULL, 'Actual Total Takings', 90,
+        CASE @SelectedView 
+            WHEN 'D' THEN SUM(ActualTotal)
+            WHEN 'G' THEN CAST(SUM(RowTotalGuests) AS DECIMAL(18,2))
+            WHEN 'A' THEN SUM(ActualTotal) / NULLIF(SUM(RowTotalGuests), 0) ELSE 0 END 
+    FROM TargetPeriods tp
+    GROUP BY tp.BusDate
+    UNION ALL
+    -- Overall Grand Total
     SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Actual Total Takings', 90,
         CASE @SelectedView 
             WHEN 'D' THEN SUM(ActualTotal)
@@ -120,16 +146,23 @@ FinalItems AS (
 
     UNION ALL
 
-    -- D. Variance (Position 100)
+    -- D. Variance (Position 100) - DOLLARS ONLY
     SELECT 
         tp.OperatingPeriodId, tp.SiteId, tp.SiteName, tp.BusDate,
         NULL, 'Variance', 100,
-        CASE WHEN @SelectedView = 'D' THEN tp.VarianceTotal ELSE 0 END
+        tp.VarianceTotal
     FROM TargetPeriods tp
+    WHERE @SelectedView = 'D'
     UNION ALL
-    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Variance', 100, 
-        CASE WHEN @SelectedView = 'D' THEN SUM(VarianceTotal) ELSE 0 END 
-    FROM TargetPeriods
+    -- Daily Grand Total
+    SELECT NULL, 0, 'Grand Total', tp.BusDate, NULL, 'Variance', 100, SUM(tp.VarianceTotal)
+    FROM TargetPeriods tp
+    WHERE @SelectedView = 'D'
+    GROUP BY tp.BusDate
+    UNION ALL
+    -- Overall Grand Total
+    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Variance', 100, Total
+    FROM (SELECT SUM(VarianceTotal) AS Total FROM TargetPeriods WHERE @SelectedView = 'D' HAVING COUNT(*) > 0) t
 
     UNION ALL
 
@@ -137,6 +170,7 @@ FinalItems AS (
     SELECT tp.OperatingPeriodId, tp.SiteId, tp.SiteName, tp.BusDate, NULL, 'Information', 110, 0 
     FROM TargetPeriods tp
     UNION ALL
+    -- Overall Grand Total Only
     SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Information', 110, 0
     FROM TargetPeriods
 )
@@ -144,8 +178,9 @@ FinalItems AS (
 SELECT SiteId, SiteName, BusDate, TenderTypeId, Name, CAST(Value AS DECIMAL(18,2)) AS Value, SortOrder 
 FROM FinalItems
 ORDER BY 
-    CASE WHEN OperatingPeriodId IS NULL THEN 0 ELSE 1 END, -- Grand Total First
+    CASE WHEN BusDate IS NULL THEN 0 ELSE 1 END, -- Overall Grand Total Absolute First
     BusDate,
+    CASE WHEN OperatingPeriodId IS NULL THEN 0 ELSE 1 END, -- Daily Grand Total First within date
     SiteName,
     OperatingPeriodId,
     SortOrder,
