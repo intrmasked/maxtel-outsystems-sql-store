@@ -11,15 +11,18 @@ Refactoring the "Operating Periods" report screen into the repository-standard A
 - N/A
 
 ## Queries Created
-- `queries/reports/operating-periods/query.sql` (v1.0.0)
+- `queries/reports/operating-periods/query.sql` (v1.1.0)
 - `queries/reports/operating-periods/tests/test-ssms.sql`
+- `queries/utilities/get-tender-list/query.sql` (Global Utility)
+- `queries/utilities/get-tender-list/README.md` (Logic Blueprint)
 
 ## Key Decisions
 - **Grand Total Standardization**: SiteId = 0 and SiteName = 'Grand Total' for all total rows.
 - **Hierarchical Subtotals**: Implemented Overall Grand Total (BusDate=NULL) followed by Daily Grand Totals (BusDate=Actual Date) to allow easier filtering by date.
 - **Dynamic View Allocation**: Handled Dollars ('D'), Guests ('G'), and Average ('A') via `@SelectedView` parameter.
 - **Conditional Visibility**: Expected and Variance rows are now omitted when the view is not Dollars ('D').
-- **Information Row Cleanup**: Removed redundant "Information" rows from Daily Grand Totals to reduce clutter, keeping it only for Site-level rows and the absolute Overall Grand Total.
+- **Information Row Cleanup**: Removed redundant "Information" rows from Daily Grand Totals to reduce clutter.
+- **New Project Standard**: All queries now require MCP Sandbox verification and an OutSystems-importable JSON Structure definition.
 
 ## Next Steps
 1. Verify if further refinements are needed.

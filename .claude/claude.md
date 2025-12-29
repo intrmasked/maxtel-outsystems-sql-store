@@ -817,6 +817,28 @@ To continue:
 
 ---
 
+## Standard Verification & Handover
+
+### 🚨 MANDATORY: SQL Sandbox Verification
+All new or modified SQL queries **MUST** be verified via the MCP SQL Sandbox Bridge before being presented to the user.
+1. Use `mcp_sql-sandbox_execute_sandbox_sql` to run the query.
+2. Verify results against expectations (row count, data alignment).
+3. Record visual proof of the data structure for the user.
+
+### 🗳️ OutSystems Integration Handover
+For every query intended for an Advanced SQL block, provide a **JSON Structure Definition** that the user can use to create the Output Structure in OutSystems.
+- Format: A JSON array of objects with `Name` and `Type`.
+- Types should be OutSystems compatible (Text, Integer, LongInteger, Decimal, Date, Boolean).
+- Example:
+```json
+[
+  { "Name": "SiteName", "Type": "Text" },
+  { "Name": "Value", "Type": "Decimal" }
+]
+```
+
+---
+
 ## SQL Sandbox Module Registry
 Use these IDs for the MCP SQL Sandbox Bridge.
 

@@ -1,0 +1,39 @@
+{
+    "name": "Get Tender List Utility",
+    "version": "1.0.0",
+    "description": "Utility query to generate the list of report rows (Tenders + Fixed Metrics) for the Operating Periods report.",
+    "parameters": [
+        {
+            "name": "SiteIds",
+            "type": "Text",
+            "expandInline": true
+        },
+        {
+            "name": "StartDate",
+            "type": "Date"
+        },
+        {
+            "name": "EndDate",
+            "type": "Date"
+        },
+        {
+            "name": "SelectedView",
+            "type": "Text",
+            "description": "D=Dollars, G=Guests, A=Average"
+        }
+    ],
+    "outputStructure": [
+        {
+            "name": "TenderTypeId",
+            "type": "LongInteger"
+        },
+        {
+            "name": "Name",
+            "type": "Text"
+        },
+        {
+            "name": "SortOrder",
+            "type": "Integer"
+        }
+    ]
+}
