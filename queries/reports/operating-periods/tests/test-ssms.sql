@@ -13,20 +13,47 @@ DECLARE @SelectedView VARCHAR(1) = 'D';
 -- Replace {Table} with actual table names (e.g., OSADMIN.OSUSR_...) 
 -- or use the real DB environment if connected.
 
-WITH TargetPeriods AS (
+-- 1. Identify all requested sites from comma-separated list
+WITH SiteList AS (
+    SELECT Id, ISNULL(DisplayName, Name) AS SiteName
+    FROM {Site}
+    WHERE Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
+      AND EXISTS (
+          SELECT 1 FROM {SWCPeriod} p 
+          WHERE p.SiteId = {Site}.Id 
+            AND p.BusDate BETWEEN @StartDate AND @EndDate
+      )
+),
+
+-- 2. Generate Recursive Date List for the range
+DateList AS (
+    SELECT @StartDate AS BusDate
+    UNION ALL
+    SELECT DATEADD(day, 1, BusDate)
+    FROM DateList
+    WHERE BusDate < @EndDate
+),
+
+-- 3. Create the Grid (Every Site x Every Date)
+SiteDateGrid AS (
+    SELECT s.Id AS SiteId, s.SiteName, d.BusDate
+    FROM SiteList s
+    CROSS JOIN DateList d
+),
+
+-- 4. Join actual period data into our grid
+TargetPeriods AS (
     SELECT 
+        g.SiteId, 
+        g.SiteName,
+        g.BusDate,
         p.Id AS OperatingPeriodId, 
-        p.SiteId, 
-        ISNULL(s.DisplayName, s.Name) AS SiteName,
-        p.BusDate, 
         ISNULL((SELECT SUM(ISNULL(ExpectedAmount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id), 0) AS ExpectedTotal, 
         ISNULL((SELECT SUM(ISNULL(CountedAmount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id), 0) AS ActualTotal, 
         ISNULL(p.TotalVariance, 0) AS VarianceTotal,
-        (SELECT SUM(ISNULL(TransactionCount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id) AS RowTotalGuests
-    FROM {SWCPeriod} p
-    INNER JOIN {Site} s ON p.SiteId = s.Id
-    WHERE p.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
-      AND p.BusDate BETWEEN @StartDate AND @EndDate
+        ISNULL((SELECT SUM(ISNULL(TransactionCount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id), 0) AS RowTotalGuests
+    FROM SiteDateGrid g
+    LEFT JOIN {SWCPeriod} p ON g.SiteId = p.SiteId AND g.BusDate = p.BusDate
 ),
 
 ActiveTenderTypes AS (
@@ -53,12 +80,6 @@ ActiveTenderTypes AS (
 CombinedRaw AS (
     SELECT tp.BusDate, r.* FROM RowTenderRaw r INNER JOIN TargetPeriods tp ON r.OperatingPeriodId = tp.OperatingPeriodId
     UNION ALL
-    -- Daily Grand Totals Raw
-    SELECT tp.BusDate, NULL AS OperatingPeriodId, r.TenderTypeId, r.Name, SUM(r.Amt) AS Amt, SUM(r.Cnt) AS Cnt
-    FROM RowTenderRaw r
-    INNER JOIN TargetPeriods tp ON r.OperatingPeriodId = tp.OperatingPeriodId
-    GROUP BY tp.BusDate, r.TenderTypeId, r.Name
-    UNION ALL
     -- Overall Grand Totals Raw
     SELECT NULL AS BusDate, NULL AS OperatingPeriodId, TenderTypeId, Name, SUM(Amt) AS Amt, SUM(Cnt) AS Cnt
     FROM RowTenderRaw
@@ -74,14 +95,9 @@ FinalItems AS (
     FROM TargetPeriods tp
     WHERE @SelectedView = 'D'
     UNION ALL
-    -- Daily Grand Total
-    SELECT NULL, 0, 'Grand Total', tp.BusDate, NULL, 'Expected Total Takings', 10, SUM(tp.ExpectedTotal)
-    FROM TargetPeriods tp
-    WHERE @SelectedView = 'D'
-    GROUP BY tp.BusDate
-    UNION ALL
-    -- Overall Grand Total
-    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Expected Total Takings', 10, Total
+    -- Overall Grand Total (Range Summary)
+    SELECT NULL AS OperatingPeriodId, 0 AS SiteId, 'Grand Total' AS SiteName, NULL AS BusDate,
+        NULL AS TenderTypeId, 'Expected Total Takings' AS Name, 10 AS SortOrder, Total
     FROM (SELECT SUM(ExpectedTotal) AS Total FROM TargetPeriods WHERE @SelectedView = 'D' HAVING COUNT(*) > 0) t
 
     UNION ALL
@@ -112,22 +128,17 @@ FinalItems AS (
             WHEN 'A' THEN tp.ActualTotal / NULLIF(tp.RowTotalGuests, 0) ELSE 0 END
     FROM TargetPeriods tp
     UNION ALL
-    -- Daily Grand Total
-    SELECT NULL, 0, 'Grand Total', tp.BusDate, NULL, 'Actual Total Takings', 90,
-        CASE @SelectedView 
-            WHEN 'D' THEN SUM(ActualTotal)
-            WHEN 'G' THEN CAST(SUM(RowTotalGuests) AS DECIMAL(18,2))
-            WHEN 'A' THEN SUM(ActualTotal) / NULLIF(SUM(RowTotalGuests), 0) ELSE 0 END 
-    FROM TargetPeriods tp
-    GROUP BY tp.BusDate
-    UNION ALL
-    -- Overall Grand Total
-    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Actual Total Takings', 90,
-        CASE @SelectedView 
-            WHEN 'D' THEN SUM(ActualTotal)
-            WHEN 'G' THEN CAST(SUM(RowTotalGuests) AS DECIMAL(18,2))
-            WHEN 'A' THEN SUM(ActualTotal) / NULLIF(SUM(RowTotalGuests), 0) ELSE 0 END 
-    FROM TargetPeriods
+    -- Overall Grand Total (Range Summary)
+    SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Actual Total Takings', 90, Total
+    FROM (
+        SELECT 
+            CASE @SelectedView 
+                WHEN 'D' THEN SUM(ActualTotal)
+                WHEN 'G' THEN CAST(SUM(RowTotalGuests) AS DECIMAL(18,2))
+                WHEN 'A' THEN SUM(ActualTotal) / NULLIF(SUM(RowTotalGuests), 0) ELSE 0 END AS Total
+        FROM TargetPeriods 
+        HAVING COUNT(*) > 0
+    ) t
 
     UNION ALL
 
@@ -139,13 +150,7 @@ FinalItems AS (
     FROM TargetPeriods tp
     WHERE @SelectedView = 'D'
     UNION ALL
-    -- Daily Grand Total
-    SELECT NULL, 0, 'Grand Total', tp.BusDate, NULL, 'Variance', 100, SUM(tp.VarianceTotal)
-    FROM TargetPeriods tp
-    WHERE @SelectedView = 'D'
-    GROUP BY tp.BusDate
-    UNION ALL
-    -- Overall Grand Total
+    -- Overall Grand Total (Range Summary)
     SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Variance', 100, Total
     FROM (SELECT SUM(VarianceTotal) AS Total FROM TargetPeriods WHERE @SelectedView = 'D' HAVING COUNT(*) > 0) t
 
@@ -157,16 +162,16 @@ FinalItems AS (
     UNION ALL
     -- Overall Grand Total Only
     SELECT NULL, 0, 'Grand Total', NULL, NULL, 'Information', 110, 0
-    FROM TargetPeriods
+    FROM (SELECT 1 AS x FROM TargetPeriods HAVING COUNT(*) > 0) t
 )
 
 SELECT SiteId, SiteName, BusDate, TenderTypeId, Name, CAST(Value AS DECIMAL(18,2)) AS Value, SortOrder 
 FROM FinalItems
 ORDER BY 
-    CASE WHEN BusDate IS NULL THEN 0 ELSE 1 END, -- Overall Grand Total Absolute First
+    CASE WHEN BusDate IS NULL THEN 1 ELSE 0 END, -- Grand Total at bottom
     BusDate,
-    CASE WHEN OperatingPeriodId IS NULL THEN 0 ELSE 1 END, -- Daily Grand Total First within date
     SiteName,
     OperatingPeriodId,
     SortOrder,
-    Name;
+    Name
+OPTION (MAXRECURSION 1000);
