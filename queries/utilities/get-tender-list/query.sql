@@ -19,7 +19,7 @@ WHERE @SelectedView = 'D'
 UNION ALL
 
 -- B. Dynamic Tenders (Filtered by Range/Sites)
-SELECT DISTINCT tt.Id, tt.Name, 50
+SELECT DISTINCT tt.Id, tt.Name, 50 + tt.[Order] AS SortOrder
 FROM {TenderType} tt
 INNER JOIN {SWCPeriodTender} spt ON tt.Id = spt.TenderTypeId
 INNER JOIN {SWCPeriod} p ON spt.OperatingPeriodId = p.Id

@@ -62,24 +62,29 @@ TargetPeriods AS (
 
 -- Identify all tenders active across any of the selected sites in the date range
 ActiveTenderTypes AS (
-    SELECT DISTINCT tt.Id AS TenderTypeId, tt.Name
+    SELECT DISTINCT tt.Id AS TenderTypeId, tt.Name, tt.[Order]
     FROM {TenderType} tt
     INNER JOIN {SWCPeriodTender} spt ON tt.Id = spt.TenderTypeId
     INNER JOIN TargetPeriods tp ON spt.OperatingPeriodId = tp.OperatingPeriodId
 ),
 
 -- Raw Row Data (Amount and Count) for weighted averages
+-- Now generates ALL tender types for ALL site/date combinations (even empty days)
 RowTenderRaw AS (
     SELECT 
+        tp.SiteId,
+        tp.SiteName,
+        tp.BusDate,
         tp.OperatingPeriodId,
         att.TenderTypeId,
         att.Name,
-        SUM(ISNULL(spt.CountedAmount, 0)) AS Amt,
-        SUM(ISNULL(spt.TransactionCount, 0)) AS Cnt
+        att.[Order],
+        ISNULL(SUM(spt.CountedAmount), 0) AS Amt,
+        ISNULL(SUM(spt.TransactionCount), 0) AS Cnt
     FROM TargetPeriods tp
     CROSS JOIN ActiveTenderTypes att
     LEFT JOIN {SWCPeriodTender} spt ON tp.OperatingPeriodId = spt.OperatingPeriodId AND att.TenderTypeId = spt.TenderTypeId
-    GROUP BY tp.OperatingPeriodId, att.TenderTypeId, att.Name
+    GROUP BY tp.SiteId, tp.SiteName, tp.BusDate, tp.OperatingPeriodId, att.TenderTypeId, att.Name, att.[Order]
 ),
 
 -- Grand Total Row raw data using aggregation of row data
@@ -88,20 +93,22 @@ TotalTenderRaw AS (
         NULL AS OperatingPeriodId,
         TenderTypeId,
         Name,
+        [Order],
         SUM(Amt) AS Amt,
         SUM(Cnt) AS Cnt
     FROM RowTenderRaw
-    GROUP BY TenderTypeId, Name
+    GROUP BY TenderTypeId, Name, [Order]
 ),
 
 -- Combine Row and Total Raw Data
 CombinedRaw AS (
-    SELECT tp.BusDate, r.* FROM RowTenderRaw r INNER JOIN TargetPeriods tp ON r.OperatingPeriodId = tp.OperatingPeriodId
+    -- All site/date/tender combinations (including 0-value days)
+    SELECT SiteId, SiteName, BusDate, OperatingPeriodId, TenderTypeId, Name, [Order], Amt, Cnt 
+    FROM RowTenderRaw
     UNION ALL
     -- Overall Grand Totals Raw
-    SELECT NULL AS BusDate, NULL AS OperatingPeriodId, TenderTypeId, Name, SUM(Amt) AS Amt, SUM(Cnt) AS Cnt
-    FROM RowTenderRaw
-    GROUP BY TenderTypeId, Name
+    SELECT 0 AS SiteId, 'Grand Total' AS SiteName, NULL AS BusDate, NULL AS OperatingPeriodId, TenderTypeId, Name, [Order], Amt, Cnt
+    FROM TotalTenderRaw
 ),
 
 -- Final Formatting of Columns (Expected, Tenders, Actual, Variance, Information)
@@ -121,19 +128,18 @@ FinalItems AS (
 
     UNION ALL
 
-    -- B. Dynamic Tenders (Position 50)
+    -- B. Dynamic Tenders (Position 50 + Order)
     SELECT 
         c.OperatingPeriodId, 
-        ISNULL(tp.SiteId, 0) AS SiteId, 
-        ISNULL(tp.SiteName, 'Grand Total') AS SiteName, 
+        c.SiteId, 
+        c.SiteName, 
         c.BusDate,
-        c.TenderTypeId, c.Name, 50,
+        c.TenderTypeId, c.Name, 50 + ISNULL(c.[Order], 999) AS SortOrder,
         CASE @SelectedView 
             WHEN 'D' THEN c.Amt
             WHEN 'G' THEN CAST(c.Cnt AS DECIMAL(18,2))
             WHEN 'A' THEN c.Amt / NULLIF(c.Cnt, 0) ELSE 0 END
     FROM CombinedRaw c
-    LEFT JOIN TargetPeriods tp ON c.OperatingPeriodId = tp.OperatingPeriodId
 
     UNION ALL
 
