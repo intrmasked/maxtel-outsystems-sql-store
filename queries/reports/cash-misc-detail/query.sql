@@ -25,15 +25,31 @@ TargetPeriod AS (
     WHERE SiteId = @SiteId AND BusDate = @Date
 ),
 
--- [STEP 2]: Pre-Aggregate Tender Data (The "Child" Data)
+-- [STEP 2]: Get Period-Level Variance (matches parent screen)
+-- The parent screen uses SWCPeriod.TotalVariance which is calculated at the period level
+-- from SWCPeriodTender, not from drawer-level SWCCashDrawerTender
+PeriodVariance AS (
+    SELECT
+        p.Id AS OperatingPeriodId,
+        ISNULL(p.TotalVariance, 0) AS TotalVariance
+    FROM {SWCPeriod} p
+    INNER JOIN TargetPeriod tp ON p.Id = tp.Id
+),
+
+-- [STEP 3]: Pre-Aggregate Tender Data (The "Child" Data)
 -- We sum the tenders strictly by DrawerId. This produces 1 row per drawer.
--- This eliminates the need to Group By "PromoAmount", "CashierName", etc later.
+-- NOTE: We calculate Drawer Variance here for the line items, but use Period Variance for the Grand Total
 TenderAgg AS (
     SELECT
         cdt.OperatingPeriodCashDrawerId,
 
-        -- Variance: Sum of (ExpectedAmount - CountedAmount) across all tenders
-        SUM(cdt.ExpectedAmount - cdt.CountedAmount) AS TotalVariance,
+        -- Variance: Sum of (ExpectedAmount - CountedAmount)
+        -- 1. For Normal POS: Only for CASH (IsCash=1) to avoid false variances from uncounted Eftpos.
+        -- 2. For System POS (Pod='SYS'): Include ALL variance (likely adjustments), regardless of tender.
+        SUM(CASE 
+            WHEN tt.IsCash = 1 OR ISNULL(pt.Pod, '') = 'SYS' THEN cdt.ExpectedAmount - cdt.CountedAmount 
+            ELSE 0 
+        END) AS DrawerCalculatedVariance,
 
         -- Offline Eftpos (Type 9) - Use CountedAmount
         SUM(CASE WHEN tt.TenderTypeId = 9 THEN cdt.CountedAmount ELSE 0 END) AS OfflineEftposAmount,
@@ -55,16 +71,19 @@ TenderAgg AS (
     INNER JOIN {SWCCashDrawer} cd ON cdt.OperatingPeriodCashDrawerId = cd.Id
     INNER JOIN {TenderType} tt ON cdt.TenderTypeId = tt.Id
     INNER JOIN TargetPeriod tp ON cd.OperatingPeriodId = tp.Id
+    -- Join POS Terminal to check for 'SYS' Pod
+    LEFT JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId AND cd.PosId = pt.PosId
     GROUP BY cdt.OperatingPeriodCashDrawerId
 ),
 
--- [STEP 3]: Fetch Drawer Data & Join Aggregates
+-- [STEP 4]: Fetch Drawer Data & Join Aggregates
 -- No GROUP BY needed here because TenderAgg is already 1:1 with CashDrawer
 CleanData AS (
     SELECT
         cd.PosId AS POS,
         CASE
             WHEN pt.Pod IS NULL THEN 'System'
+            WHEN pt.Pod = 'SYS' THEN 'System'  -- Explicitly handle 'SYS'
             WHEN pt.Pod = 'FC' THEN 'Counter'
             WHEN pt.Pod = 'DT' THEN 'Drive-Thru'
             WHEN pt.Pod = 'CSO' THEN 'Kiosk'
@@ -75,7 +94,12 @@ CleanData AS (
 
         -- Drawer Level Data (No Summing needed, just select the columns)
         (cd.FinalGT - cd.InitialGT) AS Difference,
-        ISNULL(t.TotalVariance, 0) AS Variance,
+        
+        -- Drawer variance (shown on individual rows)
+        ISNULL(t.DrawerCalculatedVariance, 0) AS Variance,
+        
+        -- Period variance (hidden on rows, used for Total line)
+        ISNULL(pv.TotalVariance, 0) AS PeriodTotalVariance,
 
         cd.PromoAmount,       cd.PromoCount,
         cd.DiscountAmount,    cd.DiscountCount,
@@ -98,14 +122,13 @@ CleanData AS (
     FROM {SWCCashDrawer} cd
     INNER JOIN TargetPeriod tp ON cd.OperatingPeriodId = tp.Id
     INNER JOIN {SWCPeriod} p ON tp.Id = p.Id
+    LEFT JOIN PeriodVariance pv ON p.Id = pv.OperatingPeriodId
     LEFT JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId AND cd.PosId = pt.PosId
     LEFT JOIN {User} u ON cd.OperatorUserId = u.Id
-    LEFT JOIN TenderAgg t ON cd.Id = t.OperatingPeriodCashDrawerId
-),
-
--- [STEP 4]: Create Total Row using UNION ALL
+-- [STEP 5]: Create Total Row using UNION ALL
 -- We prepare the raw data + a total line in one set
 FinalCalculations AS (
+    -- 1. Normal Drawer Rows
     SELECT
         POS, Pod, CashierName,
         Difference, Variance,
@@ -122,10 +145,13 @@ FinalCalculations AS (
 
     UNION ALL
 
-    -- Total Row (Aggregated from the clean, small CleanData set)
+    -- 2. Total Row (Aggregated from CleanData)
+    -- User Request: Calculate variance from the rows (SUM) rather than taking from Parent (MAX)
+    -- so we can verify the calculations are correct.
     SELECT
         NULL, 'Total', NULL,
-        SUM(Difference), SUM(Variance),
+        SUM(Difference), 
+        SUM(Variance),  -- Calculated SUM of the visible rows
         SUM(PromoAmount), SUM(PromoCount),
         SUM(DiscountAmount), SUM(DiscountCount),
         SUM(CrewMealsAmount), SUM(CrewMealsCount),
@@ -138,7 +164,7 @@ FinalCalculations AS (
     FROM CleanData
 )
 
--- [STEP 5]: Final Output & Display Logic
+-- [STEP 6]: Final Output & Display Logic
 SELECT
     POS,
     Pod,
@@ -212,7 +238,11 @@ SELECT
 
 FROM FinalCalculations
 ORDER BY
-    CASE WHEN Pod = 'Total' THEN 1 ELSE 0 END,  -- Total row last
+    CASE 
+        WHEN Pod = 'Total' THEN 2 
+        WHEN Pod = 'System' THEN 1  -- Put System at the bottom (but before Total)
+        ELSE 0 
+    END,
     POS,
     Cashier
 OPTION (RECOMPILE);
