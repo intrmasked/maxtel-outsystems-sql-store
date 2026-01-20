@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   TEST QUERY: PRODUCT SALES BY DAY PART - v8.1.0 (Optimized)
+   TEST QUERY: PRODUCT SALES BY DAY PART - v8.2.0 (Optimized + Complete Day Parts)
    ===================================================================================
 
    PRINCIPLES (Copied from fast POS Query):
@@ -9,6 +9,7 @@
    2. FAST FETCH: `UNION ALL` for separate CY/PY Index Seeks.
    3. PRE-AGGREGATION: Group by Integer Keys (Site, Date, Hour) immediately.
    4. ZERO-COST TOTALS: Handle all rollups in memory loops or Grouping Sets on tiny data.
+   5. COMPLETE DAY PARTS: Ensures all 4 day parts appear for every site/date, even with zero sales.
 
    Day Parts:
    - Overnight (00-05)
@@ -16,10 +17,11 @@
    - Day (11-17)
    - Night (17-24)
 
-   OPTIMIZATIONS (v8.1.0):
+   OPTIMIZATIONS (v8.2.0):
    - ✅ Eliminated correlated SiteName subquery via LEFT JOIN
    - ✅ Eliminated repeated InputVar subqueries via CROSS JOIN
    - ✅ Early date filtering in HourlyAgg CTE
+   - ✅ Complete day part coverage via master list + CROSS JOIN
    - Expected Performance Gain: 20-40% for multi-site queries
    ===================================================================================
 */
@@ -39,6 +41,14 @@ SiteList AS (
     SELECT s.Id AS SiteId, ISNULL(s.DisplayName, s.Name) AS SiteName
     FROM {Site} s
     WHERE s.Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
+),
+
+-- [MASTER LIST] All Day Parts (ensures complete coverage)
+DayPartMaster AS (
+    SELECT 'Overnight (00-05)' AS DayPartLabel, 1 AS PartSortWeight
+    UNION ALL SELECT 'Breakfast (05-11)', 2
+    UNION ALL SELECT 'Day (11-17)', 3
+    UNION ALL SELECT 'Night (17-24)', 4
 ),
 
 -- [STEP 1] Raw Fetch & Hour Extraction (Atomic Rows)
@@ -110,8 +120,16 @@ HourlyAgg AS (
     GROUP BY SiteId, ReportDate, SaleHour
 ),
 
+-- [STEP 2a] Get all Site/Date combinations (for complete coverage)
+SiteDateCombos AS (
+    SELECT DISTINCT
+        SiteId,
+        ReportDate
+    FROM HourlyAgg
+),
+
 -- [STEP 3] Labeling & Weighting (on tiny dataset)
-LabeledAgg AS (
+ActualDayPartAgg AS (
     SELECT
         SiteId, 
         ReportDate,
@@ -121,12 +139,6 @@ LabeledAgg AS (
             WHEN SaleHour BETWEEN 11 AND 16 THEN 'Day (11-17)'
             ELSE 'Night (17-24)'
         END AS DayPartLabel,
-        CASE 
-            WHEN SaleHour BETWEEN 0 AND 4 THEN 1
-            WHEN SaleHour BETWEEN 5 AND 10 THEN 2
-            WHEN SaleHour BETWEEN 11 AND 16 THEN 3
-            ELSE 4
-        END AS PartSortWeight,
         SUM(CY_NetAmount) AS CY_NetAmount,
         SUM(CY_TransactionCount) AS CY_TransactionCount,
         SUM(PY_NetAmount) AS PY_NetAmount,
@@ -140,13 +152,26 @@ LabeledAgg AS (
             WHEN SaleHour BETWEEN 5 AND 10 THEN 'Breakfast (05-11)'
             WHEN SaleHour BETWEEN 11 AND 16 THEN 'Day (11-17)'
             ELSE 'Night (17-24)'
-        END,
-        CASE 
-            WHEN SaleHour BETWEEN 0 AND 4 THEN 1
-            WHEN SaleHour BETWEEN 5 AND 10 THEN 2
-            WHEN SaleHour BETWEEN 11 AND 16 THEN 3
-            ELSE 4
         END
+),
+
+-- [STEP 3b] Complete Day Part Coverage (CROSS JOIN master list with actual data)
+LabeledAgg AS (
+    SELECT
+        sdc.SiteId,
+        sdc.ReportDate,
+        dpm.DayPartLabel,
+        dpm.PartSortWeight,
+        COALESCE(adpa.CY_NetAmount, 0) AS CY_NetAmount,
+        COALESCE(adpa.CY_TransactionCount, 0) AS CY_TransactionCount,
+        COALESCE(adpa.PY_NetAmount, 0) AS PY_NetAmount,
+        COALESCE(adpa.PY_TransactionCount, 0) AS PY_TransactionCount
+    FROM SiteDateCombos sdc
+    CROSS JOIN DayPartMaster dpm
+    LEFT JOIN ActualDayPartAgg adpa 
+        ON sdc.SiteId = adpa.SiteId 
+        AND sdc.ReportDate = adpa.ReportDate 
+        AND dpm.DayPartLabel = adpa.DayPartLabel
 ),
 
 -- [STEP 4] Single Pass Grouping Sets (Totals)
@@ -163,7 +188,7 @@ AllRows AS (
 
         CASE
             WHEN GROUPING(la.DayPartLabel) = 1 THEN 0
-            ELSE MIN(la.PartSortWeight)
+            ELSE la.PartSortWeight  -- ✅ Use pre-computed weight from DayPartMaster
         END AS SortWeight,
 
         SUM(la.CY_NetAmount) AS CY_NetAmount,
@@ -184,9 +209,9 @@ AllRows AS (
     FROM LabeledAgg la
     CROSS JOIN InputVar iv  -- ✅ OPTIMIZATION: Join once instead of subquery per row
     GROUP BY GROUPING SETS (
-        (la.SiteId, la.ReportDate, la.DayPartLabel, iv.SelectedView),
+        (la.SiteId, la.ReportDate, la.DayPartLabel, la.PartSortWeight, iv.SelectedView),
         (la.SiteId, la.ReportDate, iv.SelectedView),
-        (la.DayPartLabel, iv.SelectedView),
+        (la.DayPartLabel, la.PartSortWeight, iv.SelectedView),
         (iv.SelectedView)
     )
 ),
