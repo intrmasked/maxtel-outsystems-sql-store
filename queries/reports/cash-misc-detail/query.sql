@@ -128,8 +128,21 @@ CleanData AS (
     LEFT JOIN TenderAgg t ON cd.Id = t.OperatingPeriodCashDrawerId
 ),
 
--- [STEP 5]: Create Total Row using UNION ALL
--- We prepare the raw data + a total line in one set
+
+
+-- [STEP 5]: Calculate System adjustment (The "Missing Piece")
+-- If Period Variance != Sum of Drawer Variances, the difference is "System" variance
+-- (e.g. from Period-level tenders, safe drops, or discrepancies)
+SystemAdjustment AS (
+    SELECT
+        MAX(PeriodTotalVariance) AS TotalPeriodVar,
+        SUM(Variance) AS TotalDrawerVar,
+        (MAX(PeriodTotalVariance) - SUM(Variance)) AS MissingVariance
+    FROM CleanData
+),
+
+-- [STEP 6]: Create Total Row using UNION ALL
+-- We prepare the raw data + System Row (if needed) + a total line in one set
 FinalCalculations AS (
     -- 1. Normal Drawer Rows
     SELECT
@@ -145,6 +158,20 @@ FinalCalculations AS (
         CashRefundAmount, CashRefundCount,
         EftposRefundAmount, EftposRefundCount
     FROM CleanData
+
+    UNION ALL
+
+    -- 2. System Adjustment Row (Only if there is a difference)
+    -- This handles the "sys pos type" / missing piece user mentioned
+    SELECT
+        NULL AS POS, 
+        'System' AS Pod, 
+        'System Variance Adj.' AS CashierName,
+        0 AS Difference, 
+        MissingVariance AS Variance,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    FROM SystemAdjustment
+    WHERE ABS(MissingVariance) > 0.01 -- Only show if meaningful difference exists
 
     UNION ALL
 
