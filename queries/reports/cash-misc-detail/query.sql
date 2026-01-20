@@ -146,6 +146,7 @@ SystemAdjustment AS (
 FinalCalculations AS (
     -- 1. Normal Drawer Rows
     SELECT
+        1 AS SortOrder, -- Standard Rows First
         POS, Pod, CashierName,
         Difference, Variance,
         PromoAmount, PromoCount,
@@ -164,6 +165,7 @@ FinalCalculations AS (
     -- 2. System Adjustment Row (Only if there is a difference)
     -- This handles the "sys pos type" / missing piece user mentioned
     SELECT
+        2 AS SortOrder, -- System Row Second
         NULL AS POS, 
         'System' AS Pod, 
         'System Variance Adj.' AS CashierName,
@@ -175,13 +177,14 @@ FinalCalculations AS (
 
     UNION ALL
 
-    -- 2. Total Row (Aggregated from CleanData)
-    -- User Request: Calculate variance from the rows (SUM) rather than taking from Parent (MAX)
-    -- so we can verify the calculations are correct.
+    -- 3. Total Row (Aggregated from CleanData)
+    -- We use MAX(PeriodTotalVariance) because it represents the true total.
+    -- (Mathematically: CleanData Sum + System Adjustment = Period Total)
     SELECT
+        3 AS SortOrder, -- Total Row Last
         NULL, 'Total', NULL,
         SUM(Difference), 
-        SUM(Variance),  -- Calculated SUM of the visible rows
+        MAX(PeriodTotalVariance), -- Includes System Adjustment automatically
         SUM(PromoAmount), SUM(PromoCount),
         SUM(DiscountAmount), SUM(DiscountCount),
         SUM(CrewMealsAmount), SUM(CrewMealsCount),
@@ -268,11 +271,7 @@ SELECT
 
 FROM FinalCalculations
 ORDER BY
-    CASE 
-        WHEN Pod = 'Total' THEN 2 
-        WHEN Pod = 'System' THEN 1  -- Put System at the bottom (but before Total)
-        ELSE 0 
-    END,
+    SortOrder, -- Explicit Sorting
     POS,
     Cashier
 OPTION (RECOMPILE);
