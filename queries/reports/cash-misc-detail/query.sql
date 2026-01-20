@@ -125,6 +125,9 @@ CleanData AS (
     LEFT JOIN PeriodVariance pv ON p.Id = pv.OperatingPeriodId
     LEFT JOIN {SWCPosTerminal} pt ON cd.OperatingPeriodId = pt.OperatingPeriodId AND cd.PosId = pt.PosId
     LEFT JOIN {User} u ON cd.OperatorUserId = u.Id
+    LEFT JOIN TenderAgg t ON cd.Id = t.OperatingPeriodCashDrawerId
+),
+
 -- [STEP 5]: Create Total Row using UNION ALL
 -- We prepare the raw data + a total line in one set
 FinalCalculations AS (
