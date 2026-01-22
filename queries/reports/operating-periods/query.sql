@@ -52,7 +52,26 @@ TargetPeriods AS (
         g.SiteName,
         g.BusDate,
         p.Id AS OperatingPeriodId, 
-        ISNULL((SELECT SUM(ISNULL(ExpectedAmount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id), 0) AS ExpectedTotal, 
+        -- [FIX] Use SalesFact for ExpectedTotal to ensure "Sum of Decimals" accuracy (vs Sum of Rounded Integers)
+        -- Matches filters from Product Sales By Day Part (Sales App)
+        ISNULL((
+            SELECT SUM(sf.NetAmount)
+            FROM {SalesFact} sf
+            WHERE sf.SiteId = g.SiteId
+              AND sf.CalendarDate = g.BusDate
+              -- Filters matching Sales App (Product Sales)
+              AND sf.DatePeriodDimensionId = 15
+              AND sf.ProductSaleTypeId = 1
+              AND sf.ProductMenuId IS NULL
+              AND sf.TenderTypeId IS NULL
+              AND sf.OperationId IS NULL
+              AND sf.OperationKindId IS NULL
+              AND sf.SWCCashDrawerId IS NULL
+              AND sf.SaleTypeId IS NULL
+              AND sf.PosId IS NOT NULL AND sf.PosId <> 0
+              AND sf.Pod IS NOT NULL AND sf.Pod <> ''
+        ), 0) AS ExpectedTotal,
+        
         ISNULL((SELECT SUM(ISNULL(CountedAmount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id), 0) AS ActualTotal, 
         ISNULL(p.TotalVariance, 0) AS VarianceTotal,
         ISNULL((SELECT SUM(ISNULL(TransactionCount,0)) FROM {SWCPeriodTender} WHERE OperatingPeriodId = p.Id), 0) AS RowTotalGuests
