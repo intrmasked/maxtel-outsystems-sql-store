@@ -1,0 +1,30 @@
+{
+    "name": "product-mix-list",
+    "category": "reports",
+    "created": "2026-02-08",
+    "author": "Claude AI",
+    "version": "1.0",
+    "status": "in-testing",
+    "tables": [
+        "ProductSalesByOperation",
+        "SalesFact",
+        "Site"
+    ],
+    "parameters": [
+        {
+            "name": "SiteIds",
+            "type": "Text",
+            "expandInline": true
+        },
+        {
+            "name": "StartDate",
+            "type": "Date",
+            "expandInline": false
+        },
+        {
+            "name": "EndDate",
+            "type": "Date",
+            "expandInline": false
+        }
+    ]
+}
