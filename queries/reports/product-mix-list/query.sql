@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX LIST - v1.0
+   QUERY: PRODUCT MIX LIST - v1.1
    ===================================================================================
 
    PURPOSE:
@@ -9,8 +9,8 @@
 
    OUTPUT FORMAT:
    Each row = Site + Date with breakdown
-   Site Total = Sum for each site across date range
    Grand Total = Sum for all sites across date range
+   (Site Total removed - see tests/test-with-site-totals.sql to restore)
 
    OUTSYSTEMS PARAMETERS:
    - SiteIds (Text)      → ⚠️ Expand Inline = YES ⚠️
@@ -94,16 +94,12 @@ JoinedData AS (
         AND pm.CalendarDate = ct.CalendarDate
 ),
 
--- [STEP 5]: Create all rows with GROUPING SETS (Detail + Site Total + Grand Total)
+-- [STEP 5]: Create all rows with GROUPING SETS (Detail + Grand Total only)
+-- Note: Site Total removed - see tests/test-with-site-totals.sql to restore
 AllRows AS (
     SELECT
         SiteId,
         CalendarDate,
-        CASE 
-            WHEN GROUPING(CalendarDate) = 1 AND GROUPING(SiteId) = 0 THEN 'Site Total'
-            WHEN GROUPING(SiteId) = 1 THEN 'Total'
-            ELSE NULL 
-        END AS RowType,
         SUM(Sold) AS Sold,
         SUM(Promo) AS Promo,
         SUM(Discount) AS Discount,
@@ -113,13 +109,11 @@ AllRows AS (
         SUM(Total) AS Total,
         SUM(CashTotal) AS CashTotal,
         SUM(Variance) AS Variance,
-        GROUPING(SiteId) AS IsGrandTotal,
-        GROUPING(CalendarDate) AS IsSiteTotal
+        GROUPING(SiteId) AS IsGrandTotal
     FROM JoinedData
     GROUP BY GROUPING SETS (
         (SiteId, CalendarDate),  -- Detail rows
-        (SiteId),                 -- Site Total
-        ()                        -- Grand Total
+        ()                        -- Grand Total only
     )
 )
 
@@ -127,12 +121,11 @@ AllRows AS (
 SELECT
     CASE 
         WHEN IsGrandTotal = 1 THEN 'Total'
-        WHEN IsSiteTotal = 1 THEN (SELECT SiteName FROM SiteList WHERE SiteId = AllRows.SiteId) + ' Total'
         ELSE (SELECT SiteName FROM SiteList WHERE SiteId = AllRows.SiteId)
     END AS SiteName,
     
     CASE 
-        WHEN IsGrandTotal = 1 OR IsSiteTotal = 1 THEN NULL
+        WHEN IsGrandTotal = 1 THEN NULL
         ELSE CalendarDate
     END AS Date,
     
@@ -146,10 +139,9 @@ SELECT
     ROUND(CashTotal, 2) AS CashTotal,
     ROUND(Variance, 2) AS Variance,
     
-    -- Sort Order: Detail rows by Site/Date, Site Total after each site, Grand Total at end
+    -- Sort Order: Detail rows by Site/Date, Grand Total at end
     CASE 
         WHEN IsGrandTotal = 1 THEN 999999
-        WHEN IsSiteTotal = 1 THEN 999998
         ELSE 0
     END AS SortOrder
 
@@ -157,6 +149,5 @@ FROM AllRows
 ORDER BY 
     CASE WHEN IsGrandTotal = 1 THEN 1 ELSE 0 END,  -- Grand Total last
     SiteId,
-    CASE WHEN IsSiteTotal = 1 THEN 1 ELSE 0 END,   -- Site Total after detail rows
     CalendarDate
 OPTION (RECOMPILE);

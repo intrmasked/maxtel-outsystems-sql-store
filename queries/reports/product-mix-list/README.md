@@ -3,10 +3,10 @@
 **Purpose**: Product mix report showing Sold, Promo, Discount, Emp Meals, Mgr Meals, Waste, Total with CashTotal variance from SalesFact.
 
 **Created**: 2026-02-08  
-**Version**: 1.0  
+**Version**: 1.1  
 **Status**: In Testing  
 
----
+> **Note**: Site Total rows removed in v1.1. See `tests/test-with-site-totals.sql` to restore.
 
 ## Parameters
 
@@ -65,10 +65,9 @@ SUM(SalesFact.NetAmount) WHERE:
 | RowType | Description |
 |---------|-------------|
 | Detail | Individual Site + Date combination |
-| Site Total | Sum for each site across date range |
 | Total | Grand total for all sites |
 
----
+> Site Total removed in v1.1 - see `tests/test-with-site-totals.sql` to restore.
 
 ## Usage
 

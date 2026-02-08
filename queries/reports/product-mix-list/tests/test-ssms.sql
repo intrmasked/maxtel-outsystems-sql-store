@@ -1,5 +1,5 @@
 -- =============================================
--- SSMS Test: Product Mix List
+-- SSMS Test: Product Mix List (v1.1 - no Site Totals)
 -- Purpose: Test query with STRING_SPLIT for multi-site support
 -- Target: SQL Server 2016+ (for STRING_SPLIT)
 -- =============================================
@@ -79,16 +79,11 @@ JoinedData AS (
         AND pm.CalendarDate = ct.CalendarDate
 ),
 
--- [STEP 5]: Create all rows with GROUPING SETS
+-- [STEP 5]: Create all rows with GROUPING SETS (Detail + Grand Total only)
 AllRows AS (
     SELECT
         SiteId,
         CalendarDate,
-        CASE 
-            WHEN GROUPING(CalendarDate) = 1 AND GROUPING(SiteId) = 0 THEN 'Site Total'
-            WHEN GROUPING(SiteId) = 1 THEN 'Total'
-            ELSE NULL 
-        END AS RowType,
         SUM(Sold) AS Sold,
         SUM(Promo) AS Promo,
         SUM(Discount) AS Discount,
@@ -98,12 +93,10 @@ AllRows AS (
         SUM(Total) AS Total,
         SUM(CashTotal) AS CashTotal,
         SUM(Variance) AS Variance,
-        GROUPING(SiteId) AS IsGrandTotal,
-        GROUPING(CalendarDate) AS IsSiteTotal
+        GROUPING(SiteId) AS IsGrandTotal
     FROM JoinedData
     GROUP BY GROUPING SETS (
         (SiteId, CalendarDate),
-        (SiteId),
         ()
     )
 )
@@ -112,12 +105,11 @@ AllRows AS (
 SELECT
     CASE 
         WHEN IsGrandTotal = 1 THEN 'Total'
-        WHEN IsSiteTotal = 1 THEN (SELECT SiteName FROM SiteList WHERE SiteId = AllRows.SiteId) + ' Total'
         ELSE (SELECT SiteName FROM SiteList WHERE SiteId = AllRows.SiteId)
     END AS SiteName,
     
     CASE 
-        WHEN IsGrandTotal = 1 OR IsSiteTotal = 1 THEN NULL
+        WHEN IsGrandTotal = 1 THEN NULL
         ELSE CalendarDate
     END AS Date,
     
@@ -133,7 +125,6 @@ SELECT
     
     CASE 
         WHEN IsGrandTotal = 1 THEN 999999
-        WHEN IsSiteTotal = 1 THEN 999998
         ELSE 0
     END AS SortOrder,
     
@@ -144,6 +135,5 @@ FROM AllRows
 ORDER BY 
     CASE WHEN IsGrandTotal = 1 THEN 1 ELSE 0 END,
     SiteId,
-    CASE WHEN IsSiteTotal = 1 THEN 1 ELSE 0 END,
     CalendarDate
 OPTION (RECOMPILE);
