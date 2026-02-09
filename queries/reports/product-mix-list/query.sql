@@ -25,7 +25,7 @@ WITH
 
 -- [STEP 1]: Get Site Names
 SiteList AS (
-    SELECT s.Id AS SiteId, ISNULL(s.DisplayName, s.Name) AS SiteName
+    SELECT s.Id AS SiteId, ISNULL(s.Name, s.DisplayName) AS SiteName
     FROM {Site} s
     WHERE s.Id IN (@SiteIds)
 ),
@@ -119,6 +119,8 @@ AllRows AS (
 
 -- [STEP 6]: Final Output
 SELECT
+    SiteId,
+    
     CASE 
         WHEN IsGrandTotal = 1 THEN 'Total'
         ELSE (SELECT SiteName FROM SiteList WHERE SiteId = AllRows.SiteId)
