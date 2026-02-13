@@ -1,0 +1,29 @@
+{
+    "query_name": "product-mix-details",
+    "category": "reports",
+    "created_date": "2026-02-10",
+    "author": "Claude AI",
+    "version": "1.0",
+    "status": "In Progress",
+    "tables_used": [
+        "ProductSalesByOperation",
+        "ProductMenu"
+    ],
+    "parameters": [
+        {
+            "name": "SiteId",
+            "type": "Long Integer",
+            "expand_inline": false
+        },
+        {
+            "name": "Date",
+            "type": "Date",
+            "expand_inline": false
+        },
+        {
+            "name": "SelectedView",
+            "type": "Text",
+            "expand_inline": false
+        }
+    ]
+}
