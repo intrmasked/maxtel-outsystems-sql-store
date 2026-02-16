@@ -3,51 +3,46 @@
 ## Original Story/Requirements
 Data is to be largely populated from the ProductSalesByOperation table (rollup of SalesFact).
 Each row is a single product so you will need to sum for the SiteId and CalendarDate.
-- Sold = SalesGrossAmt
-- Promo = PromoGrossAmt
-- Discount = DiscountGrossAmt
-- Emp Meals = CrewGrossAmt
-- Mgr Meals = ManagerGrossAmt
-- Waste = WasteGrossAmt
-- Total = TotalGrossAmt
+- Sold = SalesNetAmt (changed from SalesGrossAmt in v2.0)
+- Promo = PromoNetAmt
+- Discount = DiscountNetAmt
+- Emp Meals = CrewNetAmt
+- Mgr Meals = ManagerNetAmt
+- Waste = WasteNetAmt
+- Total = TotalNetAmt
 - CashTotal = SalesFact.NetAmount (SalesFactTypeId=2, ProductSaleTypeId=1, DatePeriodDimensionId=15)
-- Variance = TotalGrossAmt - CashTotal
+- Variance = TotalNetAmt - CashTotal
 - Include Grand Total row only (Site Total removed per user request)
 
 ## Status
-- [X] Complete (query built v1.1)
+- [X] Complete (query built v2.0)
 - [ ] In Testing (user needs to verify CashTotal matches Cash->ProductSales)
 
 ## Version History
 | Version | Commit | Changes |
 |---------|--------|---------|
-| v1.0 | 3d98a7f | Initial with Site Total + Grand Total |
-| v1.1 | pending | Removed Site Total, Grand Total only |
+| v1.0 | 3d98a7f | Initial with Site Total + Grand Total (GrossAmt) |
+| v1.1 | 55ad570 | Removed Site Total, Grand Total only |
+| v1.2 | 2291672 | Added SiteId output, fixed SiteName priority |
+| v2.0 | pending | Switched from GrossAmt to NetAmt columns |
 
 ## Tables Documentation Created
-- `database-context/tables/ProductSalesByOperation/` - [NEW] - Rollup table for product mix
+- `database-context/tables/ProductSalesByOperation/` - [UPDATED] - Added NetAmt columns
 
 ## Queries Created
 - `queries/reports/product-mix-list/` - [needs-review]
   - Purpose: Product mix with variance from CashTotal
   - Tables: ProductSalesByOperation, SalesFact, Site
-  - Output: SiteName, Date, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total, CashTotal, Variance
+  - Output: SiteId, SiteName, Date, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total, CashTotal, Variance
 
 ## Key Decisions
+- **v2.0 Gross→Net Fix**: Original setup used GrossAmt columns by mistake. User added NetAmt columns to table and populated them. Query now uses NetAmt.
 - **CashTotal Logic**: SalesFactTypeId=2, ProductSaleTypeId=1, DatePeriodDimensionId=15, null out other dimensions
-- **Total Rows**: v1.0 had Site Total + Grand Total, v1.1 has Grand Total only
-- **Site Total Archived**: `tests/test-with-site-totals.sql` has the code to restore Site Totals
-- **Variance**: Simple subtraction (TotalGrossAmt - CashTotal)
-
-## Next Steps
-1. User to test query in OutSystems or SSMS
-2. Verify CashTotal matches Cash->ProductSales screen
-3. Mark complete after verification
+- **Total Rows**: Grand Total only (Site Total archived in tests/test-with-site-totals.sql)
+- **Variance**: TotalNetAmt - CashTotal
 
 ## Files Created/Modified
-- `database-context/tables/ProductSalesByOperation/README.md`
-- `queries/reports/product-mix-list/query.sql` - v1.1 (no Site Total)
-- `queries/reports/product-mix-list/README.md`
-- `queries/reports/product-mix-list/metadata.json`
-- `queries/reports/product-mix-list/tests/test-ssms.sql`
-- `queries/reports/product-mix-list/tests/test-with-site-totals.sql` - Site Total code archived
+- `database-context/tables/ProductSalesByOperation/README.md` - Updated with NetAmt columns
+- `queries/reports/product-mix-list/query.sql` - v2.0 (NetAmt)
+- `queries/reports/product-mix-list/tests/test-ssms.sql` - Updated to NetAmt
+- `queries/reports/product-mix-list/tests/test-with-site-totals.sql` - Site Total code archived (still GrossAmt)

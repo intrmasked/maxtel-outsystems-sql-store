@@ -1,5 +1,5 @@
 -- =============================================
--- SSMS Test: Product Mix List (v1.1 - no Site Totals)
+-- SSMS Test: Product Mix List (v2.0 - Net amounts, no Site Totals)
 -- Purpose: Test query with STRING_SPLIT for multi-site support
 -- Target: SQL Server 2016+ (for STRING_SPLIT)
 -- =============================================
@@ -23,13 +23,13 @@ ProductMixData AS (
     SELECT
         pso.SiteId,
         pso.CalendarDate,
-        SUM(pso.SalesGrossAmt) AS Sold,
-        SUM(pso.PromoGrossAmt) AS Promo,
-        SUM(pso.DiscountGrossAmt) AS Discount,
-        SUM(pso.CrewGrossAmt) AS EmpMeals,
-        SUM(pso.ManagerGrossAmt) AS MgrMeals,
-        SUM(pso.WasteGrossAmt) AS Waste,
-        SUM(pso.TotalGrossAmt) AS Total
+        SUM(pso.SalesNetAmt) AS Sold,
+        SUM(pso.PromoNetAmt) AS Promo,
+        SUM(pso.DiscountNetAmt) AS Discount,
+        SUM(pso.CrewNetAmt) AS EmpMeals,
+        SUM(pso.ManagerNetAmt) AS MgrMeals,
+        SUM(pso.WasteNetAmt) AS Waste,
+        SUM(pso.TotalNetAmt) AS Total
     FROM {ProductSalesByOperation} pso
     WHERE pso.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND pso.CalendarDate BETWEEN @StartDate AND @EndDate

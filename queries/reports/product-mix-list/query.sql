@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX LIST - v1.1
+   QUERY: PRODUCT MIX LIST - v2.0
    ===================================================================================
 
    PURPOSE:
@@ -36,13 +36,13 @@ ProductMixData AS (
     SELECT
         pso.SiteId,
         pso.CalendarDate,
-        SUM(pso.SalesGrossAmt) AS Sold,
-        SUM(pso.PromoGrossAmt) AS Promo,
-        SUM(pso.DiscountGrossAmt) AS Discount,
-        SUM(pso.CrewGrossAmt) AS EmpMeals,
-        SUM(pso.ManagerGrossAmt) AS MgrMeals,
-        SUM(pso.WasteGrossAmt) AS Waste,
-        SUM(pso.TotalGrossAmt) AS Total
+        SUM(pso.SalesNetAmt) AS Sold,
+        SUM(pso.PromoNetAmt) AS Promo,
+        SUM(pso.DiscountNetAmt) AS Discount,
+        SUM(pso.CrewNetAmt) AS EmpMeals,
+        SUM(pso.ManagerNetAmt) AS MgrMeals,
+        SUM(pso.WasteNetAmt) AS Waste,
+        SUM(pso.TotalNetAmt) AS Total
     FROM {ProductSalesByOperation} pso
     WHERE pso.SiteId IN (@SiteIds)
       AND pso.CalendarDate BETWEEN @StartDate AND @EndDate

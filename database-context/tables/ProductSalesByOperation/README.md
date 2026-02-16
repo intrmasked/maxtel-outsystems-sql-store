@@ -3,7 +3,7 @@
 **OutSystems Entity**: ProductSalesByOperation  
 **Database Table**: [dbo].[ProductSalesByOperation]  
 **Purpose**: Rollup table of SalesFact aggregated by operation - used for product mix reports  
-**Last Updated**: 2026-02-08  
+**Last Updated**: 2026-02-16  
 
 ---
 
@@ -40,6 +40,19 @@ ProductSalesByOperation is a pre-aggregated rollup of SalesFact data by operatio
 | `WasteGrossAmt` | Decimal | Waste gross amount |
 | `RefundGrossAmt` | Decimal | Refund gross amount |
 
+### Amount Columns (Net) — **Use these for reports**
+
+| Column Name | Data Type | Description |
+|-------------|-----------|-------------|
+| `TotalNetAmt` | Decimal | Total net amount (sum of all, excl. tax) |
+| `SalesNetAmt` | Decimal | Sales net amount |
+| `PromoNetAmt` | Decimal | Promotional net amount |
+| `DiscountNetAmt` | Decimal | Discount net amount |
+| `CrewNetAmt` | Decimal | Crew/Employee meals net amount |
+| `ManagerNetAmt` | Decimal | Manager meals net amount |
+| `WasteNetAmt` | Decimal | Waste net amount |
+| `RefundNetAmt` | Decimal | Refund net amount |
+
 ### Before Discount Columns
 
 | Column Name | Data Type | Description |
@@ -65,12 +78,7 @@ ProductSalesByOperation is a pre-aggregated rollup of SalesFact data by operatio
 | `PromoQuantity` | Decimal | Promo quantity |
 | `WasteQuantity` | Decimal | Waste quantity |
 
-### Other Columns
-
-| Column Name | Data Type | Description |
-|-------------|-----------|-------------|
 | `AveragePrice` | Decimal | Average price per unit |
-| `DummyFieldToBeDeleted` | - | Legacy field (ignore) |
 
 ---
 
