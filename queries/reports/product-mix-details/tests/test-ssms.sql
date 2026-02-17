@@ -34,7 +34,12 @@ ProductData AS (
         SUM(pso.CrewQuantity) AS EmpMeals_Q,
         SUM(pso.ManagerQuantity) AS MgrMeals_Q,
         SUM(pso.WasteQuantity) AS Waste_Q,
-        SUM(pso.TotalQuantitySold) AS Total_Q
+        SUM(pso.SalesQuantity) +
+        SUM(pso.PromoQuantity) +
+        SUM(pso.DiscountQuantity) +
+        SUM(pso.CrewQuantity) +
+        SUM(pso.ManagerQuantity) +
+        SUM(pso.WasteQuantity) AS Total_Q
     FROM {ProductSalesByOperation} pso
     INNER JOIN {ProductMenu} pm ON pso.ProductMenuId = pm.Id
     WHERE pso.SiteId = @SiteId
@@ -107,4 +112,4 @@ FROM AllRows
 ORDER BY
     CASE WHEN Name = 'Total' THEN 0 ELSE 1 END,
     Name
-OPTION (RECOMPILE);
+
