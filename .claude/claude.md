@@ -386,6 +386,13 @@ RawData AS (
    OPTION (MAXRECURSION 1000, RECOMPILE);  -- ← Forces optimal plan
    ```
 
+   **⚠️ WARNING: RECOMPILE + STRING_SPLIT = Slower!**
+   - `STRING_SPLIT(@SiteIds, ',')` returns unknown row count at compile time
+   - When RECOMPILE forces a recompile, SQL Server can't estimate cardinality for STRING_SPLIT and guesses badly → terrible plan
+   - **Result**: RECOMPILE made product-mix-list go from 1.8s → 6.8s (5 sites, 1 month)
+   - **Rule**: Do NOT use `OPTION (RECOMPILE)` on queries that filter with `STRING_SPLIT`
+   - RECOMPILE is safe on production queries using `Expand Inline = YES` (literal values, no variable)
+
 **General Optimization Rules**:
 - **Minimize database hits** - Derive data from existing CTEs instead of separate queries
 - **Use proper indexing** - Recommend indexes for WHERE/JOIN columns
