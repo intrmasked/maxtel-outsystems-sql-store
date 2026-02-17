@@ -25,6 +25,7 @@ Detail-level product mix report for a single site and date. Each row = one produ
 |---------|---------|
 | v1.0 | Initial build with Gross Amounts |
 | v1.1 | Switched to Net Amounts (SalesNetAmt etc.) per user request |
+| v1.1 (perf review) | Reviewed for optimization - confirmed query is already well-optimized at ~125ms |
 
 ## Tables Documentation Created
 - `database-context/tables/ProductMenu/` - [NEW] - Product menu items catalog
@@ -45,6 +46,8 @@ Detail-level product mix report for a single site and date. Each row = one produ
 - **Total row via UNION ALL**: Simple sum of all products, SortOrder = 0
 - **Test uses {TableName}**: Convention matches other tests in the repo (not [dbo].[TableName])
 - **TotalRows removed from test**: User requested removal of verification column from test output
+- **OPTION (RECOMPILE) kept in test**: This query uses `DECLARE @SiteId BIGINT` (not STRING_SPLIT), so RECOMPILE is safe and fine. The anti-pattern only applies when STRING_SPLIT is used — see product-mix-list for that case.
+- **Performance confirmed**: ~125ms for single site/date. No further optimization needed. Single scan of ProductSalesByOperation + small ProductMenu join is already optimal.
 
 ## Next Steps
 1. Verify query via MCP SQL Sandbox (bridge was unavailable)
