@@ -4,21 +4,27 @@
 Detail-level product mix report for a single site and date. Each row = one product from ProductSalesByOperation joined to ProductMenu for Code/Name.
 - Code = ProductMenu.ProductId
 - Name = ProductMenu.Name
-- Sold = SalesGrossAmt (or SalesQuantity)
-- Promo = PromoGrossAmt (or PromoQuantity)
-- Discount = DiscountGrossAmt (or DiscountQuantity)
-- Emp Meals = CrewGrossAmt (or CrewQuantity)
-- Mgr Meals = ManagerGrossAmt (or ManagerQuantity)
-- Waste = WasteGrossAmt (or WasteQuantity)
-- Total = TotalGrossAmt (or TotalQuantitySold)
+- Sold = SalesNetAmt (changed from SalesGrossAmt in v1.1)
+- Promo = PromoNetAmt
+- Discount = DiscountNetAmt
+- Emp Meals = CrewNetAmt
+- Mgr Meals = ManagerNetAmt
+- Waste = WasteNetAmt
+- Total = TotalNetAmt
 - SelectedView toggle: 'D' = Dollars, 'Q' = Quantity
 - Total row identifiable by Name = 'Total' and Code = NULL
 - No CashTotal, no Variance
 - No multi-site (single SiteId, single Date)
 
 ## Status
-- [/] In Progress (query built v1.0)
-- [ ] In Testing (pending sandbox verification)
+- [X] Complete (query built v1.1)
+- [ ] In Testing (user verifying Net amounts)
+
+## Version History
+| Version | Changes |
+|---------|---------|
+| v1.0 | Initial build with Gross Amounts |
+| v1.1 | Switched to Net Amounts (SalesNetAmt etc.) per user request |
 
 ## Tables Documentation Created
 - `database-context/tables/ProductMenu/` - [NEW] - Product menu items catalog
@@ -30,6 +36,7 @@ Detail-level product mix report for a single site and date. Each row = one produ
   - Output: Code, Name, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
 
 ## Key Decisions
+- **v1.1 Gross→Net Fix**: Original setup used GrossAmt columns. User added NetAmt columns and requested switch. Query now uses NetAmt.
 - **SortOrder removed**: Initially added SortOrder as first column but caused OutSystems "Input string was not in a correct format" error due to column count mismatch. Removed — Total row identified by Name = 'Total'
 - **No CashTotal/Variance**: Unlike product-mix-list, this detail view doesn't need CashTotal or Variance
 - **InputVar CTE**: Used for @SelectedView parameter binding (OutSystems quirk)
@@ -37,6 +44,7 @@ Detail-level product mix report for a single site and date. Each row = one produ
 - **No ORDER BY in production**: User handles sorting in OutSystems (SSMS test has ORDER BY for convenience)
 - **Total row via UNION ALL**: Simple sum of all products, SortOrder = 0
 - **Test uses {TableName}**: Convention matches other tests in the repo (not [dbo].[TableName])
+- **TotalRows removed from test**: User requested removal of verification column from test output
 
 ## Next Steps
 1. Verify query via MCP SQL Sandbox (bridge was unavailable)
@@ -45,7 +53,7 @@ Detail-level product mix report for a single site and date. Each row = one produ
 
 ## Files Created/Modified
 - `database-context/tables/ProductMenu/README.md` - [NEW]
-- `queries/reports/product-mix-details/query.sql` - v1.0
+- `queries/reports/product-mix-details/query.sql` - v1.1 (NetAmt)
 - `queries/reports/product-mix-details/README.md`
 - `queries/reports/product-mix-details/metadata.json`
-- `queries/reports/product-mix-details/tests/test-ssms.sql` - uses {TableName} convention
+- `queries/reports/product-mix-details/tests/test-ssms.sql` - v1.1 (NetAmt)

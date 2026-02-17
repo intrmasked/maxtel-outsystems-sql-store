@@ -32,14 +32,14 @@ ProductData AS (
     SELECT
         CAST(pm.ProductId AS VARCHAR(50)) AS Code,
         pm.Name,
-        -- Dollar amounts
-        SUM(pso.SalesGrossAmt) AS Sold_D,
-        SUM(pso.PromoGrossAmt) AS Promo_D,
-        SUM(pso.DiscountGrossAmt) AS Discount_D,
-        SUM(pso.CrewGrossAmt) AS EmpMeals_D,
-        SUM(pso.ManagerGrossAmt) AS MgrMeals_D,
-        SUM(pso.WasteGrossAmt) AS Waste_D,
-        SUM(pso.TotalGrossAmt) AS Total_D,
+        -- Dollar amounts (Net)
+        SUM(pso.SalesNetAmt) AS Sold_D,
+        SUM(pso.PromoNetAmt) AS Promo_D,
+        SUM(pso.DiscountNetAmt) AS Discount_D,
+        SUM(pso.CrewNetAmt) AS EmpMeals_D,
+        SUM(pso.ManagerNetAmt) AS MgrMeals_D,
+        SUM(pso.WasteNetAmt) AS Waste_D,
+        SUM(pso.TotalNetAmt) AS Total_D,
         -- Quantity amounts
         SUM(pso.SalesQuantity) AS Sold_Q,
         SUM(pso.PromoQuantity) AS Promo_Q,
