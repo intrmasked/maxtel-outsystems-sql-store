@@ -136,4 +136,4 @@ ORDER BY
     CASE WHEN IsGrandTotal = 1 THEN 1 ELSE 0 END,
     SiteId,
     CalendarDate
-OPTION (RECOMPILE);
+
