@@ -1,0 +1,6 @@
+{
+    "Channel": "Text",
+    "NetAmount": "Decimal",
+    "GuestCount": "Decimal",
+    "AverageCheck": "Decimal"
+}

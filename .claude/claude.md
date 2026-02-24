@@ -57,7 +57,9 @@ queries/[category]/[story-name]/
 ├── query.sql               # The actual SQL (production query)
 ├── README.md               # What it does, how to use it
 ├── metadata.json           # Date, author, category
+├── output-structure.json   # OutSystems Output Structure definition (REQUIRED)
 └── tests/                  # Test queries subfolder
+    ├── test-ssms.sql       # Full query with DECLARE params for sandbox testing
     ├── test-[feature].sql
     ├── test-[diagnostic].sql
     └── ...
@@ -833,16 +835,25 @@ All new or modified SQL queries **MUST** be verified via the MCP SQL Sandbox Bri
 3. Record visual proof of the data structure for the user.
 
 ### 🗳️ OutSystems Integration Handover
-For every query intended for an Advanced SQL block, provide a **JSON Structure Definition** that the user can use to create the Output Structure in OutSystems.
-- Format: A JSON array of objects with `Name` and `Type`.
-- Types should be OutSystems compatible (Text, Integer, LongInteger, Decimal, Date, Boolean).
-- Example:
+For every query intended for an Advanced SQL block, create an **`output-structure.json`** file in the query folder.
+- **MANDATORY** for all new queries — create alongside `query.sql`
+- Format: A JSON array of objects with `Name` and `Type`
+- Types must be OutSystems compatible: `Text`, `Integer`, `LongInteger`, `Decimal`, `Date`, `Boolean`
+- The user copies this directly into the OutSystems Advanced SQL Output Structure
+
+**Example `output-structure.json`:**
 ```json
-[
-  { "Name": "SiteName", "Type": "Text" },
-  { "Name": "Value", "Type": "Decimal" }
-]
+{
+  "SiteName":   "Text",
+  "NetAmount":  "Decimal",
+  "GuestCount": "Integer"
+}
 ```
+
+**When to update**: If output columns change, update `output-structure.json` at the same time as `query.sql`.
+
+> [!NOTE]
+> Do NOT update old queries that predate this rule — only create `output-structure.json` for new queries from 2026-02-24 onwards.
 
 ---
 

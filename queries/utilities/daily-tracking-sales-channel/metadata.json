@@ -1,0 +1,51 @@
+{
+    "query": "DailyTrackingSalesChannel",
+    "category": "utilities",
+    "created": "2026-02-24",
+    "author": "Claude",
+    "status": "in-testing",
+    "version": "1.0.0",
+    "description": "DailyTrackingSalesChannel - Returns 3 Sales Channel rows (MOP, Delivery, McCafe) for a selected business date and site.",
+    "tables": [
+        "SWCPeriod",
+        "SWCPeriodTender",
+        "TenderType",
+        "SalesFact",
+        "ProductMenu",
+        "BO_MenuItem"
+    ],
+    "parameters": [
+        {
+            "name": "SiteId",
+            "type": "LongInteger",
+            "expandInline": false
+        },
+        {
+            "name": "Date",
+            "type": "Date",
+            "expandInline": false
+        }
+    ],
+    "outputColumns": [
+        {
+            "name": "SortOrder",
+            "type": "Integer"
+        },
+        {
+            "name": "Channel",
+            "type": "Text"
+        },
+        {
+            "name": "NetAmount",
+            "type": "Decimal"
+        },
+        {
+            "name": "GuestCount",
+            "type": "Decimal"
+        },
+        {
+            "name": "AverageCheck",
+            "type": "Decimal"
+        }
+    ]
+}
