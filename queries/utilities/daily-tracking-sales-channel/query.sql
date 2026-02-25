@@ -1,9 +1,13 @@
 -- =============================================
--- Query: Daily Tracking Report - Sales Channels
--- Purpose: Returns 3 Sales Channel rows for a given business date and site:
---          1. MOP       - from SWCPeriodTender where TenderType.IsMobileEFTPos = 1
---          2. Delivery  - from SWCPeriodTender where TenderType.IsDelivery = 1
---          3. McCafe    - from SalesFact joined to ProductMenu + BO_MenuItem where IsMcCafe = 1
+-- Query: DailyTrackingSalesChannel
+-- Purpose: Returns 3 Sales Channel rows for DailyTrackingReport.SalesChannels:
+--          1. MOP      - SWCPeriodTender where TenderType.Name = 'MOP'   (BusDate)
+--          2. Delivery - SWCPeriodTender where TenderType.IsDelivery = 1 (BusDate)
+--          3. McCafe   - SalesFact + ProductMenu + BO_MenuItem (CalendarDate)
+-- Output:  Label, NetSales, Transactions, IsCalendarDay
+-- Notes:
+--   MOP/Delivery: CountedAmount (Gross), BusDate via SWCPeriod → IsCalendarDay = 0
+--   McCafe:       NetAmount (Net), CalendarDate via SalesFact → IsCalendarDay = 1
 -- Target: SQL Server 2014+ / OutSystems Advanced SQL
 -- Created: 2026-02-24
 -- =============================================
@@ -16,8 +20,8 @@
 
 WITH
 
--- [STEP 1]: Get the Operating Period for this site/date
--- SWCPeriodTender uses OperatingPeriodId, so we need the period first
+-- [STEP 1]: Get the Operating Period for this site/date (BusDate)
+-- Used by MOP and Delivery — they filter by Business Date
 TargetPeriod AS (
     SELECT Id AS OperatingPeriodId
     FROM {SWCPeriod}
@@ -26,12 +30,13 @@ TargetPeriod AS (
 ),
 
 -- [STEP 2]: MOP Sales Channel
--- Source: SWCPeriodTender filtered by TenderType.IsMobileEFTPos = 1
--- Business Date = SWCPeriod.BusDate
+-- Source: SWCPeriodTender, TenderType.Name = 'MOP'
+-- Amount: CountedAmount (Gross) — agreed, no tax
+-- Date type: Business Date → IsCalendarDay = 0
 MOP_Data AS (
     SELECT
-        ISNULL(SUM(spt.CountedAmount), 0)    AS Amount,
-        ISNULL(SUM(spt.TransactionCount), 0) AS GuestCount
+        ISNULL(SUM(spt.CountedAmount), 0)    AS NetSales,
+        ISNULL(SUM(spt.TransactionCount), 0) AS Transactions
     FROM {SWCPeriodTender} spt
     INNER JOIN {TenderType} tt ON spt.TenderTypeId = tt.Id
     INNER JOIN TargetPeriod tp ON spt.OperatingPeriodId = tp.OperatingPeriodId
@@ -39,13 +44,13 @@ MOP_Data AS (
 ),
 
 -- [STEP 3]: Delivery Sales Channel
--- Source: SWCPeriodTender filtered by TenderType.IsDelivery = 1
--- Includes: MOP, DoorDash, UberEats, DeliverEasy
--- Business Date = SWCPeriod.BusDate
+-- Source: SWCPeriodTender, TenderType.IsDelivery = 1
+-- Amount: CountedAmount (Gross) — agreed, no tax
+-- Date type: Business Date → IsCalendarDay = 0
 Delivery_Data AS (
     SELECT
-        ISNULL(SUM(spt.CountedAmount), 0)    AS Amount,
-        ISNULL(SUM(spt.TransactionCount), 0) AS GuestCount
+        ISNULL(SUM(spt.CountedAmount), 0)    AS NetSales,
+        ISNULL(SUM(spt.TransactionCount), 0) AS Transactions
     FROM {SWCPeriodTender} spt
     INNER JOIN {TenderType} tt ON spt.TenderTypeId = tt.Id
     INNER JOIN TargetPeriod tp ON spt.OperatingPeriodId = tp.OperatingPeriodId
@@ -53,63 +58,40 @@ Delivery_Data AS (
 ),
 
 -- [STEP 4]: McCafe Sales Channel
--- Source: SalesFact joined to ProductMenu + BO_MenuItem where IsMcCafe = 1
--- Calendar Date = SalesFact.CalendarDate
--- CRITICAL: ProductMenuId must NOT be NULL (we're filtering by menu item)
--- CRITICAL: All other unused dimension IDs must be NULL to prevent double-counting
+-- Source: SalesFact (sf2) joined via SWCPeriod, then LEFT JOIN ProductMenu + BO_MenuItem
+-- ConceptId matched naturally via ProductMenu — no input param needed
+-- Amount: NetAmount (Net)
+-- Date type: Calendar Date → IsCalendarDay = 1
+-- CRITICAL: All unused SalesFact dims must be NULL to prevent double-counting
 McCafe_Data AS (
     SELECT
-        ISNULL(SUM(sf.NetAmount), 0)        AS Amount,
-        ISNULL(SUM(sf.TransactionCount), 0) AS GuestCount
-    FROM {SalesFact} sf
-    INNER JOIN {ProductMenu} pm ON sf.ProductMenuId = pm.Id
-    INNER JOIN {BO_MenuItem} mi ON pm.ProductId = mi.MIN
-    WHERE sf.SiteId = @SiteId
-      AND sf.CalendarDate = @Date
-      AND sf.DatePeriodDimensionId = 15
+        ISNULL(SUM(sf2.NetAmount), 0)        AS NetSales,
+        ISNULL(SUM(sf2.TransactionCount), 0) AS Transactions
+    FROM {SalesFact2} sf2  -- NOTE: {SalesFact2} used here (not {SalesFact}) because this query runs
+                           -- in the Report_CS module context where SalesFact is exposed as SalesFact2.
+                           -- This is a one-off — all other queries in this store use {SalesFact}.
+    INNER JOIN {SWCPeriod} sp  ON sf2.SWCPeriodId  = sp.Id
+    LEFT JOIN  {ProductMenu} pm ON sf2.ProductMenuId = pm.Id
+    LEFT JOIN  {BO_MenuItem} mi ON pm.ProductId      = mi.MIN
+                                AND pm.ConceptId      = mi.ConceptId
+    WHERE sp.SiteId = @SiteId
+      AND sf2.CalendarDate = @Date
+      AND sf2.DatePeriodDimensionId = 15
       AND mi.IsMcCafe = 1
-      -- Mandatory dimension filters (null out all unused dims)
-      AND sf.TenderTypeId IS NULL
-      AND sf.OperationId IS NULL
-      AND sf.OperationKindId IS NULL
-      AND sf.SWCCashDrawerId IS NULL
-      AND sf.SaleTypeId IS NULL
-      AND sf.ProductSaleTypeId = 1
-      AND sf.PosId IS NOT NULL
-      AND sf.PosId <> 0
+      AND sf2.TenderTypeId IS NULL
+      AND sf2.OperationId IS NULL
+      AND sf2.OperationKindId IS NULL
+      AND sf2.SWCCashDrawerId IS NULL
+      AND sf2.SaleTypeId IS NULL
+      AND sf2.ProductSaleTypeId = 1
+      AND sf2.PosId IS NOT NULL
+      AND sf2.PosId <> 0
 )
 
 -- [STEP 5]: Final Output - 3 rows, one per Sales Channel
-SELECT
-    'MOP'                       AS Channel,
-    m.Amount                    AS NetAmount,
-    CAST(m.GuestCount AS DECIMAL(18,2)) AS GuestCount,
-    CASE
-        WHEN m.GuestCount = 0 THEN CAST(0 AS DECIMAL(18,2))
-        ELSE CAST(m.Amount / m.GuestCount AS DECIMAL(18,2))
-    END                         AS AverageCheck
-FROM MOP_Data m
-
+-- IsCalendarDay: 0 = Business Date (MOP/Delivery), 1 = Calendar Date (McCafe)
+SELECT 'MOP'      AS Label, m.NetSales, m.Transactions, CAST(0 AS BIT) AS IsCalendarDay FROM MOP_Data m
 UNION ALL
-
-SELECT
-    'Delivery'                  AS Channel,
-    d.Amount                    AS NetAmount,
-    CAST(d.GuestCount AS DECIMAL(18,2)) AS GuestCount,
-    CASE
-        WHEN d.GuestCount = 0 THEN CAST(0 AS DECIMAL(18,2))
-        ELSE CAST(d.Amount / d.GuestCount AS DECIMAL(18,2))
-    END                         AS AverageCheck
-FROM Delivery_Data d
-
+SELECT 'Delivery' AS Label, d.NetSales, d.Transactions, CAST(0 AS BIT) AS IsCalendarDay FROM Delivery_Data d
 UNION ALL
-
-SELECT
-    'McCafe'                    AS Channel,
-    mc.Amount                   AS NetAmount,
-    CAST(mc.GuestCount AS DECIMAL(18,2)) AS GuestCount,
-    CASE
-        WHEN mc.GuestCount = 0 THEN CAST(0 AS DECIMAL(18,2))
-        ELSE CAST(mc.Amount / mc.GuestCount AS DECIMAL(18,2))
-    END                         AS AverageCheck
-FROM McCafe_Data mc;
+SELECT 'McCafe'   AS Label, mc.NetSales, mc.Transactions, CAST(1 AS BIT) AS IsCalendarDay FROM McCafe_Data mc;

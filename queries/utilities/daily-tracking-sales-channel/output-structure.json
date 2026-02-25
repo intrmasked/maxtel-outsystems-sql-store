@@ -1,6 +1,6 @@
 {
-    "Channel": "Text",
-    "NetAmount": "Decimal",
-    "GuestCount": "Decimal",
-    "AverageCheck": "Decimal"
+    "Label": "Text",
+    "NetSales": "Decimal",
+    "Transactions": "Integer",
+    "IsCalendarDay": "Boolean"
 }
