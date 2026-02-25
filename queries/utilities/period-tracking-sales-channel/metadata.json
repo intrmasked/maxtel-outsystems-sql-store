@@ -1,0 +1,52 @@
+{
+    "query": "PeriodTrackingSalesChannel",
+    "category": "utilities",
+    "created": "2026-02-25",
+    "author": "Claude",
+    "status": "in-testing",
+    "version": "1.0.0",
+    "description": "PeriodTrackingSalesChannel - Returns 3 Sales Channel rows (MOP, Delivery, McCafe) aggregated over a selected date range for PeriodTrackingReport.SalesChannels.",
+    "tables": [
+        "SWCPeriod",
+        "SWCPeriodTender",
+        "TenderType",
+        "SalesFact2",
+        "ProductMenu",
+        "BO_MenuItem"
+    ],
+    "parameters": [
+        {
+            "name": "SiteId",
+            "type": "LongInteger",
+            "expandInline": false
+        },
+        {
+            "name": "StartDate",
+            "type": "Date",
+            "expandInline": false
+        },
+        {
+            "name": "EndDate",
+            "type": "Date",
+            "expandInline": false
+        }
+    ],
+    "outputColumns": [
+        {
+            "name": "Label",
+            "type": "Text"
+        },
+        {
+            "name": "NetSales",
+            "type": "Decimal"
+        },
+        {
+            "name": "Transactions",
+            "type": "Integer"
+        },
+        {
+            "name": "IsCalendarDay",
+            "type": "Boolean"
+        }
+    ]
+}

@@ -1,0 +1,6 @@
+{
+    "Label": "Text",
+    "NetSales": "Decimal",
+    "Transactions": "Integer",
+    "IsCalendarDay": "Boolean"
+}
