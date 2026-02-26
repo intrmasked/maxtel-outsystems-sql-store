@@ -3,11 +3,11 @@
 -- Purpose: Returns 3 Sales Channel rows for DailyTrackingReport.SalesChannels:
 --          1. MOP      - SWCPeriodTender where TenderType.Name = 'MOP'   (BusDate)
 --          2. Delivery - SWCPeriodTender where TenderType.IsDelivery = 1 (BusDate)
---          3. McCafe   - SalesFact + ProductMenu + BO_MenuItem (CalendarDate)
+--          3. McCafe   - SalesFact2 + ProductMenu + BO_MenuItem (BusDate via SWCPeriod)
 -- Output:  Label, NetSales, Transactions, IsCalendarDay
 -- Notes:
 --   MOP/Delivery: CountedAmount (Gross), BusDate via SWCPeriod → IsCalendarDay = 0
---   McCafe:       NetAmount (Net), CalendarDate via SalesFact → IsCalendarDay = 1
+--   McCafe:       NetAmount (Net), BusDate via SWCPeriod → IsCalendarDay = 1
 -- Target: SQL Server 2014+ / OutSystems Advanced SQL
 -- Created: 2026-02-24
 -- =============================================
@@ -61,8 +61,8 @@ Delivery_Data AS (
 -- Source: SalesFact (sf2) joined via SWCPeriod, then LEFT JOIN ProductMenu + BO_MenuItem
 -- ConceptId matched naturally via ProductMenu — no input param needed
 -- Amount: NetAmount (Net)
--- Date type: Calendar Date → IsCalendarDay = 1
--- CRITICAL: All unused SalesFact dims must be NULL to prevent double-counting
+-- Date type: BusDate via SWCPeriod → IsCalendarDay = 1
+-- Filters: SalesFactTypeId=2, PosId='', OperationKindId=0, SaleTypeId=0, DatePeriodDimensionId=15
 McCafe_Data AS (
     SELECT
         ISNULL(SUM(sf2.NetAmount), 0)        AS NetSales,

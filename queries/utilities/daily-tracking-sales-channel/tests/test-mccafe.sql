@@ -38,5 +38,8 @@ WHERE sp.SiteId = @SiteId
   AND sf.DatePeriodDimensionId       = 15
   AND ISNULL(sf.OperationKindId, 0)  = 0
   AND ISNULL(sf.SaleTypeId, 0)       = 0
+  AND sf.TenderTypeId                IS NULL
+  AND sf.OperationId                 IS NULL
+  AND sf.SWCCashDrawerId             IS NULL
   AND mi.IsMcCafe                    = 1
 ORDER BY pm.Name

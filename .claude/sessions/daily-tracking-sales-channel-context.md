@@ -24,7 +24,7 @@ Output must match SalesChannelList structure:
 - MOP and Delivery use CountedAmount (Gross) — no tax needed
 - McCafe uses NetAmount (Net) — no tax needed
 - MOP and Delivery filter by Business Date via SWCPeriod
-- McCafe filters by Calendar Date via SalesFact2.CalendarDate
+- **McCafe also uses BusDate via SWCPeriod** (not CalendarDate directly) — confirmed from working test
 - IsCalendarDay flag tells OutSystems which date type sourced each row
 - TenderType.IsDelivery = 1 for: MOP, DoorDash, UberEats, DeliverEasy (already set in DB)
 
@@ -32,10 +32,11 @@ Output must match SalesChannelList structure:
 
 ## Status
 
-- [/] In Development — `DailyTrackingSalesChannel` complete, pending sandbox verification
-- [ ] `PeriodTrackingSalesChannel` not yet started
+- [x] `DailyTrackingSalesChannel` — query confirmed working in sandbox (McCafe returns data)
+- [/] `DailyTrackingSalesChannel` — testing extra NULL guards (TenderTypeId, OperationId, SWCCashDrawerId) in test-mccafe.sql before adding to query.sql
+- [x] `PeriodTrackingSalesChannel` — built, awaiting sandbox verification
 
-**Current step**: Query written and committed (WIP). Pending live sandbox test with valid date from `test-find-valid-dates.sql`.
+**Current step**: McCafe test returns data with ISNULL pattern. Testing extra IS NULL guards in test-mccafe.sql. Pending confirmation before propagating to query.sql.
 
 ---
 
@@ -82,20 +83,29 @@ queries/utilities/daily-tracking-sales-channel/
 - Covers: MOP, DoorDash, UberEats, DeliverEasy (all have IsDelivery = 1)
 - MOP is a subset of Delivery — both are separate output rows
 
-### McCafe Join Pattern
+### McCafe Join Pattern (confirmed working)
 ```sql
 FROM {SalesFact2} sf2          -- Report_CS alias (one-off — all others use {SalesFact})
 INNER JOIN {SWCPeriod} sp  ON sf2.SWCPeriodId  = sp.Id
 LEFT JOIN  {ProductMenu} pm ON sf2.ProductMenuId = pm.Id
 LEFT JOIN  {BO_MenuItem} mi ON pm.ProductId      = mi.MIN
                             AND pm.ConceptId      = mi.ConceptId
+                            AND mi.IsMcCafe       = 1    -- in JOIN ON (avoids LEFT JOIN binding error)
 WHERE sp.SiteId = @SiteId
-  AND sf2.CalendarDate = @Date
-  AND mi.IsMcCafe = 1
-  -- Plus all standard SalesFact dimension NULL filters
+  AND sp.BusDate = @Date                                 -- BusDate via SWCPeriod (not CalendarDate)
+  AND ISNULL(sf2.PosId, '')          = ''
+  AND ISNULL(sf2.SalesFactTypeId, 0) = 2
+  AND sf2.DatePeriodDimensionId      = 15
+  AND ISNULL(sf2.OperationKindId, 0) = 0
+  AND ISNULL(sf2.SaleTypeId, 0)      = 0
+  AND mi.IsMcCafe                    = 1
+  -- PENDING: TenderTypeId IS NULL, OperationId IS NULL, SWCCashDrawerId IS NULL
+  --   → Added back to test-mccafe.sql for verification, will propagate to query.sql once confirmed
 ```
 - ConceptId matched naturally via ProductMenu — no input param needed
 - Uses `{SalesFact2}` in query.sql because this runs in Report_CS module context
+- `mi.IsMcCafe = 1` placed in JOIN ON to avoid LEFT JOIN binding error in OutSystems
+- All filters use ISNULL wrappers (pattern sourced from existing McCafe query)
 
 ### No TaxAmount
 - SWCPeriodTender has no TaxAmount column — agreed to drop it entirely
@@ -129,9 +139,9 @@ WHERE sp.SiteId = @SiteId
 
 ## Open Questions / For Next Session
 
-1. **Sandbox verification** — Run `test-find-valid-dates.sql` to find a date where all 3 channels are non-zero, then run `test-ssms.sql` to verify totals match expected values
-2. **PeriodTrackingSalesChannel** — Period-range version of this query (TBD)
-3. **SWCPeriodTender DB context** — Table has no README yet; document it once structure confirmed via sandbox
+1. **NULL guard verification** — Testing TenderTypeId/OperationId/SWCCashDrawerId IS NULL in test-mccafe.sql; propagate to query.sql once confirmed
+2. **Period sandbox verification** — run PeriodTrackingSalesChannel test-find-valid-dates.sql, then test-ssms.sql
+3. **SWCPeriodTender DB context** — Table has no README yet
 
 ---
 
@@ -140,4 +150,7 @@ WHERE sp.SiteId = @SiteId
 | Hash | Description |
 |------|-------------|
 | `bcffb39` | feat: Add DailyTrackingSalesChannel utility query (WIP) + DB context updates |
-| `c36d073` | fix(daily-tracking-sales-channel): Refine output columns, join pattern, and SalesFact2 alias (WIP) |
+| `c36d073` | fix: Refine output columns, join pattern, SalesFact2 alias |
+| `c2d3acb` | docs: Add session context (WIP) |
+| `a9cc3e5` | fix(mccafe): Apply correct WHERE pattern from existing McCafe query across all files |
+| (pending) | fix: Add extra NULL guards to test-mccafe.sql for verification |
