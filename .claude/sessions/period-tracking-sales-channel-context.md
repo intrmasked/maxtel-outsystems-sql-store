@@ -20,7 +20,9 @@ Same structure as DailyTrackingSalesChannel but for a date range.
 ## Status
 
 - [/] In Development — query written and committed (WIP), pending sandbox verification
+- [/] Testing extra NULL guards (TenderTypeId, OperationId, SWCCashDrawerId IS NULL) in test-mccafe.sql — will propagate to query.sql once confirmed
 
+**Current step**: NULL guards added to test-mccafe.sql. Pending user sandbox confirmation before propagating to query.sql and period query.sql.
 ---
 
 ## Tables Used
