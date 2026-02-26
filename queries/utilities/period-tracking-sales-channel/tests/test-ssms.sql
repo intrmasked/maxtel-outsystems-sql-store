@@ -42,18 +42,15 @@ McCafe_Data AS (
     LEFT JOIN  {ProductMenu} pm ON sf.ProductMenuId  = pm.Id
     LEFT JOIN  {BO_MenuItem} mi ON pm.ProductId       = mi.MIN
                                 AND pm.ConceptId       = mi.ConceptId
+                                AND mi.IsMcCafe        = 1
     WHERE sp.SiteId = @SiteId
-      AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
-      AND sf.DatePeriodDimensionId = 15
-      AND mi.IsMcCafe = 1
-      AND sf.TenderTypeId IS NULL
-      AND sf.OperationId IS NULL
-      AND sf.OperationKindId IS NULL
-      AND sf.SWCCashDrawerId IS NULL
-      AND sf.SaleTypeId IS NULL
-      AND sf.ProductSaleTypeId = 1
-      AND sf.PosId IS NOT NULL
-      AND sf.PosId <> 0
+      AND sp.BusDate BETWEEN @StartDate AND @EndDate
+      AND ISNULL(sf.PosId, '')          = ''
+      AND ISNULL(sf.SalesFactTypeId, 0) = 2
+      AND sf.DatePeriodDimensionId      = 15
+      AND ISNULL(sf.OperationKindId, 0) = 0
+      AND ISNULL(sf.SaleTypeId, 0)      = 0
+      AND mi.IsMcCafe                   = 1
 )
 
 SELECT 'MOP'      AS Label, m.NetSales, m.Transactions, CAST(0 AS BIT) AS IsCalendarDay FROM MOP_Data m

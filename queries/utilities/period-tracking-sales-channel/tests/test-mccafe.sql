@@ -13,15 +13,12 @@ SELECT
     sf.CalendarDate,
     pm.ProductId                               AS ProductCode,
     pm.Name                                    AS ProductName,
-    mi.IsMcCafe,
-    -- Dimension flags — all must be NULL (confirms no double-counting)
-    sf.TenderTypeId,                           -- Must be NULL
-    sf.OperationId,                            -- Must be NULL
-    sf.OperationKindId,                        -- Must be NULL
-    sf.SWCCashDrawerId,                        -- Must be NULL
-    sf.SaleTypeId,                             -- Must be NULL
-    sf.ProductSaleTypeId,                      -- Must be 1
-    sf.PosId,                                  -- Must be non-zero
+    -- Dimension verification
+    sf.PosId,                                  -- Must be NULL / empty
+    sf.SalesFactTypeId,                        -- Must be 2
+    sf.DatePeriodDimensionId,                  -- Must be 15
+    sf.OperationKindId,                        -- Must be 0 / NULL
+    sf.SaleTypeId,                             -- Must be 0 / NULL
     sf.NetAmount,
     sf.TransactionCount,
     SUM(sf.NetAmount)        OVER()            AS Total_NetAmount,
@@ -32,16 +29,13 @@ INNER JOIN {SWCPeriod} sp  ON sf.SWCPeriodId   = sp.Id
 LEFT JOIN  {ProductMenu} pm ON sf.ProductMenuId  = pm.Id
 LEFT JOIN  {BO_MenuItem} mi ON pm.ProductId       = mi.MIN
                             AND pm.ConceptId       = mi.ConceptId
+                            AND mi.IsMcCafe        = 1
 WHERE sp.SiteId = @SiteId
-  AND sf.CalendarDate BETWEEN @StartDate AND @EndDate
-  AND sf.DatePeriodDimensionId = 15
-  AND mi.IsMcCafe = 1
-  AND sf.TenderTypeId IS NULL
-  AND sf.OperationId IS NULL
-  AND sf.OperationKindId IS NULL
-  AND sf.SWCCashDrawerId IS NULL
-  AND sf.SaleTypeId IS NULL
-  AND sf.ProductSaleTypeId = 1
-  AND sf.PosId IS NOT NULL
-  AND sf.PosId <> 0
+  AND sp.BusDate BETWEEN @StartDate AND @EndDate
+  AND ISNULL(sf.PosId, '')          = ''
+  AND ISNULL(sf.SalesFactTypeId, 0) = 2
+  AND sf.DatePeriodDimensionId      = 15
+  AND ISNULL(sf.OperationKindId, 0) = 0
+  AND ISNULL(sf.SaleTypeId, 0)      = 0
+  AND mi.IsMcCafe                   = 1
 ORDER BY sf.CalendarDate, pm.Name

@@ -42,9 +42,11 @@ McCafe_ByDate AS (
         sf.CalendarDate AS BusDate,
         SUM(sf.NetAmount) AS McCafe_Amount
     FROM {SalesFact} sf
-    INNER JOIN {ProductMenu} pm ON sf.ProductMenuId = pm.Id
-    INNER JOIN {BO_MenuItem} mi ON pm.ProductId = mi.MIN
-    WHERE sf.SiteId = @SiteId
+    INNER JOIN {SWCPeriod} sp  ON sf.SWCPeriodId   = sp.Id
+    LEFT JOIN  {ProductMenu} pm ON sf.ProductMenuId  = pm.Id
+    LEFT JOIN  {BO_MenuItem} mi ON pm.ProductId       = mi.MIN
+                                AND pm.ConceptId       = mi.ConceptId
+    WHERE sp.SiteId = @SiteId
       AND sf.DatePeriodDimensionId = 15
       AND mi.IsMcCafe = 1
       AND sf.TenderTypeId IS NULL

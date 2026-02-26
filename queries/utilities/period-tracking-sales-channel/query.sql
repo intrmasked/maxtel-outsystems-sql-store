@@ -73,18 +73,15 @@ McCafe_Data AS (
     LEFT JOIN  {ProductMenu} pm ON sf2.ProductMenuId = pm.Id
     LEFT JOIN  {BO_MenuItem} mi ON pm.ProductId      = mi.MIN
                                 AND pm.ConceptId      = mi.ConceptId
+                                AND mi.IsMcCafe       = 1
     WHERE sp.SiteId = @SiteId
-      AND sf2.CalendarDate BETWEEN @StartDate AND @EndDate
-      AND sf2.DatePeriodDimensionId = 15
-      AND mi.IsMcCafe = 1
-      AND sf2.TenderTypeId IS NULL
-      AND sf2.OperationId IS NULL
-      AND sf2.OperationKindId IS NULL
-      AND sf2.SWCCashDrawerId IS NULL
-      AND sf2.SaleTypeId IS NULL
-      AND sf2.ProductSaleTypeId = 1
-      AND sf2.PosId IS NOT NULL
-      AND sf2.PosId <> 0
+      AND sp.BusDate BETWEEN @StartDate AND @EndDate
+      AND ISNULL(sf2.PosId, '')          = ''
+      AND ISNULL(sf2.SalesFactTypeId, 0) = 2
+      AND sf2.DatePeriodDimensionId      = 15
+      AND ISNULL(sf2.OperationKindId, 0) = 0
+      AND ISNULL(sf2.SaleTypeId, 0)      = 0
+      AND mi.IsMcCafe                    = 1
 )
 
 -- [STEP 5]: Final Output - 3 rows, one per Sales Channel
