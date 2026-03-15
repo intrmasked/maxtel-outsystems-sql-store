@@ -1,0 +1,6 @@
+{
+  "Pod":                    "Text",
+  "QtrHr":                  "DateTime",
+  "ProductSales":           "Decimal",
+  "ProjectedProductSales":  "Decimal"
+}
