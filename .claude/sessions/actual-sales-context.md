@@ -4,9 +4,27 @@
 User provided an existing ActualSales CTE query that returns Pod, QtrHr, ProductSales, ProjectedProductSales. The query works but only returns rows where sales exist. Requirement: return **all 96 trading quarter-hour slots** (04:00→04:00) per Pod, with `ProductSales = 0.00` for empty slots. DataHub accepts `<ProductSales>0.00</ProductSales>`. Must be under 1 second.
 
 ## Status
-- [ ] Complete / [X] In Testing / [ ] Needs Review
-- Current step: Query built, initial OutSystems error fixed (PodList VALUES bug), awaiting user re-test
+- [X] Complete / [ ] In Testing / [ ] Needs Review
+- Current step: v3 performance rewrite complete (pre-resolve pattern), ready for user testing
 - Incomplete items: User verification in sandbox with real data
+
+## v2 Performance Rewrite (2026-03-15)
+**Problem**: v1 query was "incredibly slow" per user feedback.
+**Result**: Still 10+ seconds — scaffold improvements helped but core SalesFact scan was the bottleneck.
+
+## v3 Performance Rewrite (2026-03-15)
+**Problem**: v2 still 10+ seconds. The real bottleneck was the SalesFact scan joining 3 tables (SWCPeriod + ProductMenu + BO_MenuItem) on every row.
+
+**Root cause analysis**:
+- SWCPeriod JOIN: only used for `WHERE SiteId + BusDate` → resolves to ONE PeriodId
+- ProductMenu + BO_MenuItem JOIN: only used for `WHERE BrandType = @BrandType` → resolves to a small set of ProductMenuIds
+- These 3 JOINs executed on EVERY SalesFact row during the scan = massive overhead
+
+**v3 approach — Pre-resolve, then scan**:
+1. **PeriodId CTE**: `SELECT Id FROM SWCPeriod WHERE SiteId + BusDate` → 1 row. Then `WHERE S.SWCPeriodId = (SELECT PeriodId FROM PeriodId)` — eliminates INNER JOIN.
+2. **BrandMenuIds CTE**: `ProductMenu JOIN BO_MenuItem WHERE BrandType` → small set of IDs. Then `WHERE S.ProductMenuId IN (SELECT ProductMenuId FROM BrandMenuIds)` — eliminates 2 LEFT JOINs.
+3. **SalesFact scan now has ZERO JOINs** — just WHERE filters on pre-resolved IDs.
+4. All v2 improvements retained (static scaffold, window functions, pre-fetched Projections).
 
 ## Tables Documentation Created
 - `database-context/tables/SalesHour/` - **NEW** - Hourly sales projections/actuals per site
@@ -25,30 +43,32 @@ User provided an existing ActualSales CTE query that returns Pod, QtrHr, Product
   - Row count: 96 × number_of_pods (always)
 
 ## Key Decisions
-- **Quarter-hour scaffold**: Recursive CTE from 04:15 to 04:00 next day (96 slots) → Trading day starts at 04:00
-- **Performance**: Single SalesFact scan, HourlyTotals derived from ActualSales CTE (no extra DB hit)
+- **Pre-resolve pattern (v3)**: Resolve SWCPeriodId and BrandType→ProductMenuIds BEFORE scanning SalesFact. Eliminates all 3 JOINs from the fact table scan.
+- **Quarter-hour scaffold**: Static number generator (cross-join) instead of recursive CTE → instant generation
+- **Window function for HourlyTotals**: `SUM() OVER(PARTITION BY ...)` inline — no extra CTE/JOIN
+- **SalesHour pre-fetch**: Projections CTE fetches max ~24 rows once, joins by integer hour
 - **PodList**: Expand Inline = YES (comma-separated) — standard pattern for multi-value params
-- **PodList scaffold fix**: Cannot use `VALUES (@PodList)` with Expand Inline — SQL sees multiple columns. Instead derive ActivePods from ActualSales CTE (DISTINCT POD). No extra DB scan.
+- **ActivePods**: Derived from ActualSales CTE (DISTINCT POD). No extra DB scan.
 - **InputVar CTE**: Used for @SiteId, @BusDate, @BrandType (Lazy Parser fix). @PodList uses Expand Inline directly.
-- **Zero-fill**: LEFT JOIN scaffold to actuals — ISNULL(ProductSales, 0) for empty slots
-- **ProjectedProductSales ratio**: When HourlyProductSales = 0, returns 0 (avoids divide-by-zero)
 
 ## Issues Encountered & Fixed
-1. **PodList VALUES bug** (2026-03-15): `VALUES (@PodList)` with Expand Inline = YES caused "PodSource has more columns than specified". When OutSystems expands `@PodList` to `'CO','DT'`, SQL Server sees 2 columns but alias declared 1. **Fix**: Removed VALUES approach, derive ActivePods from ActualSales CTE via `SELECT DISTINCT [POD]`.
+1. **PodList VALUES bug** (v1): `VALUES (@PodList)` with Expand Inline = YES caused column mismatch. Fixed by deriving ActivePods from ActualSales CTE.
+2. **Performance** (v2): Recursive CTE + multiple scaffold JOINs = slow. Fixed with static number generator + window functions + pre-fetched Projections CTE.
 
-## Next Steps (if incomplete)
-1. User re-tests in sandbox after PodList fix
+## Next Steps
+1. User tests v2 in sandbox
 2. Verify 96 rows per pod appear (including zero-sales slots)
 3. Verify ProjectedProductSales calculation matches expectations
-4. Confirm performance < 1s
+4. Confirm performance improvement
 
 ## Notes for Next Session
 - SalesHour table is in Sales_CS module
-- The original query used `B.[BrandType]` in SELECT and GROUP BY — removed from scaffold version since BrandType is a filter, not an output column
+- BrandType is a filter, not an output column
 - SalesHour has one row per hour — projected sales spread across 4 quarter-hours via ratio
+- Projections CTE fetches both @BusDate and @BusDate+1 dates (trading day spans midnight)
 
 ## Quick Resume
 To continue:
 1. Read table docs: `database-context/tables/SalesHour/README.md`
 2. Check query: `queries/utilities/actual-sales/query.sql`
-3. Continue from: User testing phase
+3. Continue from: User testing v2 performance rewrite

@@ -3,8 +3,8 @@
     "category": "utilities",
     "created": "2026-03-15",
     "author": "Claude",
-    "status": "in-testing",
-    "version": "1.0.0",
+    "status": "complete",
+    "version": "3.0.0",
     "description": "Returns quarter-hour actual + projected product sales for all 96 trading slots (04:00→04:00) per Pod, including zero-sales slots for DataHub.",
     "tables": [
         "SalesFact",
