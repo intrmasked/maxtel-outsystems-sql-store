@@ -675,6 +675,121 @@ OPTION (MAXRECURSION 1000, RECOMPILE);  -- ← CRITICAL for date range queries
 
 ---
 
+## Git Commit Template
+
+### 🚨 MANDATORY: Use This Template for ALL Commits
+
+Every commit in this repo must follow this format so any team member can scan the git log and understand what happened without opening files.
+
+**Format:**
+```
+<type>(<scope>): <short summary — max 70 chars>
+
+<body — what changed and WHY>
+
+Query: <query path or "N/A">
+Tables: <tables affected or "none">
+Status: <new | in-progress | in-testing | complete | fix | docs-only>
+Breaking: <yes/no — does this change output columns or parameters?>
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+```
+
+### Commit Types
+
+| Type | When to Use |
+|------|-------------|
+| `feat` | New query, new table docs, new feature |
+| `fix` | Bug fix, wrong filter, incorrect join |
+| `perf` | Performance improvement (query optimization) |
+| `refactor` | Restructure without changing output |
+| `test` | Add/update test queries (test-ssms.sql, etc.) |
+| `docs` | README, session context, CLAUDE.md changes |
+| `chore` | Metadata, config, cleanup |
+
+### Scope
+
+Use the **query name** or **area** in parentheses:
+- `(actual-sales)` — query-specific change
+- `(daily-sales)` — query-specific change
+- `(SalesFact)` — table docs change
+- `(claude-md)` — CLAUDE.md instructions change
+- `(session)` — session context only
+
+### Examples
+
+**New query:**
+```
+feat(daily-sales): Add daily sales summary query with YoY comparison
+
+Returns Pod-level daily sales with CY/PY comparison and % growth.
+Uses UNION ALL pattern for parallel CY+PY scans.
+
+Query: queries/reports/daily-sales/query.sql
+Tables: SalesFact, SWCPeriod
+Status: new
+Breaking: no
+```
+
+**Performance fix:**
+```
+perf(actual-sales): v3 rewrite — pre-resolve lookups, eliminate JOINs from SalesFact
+
+Pre-resolve SWCPeriodId and BrandType→ProductMenuIds into tiny CTEs before
+scanning SalesFact. Reduces fact table scan from 3 JOINs to zero.
+Also replaces recursive scaffold CTE with static number generator.
+
+Query: queries/utilities/actual-sales/query.sql
+Tables: SalesFact, SWCPeriod, ProductMenu, BO_MenuItem, SalesHour
+Status: complete
+Breaking: no
+```
+
+**Bug fix:**
+```
+fix(mccafe): Apply correct WHERE pattern — use PosId <> 0 not IS NOT NULL
+
+Previous filter caused double-counting by including summary rows (PosId = 0).
+SalesFact has both Detail (PosId > 0) and Summary (PosId = 0) rows.
+
+Query: queries/reports/mccafe-sales/query.sql
+Tables: SalesFact
+Status: fix
+Breaking: no
+```
+
+**Output column change (breaking):**
+```
+feat(product-mix): Add PercentTotal column to output
+
+Added % of daily total column. OutSystems Output Structure needs update —
+new column "PercentTotal" (Decimal) added to output-structure.json.
+
+Query: queries/reports/product-mix/query.sql
+Tables: SalesFact
+Status: in-testing
+Breaking: yes — new output column, update OutSystems Output Structure
+```
+
+**Docs only:**
+```
+docs(session): Update actual-sales context with v3 performance notes
+
+Query: N/A
+Tables: none
+Status: docs-only
+Breaking: no
+```
+
+### Rules
+1. **Always include the metadata footer** (Query/Tables/Status/Breaking)
+2. **Body explains WHY**, not just what — anyone reading should understand the reasoning
+3. **Breaking = yes** whenever output columns, parameter names, or parameter types change
+4. **One query per commit** when possible — don't mix unrelated query changes
+5. **Co-Authored-By line** is always last
+
+---
+
 ## When User Says "Finish" or "Wrap Up"
 
 ### Automatic Wrap-Up Process:
