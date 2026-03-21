@@ -1,0 +1,12 @@
+{
+    "WrinNumber": "Text",
+    "ItemName":   "Text",
+    "Sold":       "Decimal",
+    "Promo":      "Decimal",
+    "Discount":   "Decimal",
+    "EmpMeals":   "Decimal",
+    "MgrMeals":   "Decimal",
+    "Waste":      "Decimal",
+    "Refund":     "Decimal",
+    "Total":      "Decimal"
+}

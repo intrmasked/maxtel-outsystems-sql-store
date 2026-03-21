@@ -1,0 +1,43 @@
+{
+    "query": "ProductMixDetailByLogicalItem",
+    "category": "reports",
+    "created": "2026-03-21",
+    "author": "Claude",
+    "status": "in-progress",
+    "version": "1.0.0",
+    "description": "Detail-level product mix by logical item with Dollar/Quantity toggle. Uses LogicalItemUsage + LogicalItem tables.",
+    "tables": [
+        "LogicalItemUsage",
+        "LogicalItem"
+    ],
+    "parameters": [
+        {
+            "name": "SiteId",
+            "type": "LongInteger",
+            "expandInline": false
+        },
+        {
+            "name": "Date",
+            "type": "Date",
+            "expandInline": false
+        },
+        {
+            "name": "SelectedView",
+            "type": "Text",
+            "expandInline": false,
+            "description": "'D' = Dollars, 'Q' = Quantity"
+        }
+    ],
+    "outputColumns": [
+        { "name": "WrinNumber", "type": "Text" },
+        { "name": "ItemName", "type": "Text" },
+        { "name": "Sold", "type": "Decimal" },
+        { "name": "Promo", "type": "Decimal" },
+        { "name": "Discount", "type": "Decimal" },
+        { "name": "EmpMeals", "type": "Decimal" },
+        { "name": "MgrMeals", "type": "Decimal" },
+        { "name": "Waste", "type": "Decimal" },
+        { "name": "Refund", "type": "Decimal" },
+        { "name": "Total", "type": "Decimal" }
+    ]
+}
