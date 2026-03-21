@@ -1,25 +1,24 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX DETAIL BY LOGICAL ITEM - v1.1
+   QUERY: PRODUCT MIX DETAIL BY LOGICAL ITEM - v1.2
    ===================================================================================
 
    PURPOSE:
    Detail-level product mix report by logical item for a single site and date.
    Each row = one logical item from LogicalItemUsage joined to LogicalItem.
    Supports Dollar (D) and Quantity (Q) view toggle.
-   Total row appears first (SortOrder = 0), detail rows after (SortOrder = 1).
+   Includes a Total row (WRIN = '', Description = 'Total').
 
    OUTPUT FORMAT:
-   Columns: WRIN, Description, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total, SortOrder
-   Total row  = WRIN = '', Description = 'Total', SortOrder = 0
-   Detail rows = SortOrder = 1
+   Columns: WRIN, Description, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
 
    OUTSYSTEMS PARAMETERS:
    - SiteId (Long Integer)       → Expand Inline = No
    - Date (Date)                 → Expand Inline = No
    - SelectedView (Text)         → Expand Inline = No  ('D' = Dollars, 'Q' = Quantity)
 
-   FOR SSMS TESTING: See tests/test-ssms.sql
+   NOTE: No ORDER BY or SortOrder — sorting handled in OutSystems.
+   FOR SSMS TESTING: See tests/test-ssms.sql (has SortOrder for convenience)
    ===================================================================================
 */
 
@@ -66,27 +65,25 @@ ItemData AS (
     GROUP BY li.WrinNumber, li.ItemName
 ),
 
--- [STEP 3]: Combine Total row (first) + detail rows
+-- [STEP 3]: Combine Total row + detail rows
 AllRows AS (
-    -- Total row (SortOrder = 0 → appears first)
+    -- Total row
     SELECT
         '' AS WRIN,
         'Total' AS Description,
         SUM(Sold_D) AS Sold_D, SUM(Promo_D) AS Promo_D, SUM(Discount_D) AS Discount_D,
         SUM(EmpMeals_D) AS EmpMeals_D, SUM(MgrMeals_D) AS MgrMeals_D, SUM(Waste_D) AS Waste_D, SUM(Total_D) AS Total_D,
         SUM(Sold_Q) AS Sold_Q, SUM(Promo_Q) AS Promo_Q, SUM(Discount_Q) AS Discount_Q,
-        SUM(EmpMeals_Q) AS EmpMeals_Q, SUM(MgrMeals_Q) AS MgrMeals_Q, SUM(Waste_Q) AS Waste_Q, SUM(Total_Q) AS Total_Q,
-        0 AS SortOrder
+        SUM(EmpMeals_Q) AS EmpMeals_Q, SUM(MgrMeals_Q) AS MgrMeals_Q, SUM(Waste_Q) AS Waste_Q, SUM(Total_Q) AS Total_Q
     FROM ItemData
 
     UNION ALL
 
-    -- Detail rows (SortOrder = 1)
+    -- Detail rows
     SELECT
         WrinNumber, ItemName,
         Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
-        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q,
-        1
+        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
     FROM ItemData
 )
 
@@ -128,9 +125,6 @@ SELECT
     CASE (SELECT Val FROM InputVar)
         WHEN 'D' THEN ROUND(Total_D, 2)
         WHEN 'Q' THEN Total_Q
-    END AS Total,
+    END AS Total
 
-    SortOrder
-
-FROM AllRows
-ORDER BY SortOrder, Description;
+FROM AllRows;

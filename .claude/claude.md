@@ -881,6 +881,7 @@ To continue:
 - Use vendor-specific functions (OutSystems won't like it)
 - Skip documentation
 - Use vague names (`query1`, `test`)
+- **Add SortOrder or ORDER BY to production queries** — OutSystems handles sorting/filtering in the application layer. Only add SortOrder in `tests/` queries for convenience.
 
 ---
 
