@@ -1,12 +1,12 @@
 {
-    "WrinNumber": "Text",
-    "ItemName":   "Text",
-    "Sold":       "Decimal",
-    "Promo":      "Decimal",
-    "Discount":   "Decimal",
-    "EmpMeals":   "Decimal",
-    "MgrMeals":   "Decimal",
-    "Waste":      "Decimal",
-    "Refund":     "Decimal",
-    "Total":      "Decimal"
+    "WRIN":        "Text",
+    "Description": "Text",
+    "Sold":        "Decimal",
+    "Promo":       "Decimal",
+    "Discount":    "Decimal",
+    "EmpMeals":    "Decimal",
+    "MgrMeals":    "Decimal",
+    "Waste":       "Decimal",
+    "Total":       "Decimal",
+    "SortOrder":   "Integer"
 }

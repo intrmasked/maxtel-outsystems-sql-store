@@ -20,9 +20,10 @@ Detail-level product mix report by logical item. Same concept as product-mix-det
 
 ## Key Decisions
 - **Modelled after product-mix-details**: Same D/Q toggle pattern, same Total row via UNION ALL
-- **Refund column added**: LogicalItemUsage has RefundNetAmt/RefundQty (not in ProductSalesByOperation)
-- **WrinNumber as identifier**: Instead of ProductMenu.ProductId (Code), uses LogicalItem.WrinNumber
-- **Total = sum of all ops**: Sales + Promo + Discount + Crew + Manager + Waste + Refund
+- **No Refund column**: Screenshot confirms UI doesn't show Refund — excluded from output (data still in table if needed later)
+- **Column names match UI**: WRIN, Description (not WrinNumber/ItemName), Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
+- **Total row first**: SortOrder = 0 for Total, SortOrder = 1 for detail rows. ORDER BY SortOrder, Description.
+- **Total = sum of all ops (excl Refund)**: Sales + Promo + Discount + Crew + Manager + Waste
 - **InputVar CTE**: Used for @SelectedView parameter binding (OutSystems quirk)
 
 ## Next Steps

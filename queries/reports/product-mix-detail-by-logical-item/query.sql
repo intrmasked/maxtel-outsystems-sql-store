@@ -1,17 +1,18 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX DETAIL BY LOGICAL ITEM - v1.0
+   QUERY: PRODUCT MIX DETAIL BY LOGICAL ITEM - v1.1
    ===================================================================================
 
    PURPOSE:
    Detail-level product mix report by logical item for a single site and date.
    Each row = one logical item from LogicalItemUsage joined to LogicalItem.
    Supports Dollar (D) and Quantity (Q) view toggle.
-   Includes a Total row summing all items.
+   Total row appears first (SortOrder = 0), detail rows after (SortOrder = 1).
 
    OUTPUT FORMAT:
-   Detail rows = WrinNumber, ItemName, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Refund, Total
-   Total row  = Same columns with ItemName = 'Total'
+   Columns: WRIN, Description, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total, SortOrder
+   Total row  = WRIN = '', Description = 'Total', SortOrder = 0
+   Detail rows = SortOrder = 1
 
    OUTSYSTEMS PARAMETERS:
    - SiteId (Long Integer)       → Expand Inline = No
@@ -39,14 +40,12 @@ ItemData AS (
         SUM(liu.CrewNetAmt) AS EmpMeals_D,
         SUM(liu.ManagerNetAmt) AS MgrMeals_D,
         SUM(liu.WasteNetAmt) AS Waste_D,
-        SUM(liu.RefundNetAmt) AS Refund_D,
         SUM(liu.SalesNetAmt) +
         SUM(liu.PromoNetAmt) +
         SUM(liu.DiscountNetAmt) +
         SUM(liu.CrewNetAmt) +
         SUM(liu.ManagerNetAmt) +
-        SUM(liu.WasteNetAmt) +
-        SUM(liu.RefundNetAmt) AS Total_D,
+        SUM(liu.WasteNetAmt) AS Total_D,
         -- Quantity amounts
         SUM(liu.SalesQty) AS Sold_Q,
         SUM(liu.PromoQty) AS Promo_Q,
@@ -54,14 +53,12 @@ ItemData AS (
         SUM(liu.CrewQty) AS EmpMeals_Q,
         SUM(liu.ManagerQty) AS MgrMeals_Q,
         SUM(liu.WasteQty) AS Waste_Q,
-        SUM(liu.RefundQty) AS Refund_Q,
         SUM(liu.SalesQty) +
         SUM(liu.PromoQty) +
         SUM(liu.DiscountQty) +
         SUM(liu.CrewQty) +
         SUM(liu.ManagerQty) +
-        SUM(liu.WasteQty) +
-        SUM(liu.RefundQty) AS Total_Q
+        SUM(liu.WasteQty) AS Total_Q
     FROM {LogicalItemUsage} liu
     INNER JOIN {LogicalItem} li ON liu.LogicalItemId = li.Id
     WHERE liu.SiteId = @SiteId
@@ -69,29 +66,34 @@ ItemData AS (
     GROUP BY li.WrinNumber, li.ItemName
 ),
 
--- [STEP 3]: Combine detail rows + Total row
+-- [STEP 3]: Combine Total row (first) + detail rows
 AllRows AS (
-    -- Detail rows
+    -- Total row (SortOrder = 0 → appears first)
     SELECT
-        WrinNumber, ItemName,
-        Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Refund_D, Total_D,
-        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Refund_Q, Total_Q
+        '' AS WRIN,
+        'Total' AS Description,
+        SUM(Sold_D) AS Sold_D, SUM(Promo_D) AS Promo_D, SUM(Discount_D) AS Discount_D,
+        SUM(EmpMeals_D) AS EmpMeals_D, SUM(MgrMeals_D) AS MgrMeals_D, SUM(Waste_D) AS Waste_D, SUM(Total_D) AS Total_D,
+        SUM(Sold_Q) AS Sold_Q, SUM(Promo_Q) AS Promo_Q, SUM(Discount_Q) AS Discount_Q,
+        SUM(EmpMeals_Q) AS EmpMeals_Q, SUM(MgrMeals_Q) AS MgrMeals_Q, SUM(Waste_Q) AS Waste_Q, SUM(Total_Q) AS Total_Q,
+        0 AS SortOrder
     FROM ItemData
 
     UNION ALL
 
-    -- Total row (sum of all items)
+    -- Detail rows (SortOrder = 1)
     SELECT
-        'Total', '',
-        SUM(Sold_D), SUM(Promo_D), SUM(Discount_D), SUM(EmpMeals_D), SUM(MgrMeals_D), SUM(Waste_D), SUM(Refund_D), SUM(Total_D),
-        SUM(Sold_Q), SUM(Promo_Q), SUM(Discount_Q), SUM(EmpMeals_Q), SUM(MgrMeals_Q), SUM(Waste_Q), SUM(Refund_Q), SUM(Total_Q)
+        WrinNumber, ItemName,
+        Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
+        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q,
+        1
     FROM ItemData
 )
 
 -- [STEP 4]: Final output with SelectedView toggle
 SELECT
-    WrinNumber,
-    ItemName,
+    WRIN,
+    Description,
 
     CASE (SELECT Val FROM InputVar)
         WHEN 'D' THEN ROUND(Sold_D, 2)
@@ -124,13 +126,11 @@ SELECT
     END AS Waste,
 
     CASE (SELECT Val FROM InputVar)
-        WHEN 'D' THEN ROUND(Refund_D, 2)
-        WHEN 'Q' THEN Refund_Q
-    END AS Refund,
-
-    CASE (SELECT Val FROM InputVar)
         WHEN 'D' THEN ROUND(Total_D, 2)
         WHEN 'Q' THEN Total_Q
-    END AS Total
+    END AS Total,
 
-FROM AllRows;
+    SortOrder
+
+FROM AllRows
+ORDER BY SortOrder, Description;
