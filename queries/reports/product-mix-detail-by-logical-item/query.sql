@@ -1,13 +1,14 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX DETAIL BY LOGICAL ITEM - v1.2
+   QUERY: PRODUCT MIX DETAIL BY LOGICAL ITEM - v1.3
    ===================================================================================
 
    PURPOSE:
    Detail-level product mix report by logical item for a single site and date.
    Each row = one logical item from LogicalItemUsage joined to LogicalItem.
    Supports Dollar (D) and Quantity (Q) view toggle.
-   Includes a Total row (WRIN = '', Description = 'Total').
+   Supports live search on WRIN and Description (partial match, case-insensitive).
+   Includes a Total row (WRIN = '', Description = 'Total') — always shown.
 
    OUTPUT FORMAT:
    Columns: WRIN, Description, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
@@ -16,16 +17,17 @@
    - SiteId (Long Integer)       → Expand Inline = No
    - Date (Date)                 → Expand Inline = No
    - SelectedView (Text)         → Expand Inline = No  ('D' = Dollars, 'Q' = Quantity)
+   - SearchText (Text)           → Expand Inline = No  (partial match on WRIN/Description, empty = show all)
 
    NOTE: No ORDER BY or SortOrder — sorting handled in OutSystems.
-   FOR SSMS TESTING: See tests/test-ssms.sql (has SortOrder for convenience)
+   FOR SSMS TESTING: See tests/test-ssms.sql
    ===================================================================================
 */
 
 WITH
 
 -- [STEP 1]: InputVar CTE for reliable parameter binding
-InputVar AS (SELECT @SelectedView AS Val),
+InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search),
 
 -- [STEP 2]: Aggregate usage data by LogicalItem, join for WrinNumber/ItemName
 ItemData AS (
@@ -65,9 +67,9 @@ ItemData AS (
     GROUP BY li.WrinNumber, li.ItemName
 ),
 
--- [STEP 3]: Combine Total row + detail rows
+-- [STEP 3]: Combine Total row + filtered detail rows
 AllRows AS (
-    -- Total row
+    -- Total row (ALWAYS shown, regardless of search)
     SELECT
         '' AS WRIN,
         'Total' AS Description,
@@ -79,12 +81,15 @@ AllRows AS (
 
     UNION ALL
 
-    -- Detail rows
+    -- Detail rows (filtered by search text)
     SELECT
         WrinNumber, ItemName,
         Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
         Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
     FROM ItemData
+    WHERE (SELECT Search FROM InputVar) = ''
+       OR WrinNumber LIKE '%' + (SELECT Search FROM InputVar) + '%'
+       OR ItemName LIKE '%' + (SELECT Search FROM InputVar) + '%'
 )
 
 -- [STEP 4]: Final output with SelectedView toggle

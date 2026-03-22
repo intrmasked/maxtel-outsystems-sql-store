@@ -1,17 +1,19 @@
 -- =============================================
--- Test: Product Mix Detail by Logical Item v1.1 — SSMS Sandbox Version
+-- Test: Product Mix Detail by Logical Item v1.3 — SSMS Sandbox Version
 -- Purpose: Full query with DECLARE params for SSMS testing
 -- Created: 2026-03-21
+-- Updated: 2026-03-22 — v1.3: Added SearchText filter
 -- =============================================
 
 DECLARE @SiteId BIGINT = 3187;
 DECLARE @Date DATE = '2026-03-20';
 DECLARE @SelectedView VARCHAR(1) = 'D';
+DECLARE @SearchText VARCHAR(100) = '';  -- Empty = show all, or e.g. 'BIG MAC', '90001'
 
 WITH
 
 -- [STEP 1]: InputVar CTE for reliable parameter binding
-InputVar AS (SELECT @SelectedView AS Val),
+InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search),
 
 -- [STEP 2]: Aggregate usage data by LogicalItem
 ItemData AS (
@@ -51,9 +53,9 @@ ItemData AS (
     GROUP BY li.WrinNumber, li.ItemName
 ),
 
--- [STEP 3]: Combine Total row (first) + detail rows
+-- [STEP 3]: Combine Total row + filtered detail rows
 AllRows AS (
-    -- Total row (SortOrder = 0)
+    -- Total row (ALWAYS shown)
     SELECT
         '' AS WRIN,
         'Total' AS Description,
@@ -66,13 +68,16 @@ AllRows AS (
 
     UNION ALL
 
-    -- Detail rows (SortOrder = 1)
+    -- Detail rows (filtered by search text)
     SELECT
         WrinNumber, ItemName,
         Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
         Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q,
         1
     FROM ItemData
+    WHERE (SELECT Search FROM InputVar) = ''
+       OR WrinNumber LIKE '%' + (SELECT Search FROM InputVar) + '%'
+       OR ItemName LIKE '%' + (SELECT Search FROM InputVar) + '%'
 )
 
 -- [STEP 4]: Final output with SelectedView toggle
