@@ -1,0 +1,7 @@
+{
+    "MIN":             "Text",
+    "MenuItemName":    "Text",
+    "ProductQtyUsed":  "Decimal",
+    "ItemsPerProduct": "Decimal",
+    "QtyUsed":         "Decimal"
+}

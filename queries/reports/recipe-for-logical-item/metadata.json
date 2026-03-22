@@ -1,0 +1,30 @@
+{
+    "query": "RecipeForLogicalItem",
+    "category": "reports",
+    "created": "2026-03-22",
+    "author": "Claude",
+    "status": "in-progress",
+    "version": "1.0.0",
+    "description": "Find all menu items that use a given logical item in their recipe, cross-referenced with actual sales for a site/date.",
+    "tables": [
+        "BO_RawIngredient",
+        "BO_Recipe",
+        "BO_MenuItem",
+        "ProductMenu",
+        "ProductSalesByOperation",
+        "LogicalItem"
+    ],
+    "parameters": [
+        { "name": "LogicalItemId", "type": "Integer", "expandInline": false },
+        { "name": "SiteId", "type": "Integer", "expandInline": false },
+        { "name": "CalendarDate", "type": "Date", "expandInline": false },
+        { "name": "ConceptId", "type": "Integer", "expandInline": false }
+    ],
+    "outputColumns": [
+        { "name": "MIN", "type": "Text" },
+        { "name": "MenuItemName", "type": "Text" },
+        { "name": "ProductQtyUsed", "type": "Decimal" },
+        { "name": "ItemsPerProduct", "type": "Decimal" },
+        { "name": "QtyUsed", "type": "Decimal" }
+    ]
+}
