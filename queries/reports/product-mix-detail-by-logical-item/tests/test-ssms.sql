@@ -53,34 +53,40 @@ ItemData AS (
     GROUP BY li.WrinNumber, li.ItemName
 ),
 
--- [STEP 3]: Combine Total row + filtered detail rows
+-- [STEP 3]: Apply search filter
+FilteredData AS (
+    SELECT *
+    FROM ItemData
+    WHERE (SELECT Search FROM InputVar) = ''
+       OR WrinNumber LIKE '%' + (SELECT Search FROM InputVar) + '%'
+       OR ItemName LIKE '%' + (SELECT Search FROM InputVar) + '%'
+),
+
+-- [STEP 4]: Combine Total row (from filtered data) + detail rows
 AllRows AS (
-    -- Total row (ALWAYS shown)
+    -- Total row (sum of FILTERED results only)
     SELECT
-        '' AS WRIN,
-        'Total' AS Description,
+        'Total' AS WRIN,
+        '' AS Description,
         SUM(Sold_D) AS Sold_D, SUM(Promo_D) AS Promo_D, SUM(Discount_D) AS Discount_D,
         SUM(EmpMeals_D) AS EmpMeals_D, SUM(MgrMeals_D) AS MgrMeals_D, SUM(Waste_D) AS Waste_D, SUM(Total_D) AS Total_D,
         SUM(Sold_Q) AS Sold_Q, SUM(Promo_Q) AS Promo_Q, SUM(Discount_Q) AS Discount_Q,
         SUM(EmpMeals_Q) AS EmpMeals_Q, SUM(MgrMeals_Q) AS MgrMeals_Q, SUM(Waste_Q) AS Waste_Q, SUM(Total_Q) AS Total_Q,
         0 AS SortOrder
-    FROM ItemData
+    FROM FilteredData
 
     UNION ALL
 
-    -- Detail rows (filtered by search text)
+    -- Detail rows
     SELECT
         WrinNumber, ItemName,
         Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
         Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q,
         1
-    FROM ItemData
-    WHERE (SELECT Search FROM InputVar) = ''
-       OR WrinNumber LIKE '%' + (SELECT Search FROM InputVar) + '%'
-       OR ItemName LIKE '%' + (SELECT Search FROM InputVar) + '%'
+    FROM FilteredData
 )
 
--- [STEP 4]: Final output with SelectedView toggle
+-- [STEP 5]: Final output with SelectedView toggle
 SELECT
     WRIN,
     Description,

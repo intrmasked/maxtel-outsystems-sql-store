@@ -12,7 +12,7 @@ Detail-level product mix report by logical item. Same concept as product-mix-det
 
 ## Status
 - [ ] Complete / [ ] In Testing / [X] In Progress
-- Current step: v1.3 — added SearchText parameter for live search on WRIN/Description
+- Current step: v1.4 — Total row now reflects filtered search results
 - Incomplete items: User to test with real site data
 
 ## Version History
@@ -22,6 +22,7 @@ Detail-level product mix report by logical item. Same concept as product-mix-det
 | v1.1 | Matched to UI screenshot: removed Refund, renamed to WRIN/Description, added SortOrder |
 | v1.2 | Removed SortOrder + ORDER BY from production query — OutSystems handles sorting |
 | v1.3 | Added @SearchText parameter — LIKE search on WRIN and Description. Total row always shown. |
+| v1.4 | Fixed Total row to reflect filtered results — Total now sums from FilteredData CTE, not all ItemData. |
 
 ## Data Exploration Results
 - **206** logical items across DB
@@ -48,7 +49,7 @@ Detail-level product mix report by logical item. Same concept as product-mix-det
 - **No SortOrder in production query**: OutSystems handles sorting/filtering. Test queries keep SortOrder for convenience.
 - **Total = sum of all ops (excl Refund)**: Sales + Promo + Discount + Crew + Manager + Waste
 - **InputVar CTE**: Used for @SelectedView and @SearchText parameter binding (OutSystems quirk)
-- **SearchText filter**: `LIKE '%' + @SearchText + '%'` on WRIN and Description. Empty string = show all. Total row always shown regardless of search.
+- **SearchText filter**: `LIKE '%' + @SearchText + '%'` on WRIN and Description. Empty string = show all. Total row reflects filtered results (sums from FilteredData CTE, not all items).
 - **CLAUDE.md updated**: Added rule — no SortOrder/ORDER BY in production queries, only in tests
 
 ## Git Commits
@@ -56,6 +57,7 @@ Detail-level product mix report by logical item. Same concept as product-mix-det
 - `de70915` — fix: Match output to UI screenshot (removed Refund, renamed columns, added SortOrder)
 - `8f3494a` — docs: Update session context with full history
 - `c9c48bd` — refactor: Remove SortOrder from production query + CLAUDE.md rule + test queries
+- `dd1d00b` — feat: Add SearchText parameter for live search
 
 ## Test Queries Created
 - `tests/test-ssms.sql` — Full query with DECLARE params + SortOrder for testing
