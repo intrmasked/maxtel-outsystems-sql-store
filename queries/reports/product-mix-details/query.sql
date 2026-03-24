@@ -1,22 +1,24 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX DETAILS - v1.0
+   QUERY: PRODUCT MIX DETAILS - v1.1
    ===================================================================================
 
    PURPOSE:
    Detail-level product mix report for a single site and date.
    Each row = one product from ProductSalesByOperation joined to ProductMenu.
    Supports Dollar (D) and Quantity (Q) view toggle.
-   Includes a Total row summing all products.
+   Supports live search on Code (MIN) and Name (partial match, case-insensitive).
+   Includes a Total row (Code = 'Total') — reflects filtered results.
 
    OUTPUT FORMAT:
    Detail rows = Code, Name, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
-   Total row  = Same columns with Name = 'Total' (sums of all detail rows)
+   Total row  = Same columns with Code = 'Total' (sums of filtered detail rows)
 
    OUTSYSTEMS PARAMETERS:
    - SiteId (Long Integer)       → Expand Inline = No
    - Date (Date)                 → Expand Inline = No
    - SelectedView (Text)         → Expand Inline = No  ('D' = Dollars, 'Q' = Quantity)
+   - SearchText (Text)           → Expand Inline = No  (partial match on Code/Name, empty = show all)
 
    FOR SSMS TESTING: See tests/test-ssms.sql
    ===================================================================================
@@ -25,7 +27,7 @@
 WITH
 
 -- [STEP 1]: InputVar CTE for reliable parameter binding
-InputVar AS (SELECT @SelectedView AS Val),
+InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search),
 
 -- [STEP 2]: Aggregate product data by ProductMenu, join for Code/Name
 ProductData AS (
@@ -60,28 +62,38 @@ ProductData AS (
     GROUP BY pm.ProductId, pm.Name
 ),
 
--- [STEP 3]: Combine detail rows + Total row
-AllRows AS (
-    -- Detail rows
-    SELECT
-        Code,
-        Name,
-        Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
-        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
+-- [STEP 3]: Apply search filter
+FilteredData AS (
+    SELECT *
     FROM ProductData
+    WHERE (SELECT Search FROM InputVar) = ''
+       OR Code LIKE '%' + (SELECT Search FROM InputVar) + '%'
+       OR Name LIKE '%' + (SELECT Search FROM InputVar) + '%'
+),
+
+-- [STEP 4]: Combine Total row (from filtered data) + detail rows
+AllRows AS (
+    -- Total row (sum of FILTERED results only)
+    SELECT
+        'Total' AS Code,
+        '' AS Name,
+        SUM(Sold_D) AS Sold_D, SUM(Promo_D) AS Promo_D, SUM(Discount_D) AS Discount_D,
+        SUM(EmpMeals_D) AS EmpMeals_D, SUM(MgrMeals_D) AS MgrMeals_D, SUM(Waste_D) AS Waste_D, SUM(Total_D) AS Total_D,
+        SUM(Sold_Q) AS Sold_Q, SUM(Promo_Q) AS Promo_Q, SUM(Discount_Q) AS Discount_Q,
+        SUM(EmpMeals_Q) AS EmpMeals_Q, SUM(MgrMeals_Q) AS MgrMeals_Q, SUM(Waste_Q) AS Waste_Q, SUM(Total_Q) AS Total_Q
+    FROM FilteredData
 
     UNION ALL
 
-    -- Total row (sum of all products)
+    -- Detail rows
     SELECT
-        'Total',
-        '',
-        SUM(Sold_D), SUM(Promo_D), SUM(Discount_D), SUM(EmpMeals_D), SUM(MgrMeals_D), SUM(Waste_D), SUM(Total_D),
-        SUM(Sold_Q), SUM(Promo_Q), SUM(Discount_Q), SUM(EmpMeals_Q), SUM(MgrMeals_Q), SUM(Waste_Q), SUM(Total_Q)
-    FROM ProductData
+        Code, Name,
+        Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
+        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
+    FROM FilteredData
 )
 
--- [STEP 4]: Final output with SelectedView toggle
+-- [STEP 5]: Final output with SelectedView toggle
 SELECT
     Code,
     Name,
