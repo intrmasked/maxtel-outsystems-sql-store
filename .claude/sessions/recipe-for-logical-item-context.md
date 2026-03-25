@@ -12,9 +12,9 @@ SQL query for the "Recipe For Logical" slideover (Section 9 of the Product Mix b
 - No ORDER BY in production query (OutSystems handles sorting)
 
 ## Status
-- [ ] Complete / [ ] In Testing / [X] In Progress
-- Current step: v3.1 — fixed join to use LogicalItem.BO_RawItemId instead of BRI.WRIN
-- Incomplete items: User to retest — verify Lrg Mac Buster and Cheeseburger now appear for Bun Regular Frozen
+- [ ] Complete / [X] In Testing / [ ] In Progress
+- Current step: v3.1 confirmed working — 65+ products returned for Bun Regular Frozen WRIN
+- Previous issue was OutSystems UI display limit (8 items), not SQL — user has fixed UI side
 
 ## Tables Documentation Created
 - `database-context/tables/BO_RawIngredient/` - **EXISTING** (created in v1.0)
@@ -49,12 +49,11 @@ SQL query for the "Recipe For Logical" slideover (Section 9 of the Product Mix b
 - **v2.0** (2026-03-22): Added Path B (combo sub-items), Totals row, still LogicalItemId-based
 - **v3.0** (2026-03-22): Simplified — switched to WRIN as identifier, dropped LogicalItem table join
 - **v3.1** (2026-03-25): Bug fix — BRI.WRIN != LogicalItem.WrinNumber. Re-introduced LogicalItem join via TargetRawItems CTE. Resolves missing products (Lrg Mac Buster, Cheeseburger) in reverse recipe lookup.
+- **v3.1 debugging** (2026-03-25): User reported products still missing. Traced join chain step-by-step — SQL was correct all along (65+ products returned). Issue was OutSystems UI display limit (8 items). User fixed UI side.
 
 ## Next Steps
-1. User retests with Bun Regular Frozen WRIN — verify Lrg Mac Buster and Cheeseburger now appear
-2. Verify Path A and Path B both return correct products
-3. Verify sales cross-reference and totals row
-4. Iterate based on feedback
+1. User to confirm all products display correctly in slideover after UI fix
+2. Mark query as complete once user confirms
 
 ## Quick Resume
 To continue:

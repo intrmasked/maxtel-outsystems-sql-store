@@ -22,6 +22,7 @@
 | `Id` | Long Integer | Primary key |
 | `BORecipeId` | Long Integer | FK to BO_Recipe |
 | `BORawItemId` | Long Integer | FK to raw item (matches LogicalItem.BO_RawItemId) |
+| `WRIN` | Text | WRIN number (may differ from LogicalItem.WrinNumber — see warning below) |
 | `Qty` | Decimal | Quantity of this ingredient per product |
 | `IsDeleted` | Boolean | Soft delete flag |
 | `IsMandatory` | Boolean | Whether ingredient is mandatory |
@@ -56,8 +57,15 @@ WHERE LI.Id = @LogicalItemId
 - **Qty** = amount of this ingredient per product serving
 - **BORawItemId** links to `LogicalItem.BO_RawItemId` (NOT LogicalItem.Id)
 
+> **WARNING: WRIN Column Mismatch**
+> `BO_RawIngredient.WRIN` does NOT always match `LogicalItem.WrinNumber`.
+> **NEVER filter on `BRI.WRIN = @WRIN`** — always join through `LogicalItem`:
+> `LogicalItem.WrinNumber = @WRIN → LogicalItem.BO_RawItemId → BRI.BORawItemId`
+> This was discovered during the recipe-for-logical-item query debugging (2026-03-25).
+
 ## Change Log
 
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-03-22 | Initial documentation created from OutSystems entity screenshot | Claude |
+| 2026-03-25 | Added WRIN column + WARNING about WRIN mismatch with LogicalItem.WrinNumber | Claude |

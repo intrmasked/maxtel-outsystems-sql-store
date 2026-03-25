@@ -9,7 +9,12 @@
 
 ## Overview
 
-`BO_Recipe` represents a recipe for a menu item (`BO_MenuItem`). Each recipe can have multiple ingredients via `BO_RawIngredient`. The `BOMenuItemId` links back to `BO_MenuItem.Refkey` to identify which menu item this recipe belongs to.
+`BO_Recipe` represents a recipe for a menu item (`BO_MenuItem`). Each recipe can have ingredients via `BO_RawIngredient` (raw/logical items) and/or `BO_MenuIngredient` (combo sub-items). The `BOMenuItemId` links back to `BO_MenuItem.Refkey` to identify which menu item this recipe belongs to.
+
+> **IMPORTANT: Combo recipes can have BOTH raw ingredients AND menu ingredients.**
+> A recipe with `IsCombo = true` may still have direct `BO_RawIngredient` rows.
+> Example: "Lrg Mac Hunger Buster NP6" is a combo but has buns as direct raw ingredients.
+> Always check both `BO_RawIngredient` and `BO_MenuIngredient` for a complete picture.
 
 ---
 
@@ -22,6 +27,9 @@
 | `Id` | Long Integer | Primary key |
 | `Refkey` | Long Integer | Reference key |
 | `BOMenuItemId` | Long Integer | FK to BO_MenuItem.Refkey |
+| `IsCombo` | Boolean | Whether this recipe is a combo (has BO_MenuIngredient sub-items) |
+| `RawIngredientCount` | Integer | Number of raw ingredients in this recipe |
+| `MenuIngredientCount` | Integer | Number of menu ingredients (combo sub-items) in this recipe |
 | `IsDeleted` | Boolean | Soft delete flag |
 | `ACTIONCODE` | Text | Action code |
 | `ACTIVEDATEFROM` | Date Time | Recipe active from date |
@@ -40,8 +48,10 @@
   - Join: `BO_Recipe.BOMenuItemId = BO_MenuItem.Refkey`
 
 ### Tables That Reference This Table
-- **BO_RawIngredient** — Ingredients in this recipe
+- **BO_RawIngredient** — Raw/logical ingredients in this recipe
   - Join: `BO_RawIngredient.BORecipeId = BO_Recipe.Id`
+- **BO_MenuIngredient** — Combo sub-item references in this recipe
+  - Join: `BO_MenuIngredient.BORecipeId = BO_Recipe.Id`
 
 ---
 
@@ -78,3 +88,4 @@ WHERE BRI.BORawItemId = @BORawItemId
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-03-22 | Initial documentation created from OutSystems entity screenshot | Claude |
+| 2026-03-25 | Added IsCombo, RawIngredientCount, MenuIngredientCount columns. Added BO_MenuIngredient relationship. Added note about combos having both raw + menu ingredients. | Claude |
