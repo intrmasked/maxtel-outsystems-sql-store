@@ -13,8 +13,8 @@ SQL query for the "Recipe For Logical" slideover (Section 9 of the Product Mix b
 
 ## Status
 - [ ] Complete / [ ] In Testing / [X] In Progress
-- Current step: v3.0 query built — WRIN-based, Path A + Path B + Totals row, ready for user testing
-- Incomplete items: User to test with real data
+- Current step: v3.1 — fixed join to use LogicalItem.BO_RawItemId instead of BRI.WRIN
+- Incomplete items: User to retest — verify Lrg Mac Buster and Cheeseburger now appear for Bun Regular Frozen
 
 ## Tables Documentation Created
 - `database-context/tables/BO_RawIngredient/` - **EXISTING** (created in v1.0)
@@ -25,19 +25,22 @@ SQL query for the "Recipe For Logical" slideover (Section 9 of the Product Mix b
 - `database-context/tables/BO_MenuItem/` - Menu item master
 - `database-context/tables/ProductMenu/` - Product menu catalog
 - `database-context/tables/ProductSalesByOperation/` - Actual sales data
+- `database-context/tables/LogicalItem/` - Logical item master (re-added in v3.1)
 
 ## Queries Created
-- `queries/reports/recipe-for-logical-item/` - Status: in-progress (v3.0)
+- `queries/reports/recipe-for-logical-item/` - Status: in-progress (v3.1)
   - Purpose: Recipe lookup by WRIN with sales cross-reference (both paths)
-  - Tables used: BO_RawIngredient, BO_Recipe, BO_MenuItem, BO_MenuIngredient, ProductMenu, ProductSalesByOperation
+  - Tables used: LogicalItem, BO_RawIngredient, BO_Recipe, BO_MenuItem, BO_MenuIngredient, ProductMenu, ProductSalesByOperation
   - Output: MIN, MenuItemName, ProductQtyUsed, ItemsPerProduct, QtyUsed + Totals row
 
 ## Key Decisions
-- **v3.0: WRIN as identifier** — Dropped LogicalItemId / LogicalItem table entirely. BO_RawIngredient.WRIN is the direct filter. Much simpler join chain.
+- **v3.0: WRIN as identifier** — Used BO_RawIngredient.WRIN as the direct filter
+- **v3.1: BRI.WRIN mismatch bug** — BRI.WRIN does not reliably match LogicalItem.WrinNumber. Fixed by re-introducing LogicalItem join: WRIN → LogicalItem.BO_RawItemId → BRI.BORawItemId. This matches the conversion action's join path.
+- **TargetRawItems CTE** — Resolves WRIN to BO_RawItemId(s) once, used by both Path A and Path B
 - **NULL not 0 for QtyUsed**: CASE WHEN — per user requirement, NULL means no sales
 - **LEFT JOIN on PSBO**: Products in recipe but with no sales still appear
 - **InputVar CTE**: Binds all 4 parameters (OutSystems Lazy Parser fix)
-- **ConceptId**: Still needed — filters BO_MenuItem and ProductMenu
+- **ConceptId**: Still needed — filters BO_MenuItem, ProductMenu, and LogicalItem
 - **UNION ALL for Path A + B**: Both paths combined, then aggregated
 - **Totals row**: UNION ALL with MIN='Total', sums QtyUsed
 
@@ -45,16 +48,16 @@ SQL query for the "Recipe For Logical" slideover (Section 9 of the Product Mix b
 - **v1.0** (2026-03-22): Initial scaffold — Path A only, LogicalItemId-based
 - **v2.0** (2026-03-22): Added Path B (combo sub-items), Totals row, still LogicalItemId-based
 - **v3.0** (2026-03-22): Simplified — switched to WRIN as identifier, dropped LogicalItem table join
+- **v3.1** (2026-03-25): Bug fix — BRI.WRIN != LogicalItem.WrinNumber. Re-introduced LogicalItem join via TargetRawItems CTE. Resolves missing products (Lrg Mac Buster, Cheeseburger) in reverse recipe lookup.
 
 ## Next Steps
-1. User tests with real WRIN and site data
-2. Verify Path A (direct) produces correct menu items
-3. Verify Path B (combo) produces correct menu items
-4. Verify sales cross-reference and totals row
-5. Iterate based on feedback
+1. User retests with Bun Regular Frozen WRIN — verify Lrg Mac Buster and Cheeseburger now appear
+2. Verify Path A and Path B both return correct products
+3. Verify sales cross-reference and totals row
+4. Iterate based on feedback
 
 ## Quick Resume
 To continue:
 1. Check query: `queries/reports/recipe-for-logical-item/query.sql`
 2. Test query: `queries/reports/recipe-for-logical-item/tests/test-ssms.sql`
-3. Continue from: User testing with real data
+3. Continue from: User retesting after v3.1 join fix

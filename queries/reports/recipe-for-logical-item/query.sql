@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: RECIPE FOR LOGICAL ITEM - v3.0
+   QUERY: RECIPE FOR LOGICAL ITEM - v3.1
    ===================================================================================
 
    PURPOSE:
@@ -9,8 +9,11 @@
    Powers the "Recipe For Logical" slideover panel.
 
    PATHS:
-   - Path A (Direct): BO_RawIngredient(WRIN) → BO_Recipe → BO_MenuItem
-   - Path B (Combo):  BO_Recipe → BO_MenuIngredient → BO_MenuItem → BO_Recipe → BO_RawIngredient(WRIN)
+   - Path A (Direct): LogicalItem(WRIN) → BO_RawIngredient → BO_Recipe → BO_MenuItem
+   - Path B (Combo):  BO_Recipe → BO_MenuIngredient → BO_MenuItem → BO_Recipe → BO_RawIngredient → LogicalItem(WRIN)
+
+   FIX in v3.1: Join via LogicalItem.BO_RawItemId = BRI.BORawItemId instead of
+   matching on BRI.WRIN directly. BRI.WRIN may not match LogicalItem.WrinNumber.
 
    OUTSYSTEMS PARAMETERS:
    - WRIN (Text)                 → Expand Inline = No
@@ -29,8 +32,16 @@ InputVar AS (
            @CalendarDate AS CalendarDate, @ConceptId AS ConceptId
 ),
 
--- Path A: Direct — product directly contains this WRIN
--- Path B: Combo  — product is a combo whose sub-item contains this WRIN
+-- Resolve WRIN to BO_RawItemId(s) via LogicalItem
+TargetRawItems AS (
+    SELECT LI.BO_RawItemId
+    FROM {LogicalItem} LI
+    WHERE LI.WrinNumber = (SELECT WRIN FROM InputVar)
+      AND LI.ConceptId = (SELECT ConceptId FROM InputVar)
+),
+
+-- Path A: Direct — product directly contains this ingredient
+-- Path B: Combo  — product is a combo whose sub-item contains this ingredient
 RecipeItems AS (
     -- Path A
     SELECT
@@ -39,12 +50,12 @@ RecipeItems AS (
         PM.Id AS ProductMenuId,
         SUM(BRI.Qty) AS ItemsPerProduct
     FROM {BO_RawIngredient} BRI
+    INNER JOIN TargetRawItems TRI   ON BRI.BORawItemId = TRI.BO_RawItemId
     INNER JOIN {BO_Recipe} BR       ON BRI.BORecipeId = BR.Id
     INNER JOIN {BO_MenuItem} BM     ON BR.BOMenuItemId = BM.Refkey
     INNER JOIN {ProductMenu} PM     ON BM.[MIN] = PM.ProductId
                                     AND PM.ConceptId = (SELECT ConceptId FROM InputVar)
-    WHERE BRI.WRIN = (SELECT WRIN FROM InputVar)
-      AND BRI.IsDeleted = 0
+    WHERE BRI.IsDeleted = 0
       AND BR.IsDeleted = 0
       AND BM.ConceptId = (SELECT ConceptId FROM InputVar)
     GROUP BY BM.[MIN], BM.LONGNAME, PM.Id
@@ -64,10 +75,10 @@ RecipeItems AS (
                                     AND BM2.ConceptId = (SELECT ConceptId FROM InputVar)
     INNER JOIN {BO_Recipe} BR2      ON BR2.BOMenuItemId = BM2.Refkey
     INNER JOIN {BO_RawIngredient} BRI2 ON BRI2.BORecipeId = BR2.Id
+    INNER JOIN TargetRawItems TRI   ON BRI2.BORawItemId = TRI.BO_RawItemId
     INNER JOIN {ProductMenu} PM     ON BM.[MIN] = PM.ProductId
                                     AND PM.ConceptId = (SELECT ConceptId FROM InputVar)
-    WHERE BRI2.WRIN = (SELECT WRIN FROM InputVar)
-      AND BRI2.IsDeleted = 0
+    WHERE BRI2.IsDeleted = 0
       AND BR.IsDeleted = 0
       AND BMI.IsDeleted = 0
       AND BR2.IsDeleted = 0

@@ -1,6 +1,6 @@
 -- =============================================
 -- Test: Recipe For Logical Item — SSMS Sandbox Version
--- Version: v3.0 — WRIN-based, Path A + Path B
+-- Version: v3.1 — WRIN-based via LogicalItem join, Path A + Path B
 -- Created: 2026-03-22
 -- =============================================
 
@@ -16,6 +16,14 @@ InputVar AS (
            @CalendarDate AS CalendarDate, @ConceptId AS ConceptId
 ),
 
+-- Resolve WRIN to BO_RawItemId(s) via LogicalItem
+TargetRawItems AS (
+    SELECT LI.BO_RawItemId
+    FROM {LogicalItem} LI
+    WHERE LI.WrinNumber = (SELECT WRIN FROM InputVar)
+      AND LI.ConceptId = (SELECT ConceptId FROM InputVar)
+),
+
 RecipeItems AS (
     -- Path A: Direct
     SELECT
@@ -24,12 +32,12 @@ RecipeItems AS (
         PM.Id AS ProductMenuId,
         SUM(BRI.Qty) AS ItemsPerProduct
     FROM {BO_RawIngredient} BRI
+    INNER JOIN TargetRawItems TRI   ON BRI.BORawItemId = TRI.BO_RawItemId
     INNER JOIN {BO_Recipe} BR       ON BRI.BORecipeId = BR.Id
     INNER JOIN {BO_MenuItem} BM     ON BR.BOMenuItemId = BM.Refkey
     INNER JOIN {ProductMenu} PM     ON BM.[MIN] = PM.ProductId
                                     AND PM.ConceptId = (SELECT ConceptId FROM InputVar)
-    WHERE BRI.WRIN = (SELECT WRIN FROM InputVar)
-      AND BRI.IsDeleted = 0
+    WHERE BRI.IsDeleted = 0
       AND BR.IsDeleted = 0
       AND BM.ConceptId = (SELECT ConceptId FROM InputVar)
     GROUP BY BM.[MIN], BM.LONGNAME, PM.Id
@@ -49,10 +57,10 @@ RecipeItems AS (
                                     AND BM2.ConceptId = (SELECT ConceptId FROM InputVar)
     INNER JOIN {BO_Recipe} BR2      ON BR2.BOMenuItemId = BM2.Refkey
     INNER JOIN {BO_RawIngredient} BRI2 ON BRI2.BORecipeId = BR2.Id
+    INNER JOIN TargetRawItems TRI   ON BRI2.BORawItemId = TRI.BO_RawItemId
     INNER JOIN {ProductMenu} PM     ON BM.[MIN] = PM.ProductId
                                     AND PM.ConceptId = (SELECT ConceptId FROM InputVar)
-    WHERE BRI2.WRIN = (SELECT WRIN FROM InputVar)
-      AND BRI2.IsDeleted = 0
+    WHERE BRI2.IsDeleted = 0
       AND BR.IsDeleted = 0
       AND BMI.IsDeleted = 0
       AND BR2.IsDeleted = 0
