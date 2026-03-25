@@ -1,5 +1,5 @@
 -- =============================================
--- SSMS Test: Product Mix Details (v1.1)
+-- SSMS Test: Product Mix Details (v1.2)
 -- Purpose: Test product mix detail query with DECLARE params
 -- Target: SQL Server 2016+
 -- =============================================
@@ -9,18 +9,18 @@ DECLARE @SiteId BIGINT = 3187;
 DECLARE @Date DATE = '2026-02-02';
 DECLARE @SelectedView VARCHAR(1) = 'D';  -- 'D' = Dollars, 'Q' = Quantity
 DECLARE @SearchText VARCHAR(100) = '';   -- Partial match on Code/Name, empty = show all
+DECLARE @MIN VARCHAR(50) = '0';         -- '0' = no selection, otherwise = selected MIN code
 
 WITH
 
 -- [STEP 1]: InputVar CTE for reliable parameter binding
-InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search),
+InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search, @MIN AS SelectedMIN),
 
 -- [STEP 2]: Aggregate product data by ProductMenu, join for Code/Name
 ProductData AS (
     SELECT
         CAST(pm.ProductId AS VARCHAR(50)) AS Code,
         pm.Name,
-        -- Dollar amounts (Net)
         SUM(pso.SalesNetAmt) AS Sold_D,
         SUM(pso.PromoNetAmt) AS Promo_D,
         SUM(pso.DiscountNetAmt) AS Discount_D,
@@ -28,7 +28,6 @@ ProductData AS (
         SUM(pso.ManagerNetAmt) AS MgrMeals_D,
         SUM(pso.WasteNetAmt) AS Waste_D,
         SUM(pso.TotalNetAmt) AS Total_D,
-        -- Quantity amounts
         SUM(pso.SalesQuantity) AS Sold_Q,
         SUM(pso.PromoQuantity) AS Promo_Q,
         SUM(pso.DiscountQuantity) AS Discount_Q,
@@ -57,10 +56,10 @@ FilteredData AS (
        OR Name LIKE '%' + (SELECT Search FROM InputVar) + '%'
 ),
 
--- [STEP 4]: Combine Total row (from filtered data) + detail rows
+-- [STEP 4]: Combine Total + Detail + Selected rows
 AllRows AS (
-    -- Total row (sum of FILTERED results only)
     SELECT
+        'Total' AS RowType,
         'Total' AS Code,
         '' AS Name,
         SUM(Sold_D) AS Sold_D, SUM(Promo_D) AS Promo_D, SUM(Discount_D) AS Discount_D,
@@ -71,16 +70,26 @@ AllRows AS (
 
     UNION ALL
 
-    -- Detail rows
     SELECT
-        Code, Name,
+        'Detail', Code, Name,
         Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
         Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
     FROM FilteredData
+
+    UNION ALL
+
+    SELECT
+        'Selected', Code, Name,
+        Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
+        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
+    FROM ProductData
+    WHERE (SELECT SelectedMIN FROM InputVar) <> '0'
+      AND Code = (SELECT SelectedMIN FROM InputVar)
 )
 
 -- [STEP 5]: Final output with SelectedView toggle
 SELECT
+    RowType,
     Code,
     Name,
 
@@ -121,6 +130,5 @@ SELECT
 
 FROM AllRows
 ORDER BY
-    CASE WHEN Name = 'Total' THEN 0 ELSE 1 END,
-    Name
-
+    CASE RowType WHEN 'Total' THEN 0 WHEN 'Selected' THEN 1 ELSE 2 END,
+    Name;

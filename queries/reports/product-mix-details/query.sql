@@ -1,6 +1,6 @@
 /*
    ===================================================================================
-   QUERY: PRODUCT MIX DETAILS - v1.1
+   QUERY: PRODUCT MIX DETAILS - v1.2
    ===================================================================================
 
    PURPOSE:
@@ -8,17 +8,19 @@
    Each row = one product from ProductSalesByOperation joined to ProductMenu.
    Supports Dollar (D) and Quantity (Q) view toggle.
    Supports live search on Code (MIN) and Name (partial match, case-insensitive).
+   Supports deep-link via MIN param — adds a 'Selected' row for slideover pre-open.
    Includes a Total row (Code = 'Total') — reflects filtered results.
 
    OUTPUT FORMAT:
-   Detail rows = Code, Name, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
-   Total row  = Same columns with Code = 'Total' (sums of filtered detail rows)
+   Columns: RowType, Code, Name, Sold, Promo, Discount, EmpMeals, MgrMeals, Waste, Total
+   RowType: 'Total' | 'Detail' | 'Selected'
 
    OUTSYSTEMS PARAMETERS:
    - SiteId (Long Integer)       → Expand Inline = No
    - Date (Date)                 → Expand Inline = No
    - SelectedView (Text)         → Expand Inline = No  ('D' = Dollars, 'Q' = Quantity)
    - SearchText (Text)           → Expand Inline = No  (partial match on Code/Name, empty = show all)
+   - MIN (Text)                  → Expand Inline = No  ('0' = no selection, otherwise = selected MIN code)
 
    FOR SSMS TESTING: See tests/test-ssms.sql
    ===================================================================================
@@ -27,7 +29,7 @@
 WITH
 
 -- [STEP 1]: InputVar CTE for reliable parameter binding
-InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search),
+InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search, @MIN AS SelectedMIN),
 
 -- [STEP 2]: Aggregate product data by ProductMenu, join for Code/Name
 ProductData AS (
@@ -71,10 +73,11 @@ FilteredData AS (
        OR Name LIKE '%' + (SELECT Search FROM InputVar) + '%'
 ),
 
--- [STEP 4]: Combine Total row (from filtered data) + detail rows
+-- [STEP 4]: Combine Total + Detail + Selected rows
 AllRows AS (
     -- Total row (sum of FILTERED results only)
     SELECT
+        'Total' AS RowType,
         'Total' AS Code,
         '' AS Name,
         SUM(Sold_D) AS Sold_D, SUM(Promo_D) AS Promo_D, SUM(Discount_D) AS Discount_D,
@@ -87,14 +90,26 @@ AllRows AS (
 
     -- Detail rows
     SELECT
-        Code, Name,
+        'Detail', Code, Name,
         Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
         Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
     FROM FilteredData
+
+    UNION ALL
+
+    -- Selected row (from PRE-SEARCH data, only when MIN != '0')
+    SELECT
+        'Selected', Code, Name,
+        Sold_D, Promo_D, Discount_D, EmpMeals_D, MgrMeals_D, Waste_D, Total_D,
+        Sold_Q, Promo_Q, Discount_Q, EmpMeals_Q, MgrMeals_Q, Waste_Q, Total_Q
+    FROM ProductData
+    WHERE (SELECT SelectedMIN FROM InputVar) <> '0'
+      AND Code = (SELECT SelectedMIN FROM InputVar)
 )
 
 -- [STEP 5]: Final output with SelectedView toggle
 SELECT
+    RowType,
     Code,
     Name,
 
