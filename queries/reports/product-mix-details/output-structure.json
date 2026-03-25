@@ -1,0 +1,12 @@
+{
+    "RowType":   "Text",
+    "Code":      "Text",
+    "Name":      "Text",
+    "Sold":      "Decimal",
+    "Promo":     "Decimal",
+    "Discount":  "Decimal",
+    "EmpMeals":  "Decimal",
+    "MgrMeals":  "Decimal",
+    "Waste":     "Decimal",
+    "Total":     "Decimal"
+}
