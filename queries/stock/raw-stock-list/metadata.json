@@ -1,0 +1,38 @@
+{
+  "name": "raw-stock-list",
+  "displayName": "Raw Stock — Summary List",
+  "featureId": "3.1",
+  "category": "stock",
+  "author": "Claude",
+  "createdDate": "2026-03-25",
+  "lastModified": "2026-03-25",
+  "status": "in-progress",
+  "dependsOn": ["2.1 — LogicalItemUsage"],
+  "tables": [
+    "StockPeriodBalance",
+    "StockPeriod",
+    "LogicalItem",
+    "PhysicalItem",
+    "CentralStockItem"
+  ],
+  "queries": [
+    {
+      "file": "query.sql",
+      "name": "GetRawStockList",
+      "purpose": "Main list — one row per LogicalItem with aggregated stock movements"
+    },
+    {
+      "file": "query-total-variance.sql",
+      "name": "GetRawStockTotalVariance",
+      "purpose": "Total Variance card — TotalVarDollar + TotalVarPercent across all pages"
+    }
+  ],
+  "parameters": {
+    "SiteIds": { "type": "IntegerList", "expandInline": true, "notes": "One or more SiteIds" },
+    "StartDate": { "type": "Date" },
+    "EndDate": { "type": "Date" },
+    "ItemSearch": { "type": "Text", "optional": true, "notes": "LIKE filter on ItemName" },
+    "ProductTypes": { "type": "TextList", "expandInline": true, "optional": true, "notes": "Food, Paper, Other" },
+    "CountFrequencies": { "type": "IntegerList", "expandInline": true, "optional": true }
+  }
+}

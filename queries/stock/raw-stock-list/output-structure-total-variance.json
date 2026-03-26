@@ -1,0 +1,5 @@
+{
+  "_comment": "GetRawStockTotalVariance — Variance card query output structure",
+  "TotalVarDollar":  "Decimal",
+  "TotalVarPercent": "Decimal"
+}

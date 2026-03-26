@@ -1,0 +1,22 @@
+{
+  "_comment": "GetRawStockList — Main list query output structure",
+  "RowType":             "Text",
+  "LogicalItemId":       "LongInteger",
+  "ItemName":            "Text",
+  "ItemType":            "Text",
+  "UnitName":            "Text",
+  "PortionsPerUnit":     "Decimal",
+  "DefaultCountPeriodId":"Integer",
+  "StartingCount":       "Decimal",
+  "StartIsTheo":         "Boolean",
+  "RawWaste":            "Decimal",
+  "Deliveries":          "Decimal",
+  "Transfers":           "Decimal",
+  "UnitsCPM":            "Decimal",
+  "EndCount":            "Decimal",
+  "CloseQtyIsTheo":      "Boolean",
+  "VarQty":              "Decimal",
+  "VarDollar":           "Decimal",
+  "VarPercent":          "Decimal",
+  "ItemCostAtClose":     "Decimal"
+}

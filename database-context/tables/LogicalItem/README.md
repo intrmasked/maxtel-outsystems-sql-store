@@ -4,7 +4,7 @@
 **Module**: Sales_UI (Stock)
 **Database Table**: [dbo].[LogicalItem]
 **Purpose**: Master list of logical (grouped) menu items — maps raw BO items to logical product groupings
-**Last Updated**: 2026-03-21
+**Last Updated**: 2026-03-25
 
 ---
 
@@ -26,15 +26,26 @@
 | `WrinNumber` | Text | WRIN (Worldwide Restaurant Item Number) |
 | `ItemName` | Text | Display name of the logical item |
 | `LastSyncedAt` | Date Time | Last sync timestamp |
-| `DefaultPhysicalItemId` | Long Integer | FK to default physical item |
+| `DefaultPhysicalItemId` | Long Integer | FK → PhysicalItem. Used to resolve UnitName and PortionsPerUnit for display |
+| `ItemType` | Text | Item category. Values: Food, Paper, Other. Used for Product Type filter |
 
 ---
 
 ## Relationships
 
 ### Tables That Reference This Table
-- **LogicalItemUsage** - Sales data per logical item per site/date
+- **LogicalItemUsage** — Sales data per logical item per site/date
   - Join: `LogicalItemUsage.LogicalItemId = LogicalItem.Id`
+- **StockPeriodBalance** — Stock balance per logical item per period
+  - Join: `StockPeriodBalance.LogicalItemId = LogicalItem.Id`
+- **PhysicalItem** — Physical representations of this logical item
+  - Join: `PhysicalItem.LogicalItemId = LogicalItem.Id`
+
+### Tables This Table References
+- **PhysicalItem** — Default physical item for display conversion
+  - Join: `LogicalItem.DefaultPhysicalItemId = PhysicalItem.Id`
+- **CentralStockItem** — Central reference data (count frequency, etc.)
+  - Join: `LogicalItem.ConceptId = CentralStockItem.ConceptId AND LogicalItem.WrinNumber = CentralStockItem.WrinNumber`
 
 ---
 
@@ -75,3 +86,4 @@ WHERE liu.SiteId = @SiteId
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-03-21 | Initial documentation created from OutSystems entity screenshot | Claude |
+| 2026-03-25 | Added ItemType column, DefaultPhysicalItemId description, relationships to StockPeriodBalance/PhysicalItem/CentralStockItem | Claude |
