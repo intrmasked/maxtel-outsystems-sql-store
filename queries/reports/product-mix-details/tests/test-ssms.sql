@@ -16,11 +16,11 @@ WITH
 -- [STEP 1]: InputVar CTE for reliable parameter binding
 InputVar AS (SELECT @SelectedView AS Val, @SearchText AS Search, @MIN AS SelectedMIN),
 
--- [STEP 2]: Aggregate product data by ProductMenu, join for Code/Name
+-- [STEP 2]: Aggregate product data by ProductMenu + BO_MenuItem for Code/LongName
 ProductData AS (
     SELECT
         CAST(pm.ProductId AS VARCHAR(50)) AS Code,
-        pm.Name,
+        mi.LONGNAME AS Name,
         SUM(pso.SalesNetAmt) AS Sold_D,
         SUM(pso.PromoNetAmt) AS Promo_D,
         SUM(pso.DiscountNetAmt) AS Discount_D,
@@ -42,9 +42,10 @@ ProductData AS (
         SUM(pso.WasteQuantity) AS Total_Q
     FROM {ProductSalesByOperation} pso
     INNER JOIN {ProductMenu} pm ON pso.ProductMenuId = pm.Id
+    INNER JOIN {BO_MenuItem} mi ON pm.ProductId = mi.MIN AND pm.ConceptId = mi.ConceptId
     WHERE pso.SiteId = @SiteId
       AND pso.CalendarDate = @Date
-    GROUP BY pm.ProductId, pm.Name
+    GROUP BY pm.ProductId, mi.LONGNAME
 ),
 
 -- [STEP 3]: Apply search filter
