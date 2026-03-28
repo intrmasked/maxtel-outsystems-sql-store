@@ -11,7 +11,7 @@ Full spec provided by user — see story in conversation history.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Queries written, table docs created. Awaiting sandbox testing.
+- Current step: Queries verified against full spec. ORDER BY removed from production query. Awaiting sandbox testing.
 - Incomplete items: Sandbox verification, user testing
 
 ## Tables Documentation Created
@@ -38,6 +38,7 @@ Full spec provided by user — see story in conversation history.
 - **Var % formula**: Uses `(ActualClosedQty - TheoClosedQty) / TotalTheoConsumed * 100` — note this is in portions (no PortionsPerUnit needed since it cancels out)
 - **Total Variance card**: Separate query, same CTEs/filters, no pagination. Only CloseQtyIsTheo=false rows.
 - **JOIN (not LEFT JOIN)**: LogicalItem → PhysicalItem is INNER JOIN — rows with null DefaultPhysicalItemId are excluded per spec edge case
+- **ORDER BY removed from production query**: OutSystems handles sorting in application layer. Test queries keep ORDER BY for convenience.
 
 ## Parameters
 | Parameter | Expand Inline | Notes |

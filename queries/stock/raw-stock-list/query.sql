@@ -208,6 +208,3 @@ SELECT
     VarPercent,
     ItemCostAtClose
 FROM AllRows
-ORDER BY
-    CASE WHEN RowType = 'Total' THEN 0 ELSE 1 END,
-    ItemName
