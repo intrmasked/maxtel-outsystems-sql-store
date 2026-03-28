@@ -11,7 +11,7 @@ Full spec provided by user — see story in conversation history.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Queries verified against full spec. ORDER BY removed from production query. Awaiting sandbox testing.
+- Current step: Queries verified against full spec v0.4. RowType removed, ORDER BY removed from production query, CAST added for nvarchar safety. User testing backend column types.
 - Incomplete items: Sandbox verification, user testing
 
 ## Tables Documentation Created
@@ -25,7 +25,7 @@ Full spec provided by user — see story in conversation history.
 - `queries/stock/raw-stock-list/query.sql` — **GetRawStockList** — In Progress
   - Purpose: Main paginated list, one row per LogicalItem
   - Tables: StockPeriodBalance, StockPeriod, LogicalItem, PhysicalItem, CentralStockItem
-  - Output: LogicalItemId, ItemName, ItemType, UnitName, StartingCount, RawWaste, Deliveries, Transfers, UnitsCPM, EndCount, VarQty, VarDollar, VarPercent + flags + TotalRowCount
+  - Output: LogicalItemId, ItemName, ItemType, UnitName, PortionsPerUnit, DefaultCountPeriodId, StartingCount, StartIsTheo, RawWaste, Deliveries, Transfers, UnitsCPM, EndCount, CloseQtyIsTheo, VarQty, VarDollar, VarPercent, ItemCostAtClose
 
 - `queries/stock/raw-stock-list/query-total-variance.sql` — **GetRawStockTotalVariance** — In Progress
   - Purpose: Total Variance card (TotalVarDollar + TotalVarPercent)
@@ -39,6 +39,9 @@ Full spec provided by user — see story in conversation history.
 - **Total Variance card**: Separate query, same CTEs/filters, no pagination. Only CloseQtyIsTheo=false rows.
 - **JOIN (not LEFT JOIN)**: LogicalItem → PhysicalItem is INNER JOIN — rows with null DefaultPhysicalItemId are excluded per spec edge case
 - **ORDER BY removed from production query**: OutSystems handles sorting in application layer. Test queries keep ORDER BY for convenience.
+- **RowType column removed**: Total row identified by `ItemName = 'Total'` and `LogicalItemId = 0` instead of separate RowType column.
+- **CAST on SUM columns**: Added `CAST(... AS DECIMAL(18,4))` on RawWasteQty, DeliveredQty, TransferQty, TheoConsumedQty in Sums CTE — safety net for columns that may be nvarchar in OutSystems backend.
+- **Backend column additions**: User added `StartIsTheo`, `TransferQty`, `CloseQtyIsTheo` to StockPeriodBalance in OutSystems. TransferQty was initially nvarchar, fixed to Decimal.
 
 ## Parameters
 | Parameter | Expand Inline | Notes |
@@ -49,8 +52,6 @@ Full spec provided by user — see story in conversation history.
 | @ItemSearch | No | Text, optional, LIKE filter |
 | @ProductTypes | YES | TextList, optional (Food/Paper/Other) |
 | @CountFrequencies | YES | IntegerList, optional |
-| @PageSize | No | Integer (main query only) |
-| @PageOffset | No | Integer, 0-based (main query only) |
 
 ## Files Created
 - `database-context/tables/StockPeriodBalance/README.md`
@@ -68,9 +69,9 @@ Full spec provided by user — see story in conversation history.
 - `queries/stock/raw-stock-list/tests/test-total-variance.sql`
 
 ## Next Steps
-1. Sandbox verification via MCP SQL Sandbox Bridge
-2. User testing + feedback
-3. Adjustments based on test results
+1. User building frontend in OutSystems using GetRawStockList
+2. Total Variance card query (query-total-variance.sql) — deferred until frontend is complete
+3. Sandbox verification + user testing
 4. Mark complete when user confirms
 
 ## Notes for Next Session

@@ -4,10 +4,7 @@
 --          with aggregated stock movements across date range.
 --          Starting Count = first period, End Count = last period,
 --          all other fields summed across all periods.
---          Includes a Total row (RowType = 'Total').
---
---   OUTPUT FORMAT:
---   RowType: 'Total' | 'Detail'
+--          Includes a Total row (ItemName = 'Total').
 --
 -- Target: SQL Server 2016+ / OutSystems Advanced SQL
 -- Created: 2026-03-25
@@ -40,10 +37,10 @@ Bounds AS (
 Sums AS (
     SELECT
         SB.LogicalItemId,
-        SUM(SB.RawWasteQty)     AS TotalRawWaste,
-        SUM(SB.DeliveredQty)    AS TotalDeliveries,
-        SUM(SB.TransferQty)     AS TotalTransfers,
-        SUM(SB.TheoConsumedQty) AS TotalTheoConsumed
+        SUM(CAST(SB.RawWasteQty AS DECIMAL(18,4)))     AS TotalRawWaste,
+        SUM(CAST(SB.DeliveredQty AS DECIMAL(18,4)))    AS TotalDeliveries,
+        SUM(CAST(SB.TransferQty AS DECIMAL(18,4)))     AS TotalTransfers,
+        SUM(CAST(SB.TheoConsumedQty AS DECIMAL(18,4))) AS TotalTheoConsumed
     FROM {StockPeriodBalance} SB
     JOIN {StockPeriod} SP ON SB.StockPeriodId = SP.Id
     WHERE SP.SiteId IN (@SiteIds)
@@ -147,7 +144,6 @@ FilteredData AS (
 AllRows AS (
     -- Total row
     SELECT
-        'Total'  AS RowType,
         0        AS LogicalItemId,
         'Total'  AS ItemName,
         ''       AS ItemType,
@@ -175,7 +171,6 @@ AllRows AS (
 
     -- Detail rows
     SELECT
-        'Detail',
         LogicalItemId, ItemName, ItemType, UnitName, PortionsPerUnit,
         DefaultCountPeriodId,
         StartingCount, StartIsTheo,
@@ -188,7 +183,6 @@ AllRows AS (
 
 -- [FINAL]: Output
 SELECT
-    RowType,
     LogicalItemId,
     ItemName,
     ItemType,

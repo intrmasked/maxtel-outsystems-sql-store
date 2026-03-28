@@ -1,6 +1,4 @@
 {
-  "_comment": "GetRawStockList — Main list query output structure",
-  "RowType":             "Text",
   "LogicalItemId":       "LongInteger",
   "ItemName":            "Text",
   "ItemType":            "Text",
