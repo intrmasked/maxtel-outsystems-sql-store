@@ -1,0 +1,20 @@
+{
+  "ReportDate":           "Date",
+  "StartingCount":        "Decimal",
+  "StartIsTheo":          "Boolean",
+  "RawWaste":             "Decimal",
+  "Deliveries":           "Decimal",
+  "Transfers":            "Decimal",
+  "UnitsCPM":             "Decimal",
+  "EndCount":             "Decimal",
+  "CloseQtyIsTheo":       "Boolean",
+  "VarQty":               "Decimal",
+  "VarDollar":            "Decimal",
+  "VarPercent":           "Decimal",
+  "ItemCostAtClose":      "Decimal",
+  "ItemName":             "Text",
+  "ItemType":             "Text",
+  "WrinNumber":           "Text",
+  "UnitName":             "Text",
+  "DefaultCountPeriodId": "Integer"
+}

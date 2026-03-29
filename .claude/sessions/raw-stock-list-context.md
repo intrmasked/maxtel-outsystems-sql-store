@@ -69,10 +69,16 @@ Full spec provided by user — see story in conversation history.
 - `queries/stock/raw-stock-list/tests/test-total-variance.sql`
 
 ## Next Steps
-1. User building frontend in OutSystems using GetRawStockList
-2. Total Variance card query (query-total-variance.sql) — deferred until frontend is complete
-3. Sandbox verification + user testing
-4. Mark complete when user confirms
+1. Total Variance card query (query-total-variance.sql) — deferred until frontend wired up
+2. Sandbox verification + user testing
+3. Mark complete when user confirms
+
+## Change Log
+| Date | Change |
+|------|--------|
+| 2026-03-25 | Initial queries written, table docs created |
+| 2026-03-28 | Verified against spec v0.4, removed RowType, removed ORDER BY, added CAST safety, added test-find-data.sql |
+| 2026-03-29 | Frontend built by user. Moving to detail screen query (raw-stock-detail). |
 
 ## Notes for Next Session
 - All quantities stored in **portions** — always divide by PortionsPerUnit for display
