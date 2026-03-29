@@ -85,6 +85,7 @@ Full spec provided by user — see story in conversation history.
 | 2026-03-28 | Verified against spec v0.4, removed RowType, removed ORDER BY, added CAST safety, added test-find-data.sql |
 | 2026-03-29 | Frontend built. Added SiteId/SiteName columns (Site join). Created outsystems-expressions.md. Detail screen query created separately. |
 | 2026-03-29 | Total Variance card wiring documented — expressions, styles, layout, and OutSystems setup steps added to outsystems-expressions.md |
+| 2026-03-30 | Fixed CentralStockItem join: JOIN → LEFT JOIN (data may not exist). Changed join key from CSI.WrinNumber → CSI.WrinNumberClean (format mismatch fix). Fixed optional Expand Inline filters (@ProductTypes/@CountFrequencies) — use sentinel values from OutSystems. Fixed @ItemSearch IS NULL → = '' (empty string, not null). Updated all queries + tests + db context. |
 
 ## Notes for Next Session
 - All quantities stored in **portions** — always divide by PortionsPerUnit for display

@@ -4,8 +4,8 @@
 -- =============================================
 
 DECLARE @SiteIds       VARCHAR(100) = '3187';
-DECLARE @StartDate     DATE = '2026-03-01';
-DECLARE @EndDate       DATE = '2026-03-25';
+DECLARE @StartDate     DATE = '2026-03-28';
+DECLARE @EndDate       DATE = '2026-03-29';
 DECLARE @ItemSearch    VARCHAR(100) = NULL;
 DECLARE @ProductTypes  VARCHAR(100) = NULL;
 DECLARE @CountFreqs    VARCHAR(100) = NULL;
@@ -64,8 +64,8 @@ FROM LastPeriod LP
 JOIN Sums S                       ON LP.LogicalItemId = S.LogicalItemId
 JOIN {LogicalItem} LI       ON LP.LogicalItemId = LI.Id
 JOIN {PhysicalItem} PI      ON LI.DefaultPhysicalItemId = PI.Id
-JOIN {CentralStockItem} CSI ON LI.ConceptId = CSI.ConceptId
-                                 AND LI.WrinNumber = CSI.WrinNumber
+LEFT JOIN {CentralStockItem} CSI ON LI.ConceptId = CSI.ConceptId
+                                 AND LI.WrinNumber = CSI.WrinNumberClean
 
 WHERE (@ProductTypes IS NULL
        OR LI.ItemType IN (SELECT LTRIM(value) FROM STRING_SPLIT(@ProductTypes, ',')))

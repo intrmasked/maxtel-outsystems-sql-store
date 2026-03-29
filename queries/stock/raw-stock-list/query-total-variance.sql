@@ -72,10 +72,10 @@ FROM LastPeriod LP
 JOIN Sums S ON LP.LogicalItemId = S.LogicalItemId
 JOIN {LogicalItem} LI            ON LP.LogicalItemId = LI.Id
 JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
-JOIN {CentralStockItem} CSI      ON LI.ConceptId = CSI.ConceptId
-                                 AND LI.WrinNumber = CSI.WrinNumber
+LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
+                                 AND LI.WrinNumber = CSI.WrinNumberClean
 
-WHERE (@ProductTypes IS NULL     OR LI.ItemType IN (@ProductTypes))
-  AND (@CountFrequencies IS NULL OR CSI.DefaultCountPeriodId IN (@CountFrequencies))
-  AND ((SELECT ItemSearch FROM InputVar) IS NULL
+WHERE ('ALL' IN (@ProductTypes)     OR LI.ItemType IN (@ProductTypes))
+  AND (0 IN (@CountFrequencies)     OR CSI.DefaultCountPeriodId IN (@CountFrequencies))
+  AND ((SELECT ItemSearch FROM InputVar) = ''
        OR LI.ItemName LIKE '%' + (SELECT ItemSearch FROM InputVar) + '%')

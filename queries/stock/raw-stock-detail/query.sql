@@ -30,8 +30,8 @@ ItemInfo AS (
         CSI.DefaultCountPeriodId
     FROM {LogicalItem} LI
     JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
-    JOIN {CentralStockItem} CSI      ON LI.ConceptId = CSI.ConceptId
-                                     AND LI.WrinNumber = CSI.WrinNumber
+    LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
+                                     AND LI.WrinNumber = CSI.WrinNumberClean
     WHERE LI.Id = (SELECT LogicalItemId FROM InputVar)
 ),
 

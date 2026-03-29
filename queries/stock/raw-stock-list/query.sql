@@ -139,15 +139,15 @@ FilteredData AS (
 
     FROM {LogicalItem} LI
     JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
-    JOIN {CentralStockItem} CSI      ON LI.ConceptId = CSI.ConceptId
-                                     AND LI.WrinNumber = CSI.WrinNumber
+    LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
+                                     AND LI.WrinNumber = CSI.WrinNumberClean
     JOIN Sums S                      ON LI.Id = S.LogicalItemId
     JOIN FirstPeriod FP              ON LI.Id = FP.LogicalItemId
     JOIN LastPeriod LP               ON LI.Id = LP.LogicalItemId
 
-    WHERE (@ProductTypes IS NULL     OR LI.ItemType IN (@ProductTypes))
-      AND (@CountFrequencies IS NULL OR CSI.DefaultCountPeriodId IN (@CountFrequencies))
-      AND ((SELECT ItemSearch FROM InputVar) IS NULL
+    WHERE ('ALL' IN (@ProductTypes)     OR LI.ItemType IN (@ProductTypes))
+      AND (0 IN (@CountFrequencies)     OR CSI.DefaultCountPeriodId IN (@CountFrequencies))
+      AND ((SELECT ItemSearch FROM InputVar) = ''
            OR LI.ItemName LIKE '%' + (SELECT ItemSearch FROM InputVar) + '%')
 ),
 

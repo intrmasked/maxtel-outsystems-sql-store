@@ -45,7 +45,7 @@
 - **PhysicalItem** — Default physical item for display conversion
   - Join: `LogicalItem.DefaultPhysicalItemId = PhysicalItem.Id`
 - **CentralStockItem** — Central reference data (count frequency, etc.)
-  - Join: `LogicalItem.ConceptId = CentralStockItem.ConceptId AND LogicalItem.WrinNumber = CentralStockItem.WrinNumber`
+  - Join: `LogicalItem.ConceptId = CentralStockItem.ConceptId AND LogicalItem.WrinNumber = CentralStockItem.WrinNumberClean`
 
 ---
 
