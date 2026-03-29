@@ -170,6 +170,80 @@ If(Cur.ItemName = "Total", "font-bold", "")
 
 ---
 
+---
+
+# Total Variance Card (GetRawStockTotalVariance)
+
+Shorthand: `TV` = `GetRawStockTotalVariance.List.Current`
+
+> **Query**: `query-total-variance.sql`
+> **Output Structure**: `output-structure-total-variance.json`
+> **Parameters**: Same filters as the main list — @SiteIds, @StartDate, @EndDate, @ItemSearch, @ProductTypes, @CountFrequencies
+
+---
+
+## Setup in OutSystems
+
+1. Add a **second Advanced SQL** node in the Data Action (same screen action that fetches the list)
+2. Paste `query-total-variance.sql` (remove any DECLARE statements)
+3. Add Input Parameters matching the main list query (same names, same Expand Inline settings)
+4. Set Output Structure from `output-structure-total-variance.json`:
+   - `TotalVarDollar` → Decimal
+   - `TotalVarPercent` → Decimal
+5. The query returns **exactly 1 row** — use `GetRawStockTotalVariance.List.Current` to access it
+
+---
+
+## Card: Total Variance Dollar
+
+**Expression:**
+```
+If(TV.TotalVarDollar < 0,
+    "-$" + FormatDecimal(Abs(TV.TotalVarDollar), 2, ".", ","),
+    "+$" + FormatDecimal(Abs(TV.TotalVarDollar), 2, ".", ","))
+```
+
+**Style (CSS class):**
+```
+If(TV.TotalVarDollar > 0, "text-green",
+    If(TV.TotalVarDollar < 0, "text-red", ""))
+```
+
+---
+
+## Card: Total Variance Percent
+
+**Expression:**
+```
+If(TV.TotalVarPercent = NullDecimal(),
+    "—",
+    FormatDecimal(TV.TotalVarPercent, 1, ".", ",") + "%")
+```
+
+**Style (CSS class):**
+```
+If(TV.TotalVarPercent > 0, "text-green",
+    If(TV.TotalVarPercent < 0, "text-red", ""))
+```
+
+---
+
+## Card Layout (suggested structure)
+
+```
+┌──────────────────────────┐
+│  TOTAL VARIANCE          │  ← Label (static text, bold, muted color)
+│  -$63.50                 │  ← TotalVarDollar expression (large font, colored)
+│  -8.2%                   │  ← TotalVarPercent expression (smaller font, colored)
+└──────────────────────────┘
+```
+
+- Both values share the same color logic: red when negative, green when positive
+- If TotalVarPercent is NULL (no theo consumed data), show "—" instead
+- Dollar value should be the larger/primary number, percent below it
+
+---
+
 ## Notes
 - `"—"` = em dash, shown when variance is not applicable (CloseQtyIsTheo = true)
 - Var $ uses `+$` / `-$` prefix format (e.g., `+$2.50`, `-$60.50`) matching mockup

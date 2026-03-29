@@ -11,8 +11,8 @@ Full spec provided by user — see story in conversation history.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Main list query running in OutSystems. Frontend built. SiteId/SiteName added. OutSystems expressions doc created. Next: Total Variance card query needs to be wired up to the UI (screenshot of card provided).
-- Incomplete items: Total Variance card wiring, sandbox verification with real data
+- Current step: Total Variance card wiring documented in `outsystems-expressions.md`. Query + output structure already exist. User needs to add second Advanced SQL node in OutSystems and wire expressions.
+- Incomplete items: Sandbox verification with real data, user confirmation
 
 ## Tables Documentation Created
 - `database-context/tables/StockPeriodBalance/` — **NEW** — Core fact table, all quantities in portions
@@ -84,6 +84,7 @@ Full spec provided by user — see story in conversation history.
 | 2026-03-25 | Initial queries written, table docs created |
 | 2026-03-28 | Verified against spec v0.4, removed RowType, removed ORDER BY, added CAST safety, added test-find-data.sql |
 | 2026-03-29 | Frontend built. Added SiteId/SiteName columns (Site join). Created outsystems-expressions.md. Detail screen query created separately. |
+| 2026-03-29 | Total Variance card wiring documented — expressions, styles, layout, and OutSystems setup steps added to outsystems-expressions.md |
 
 ## Notes for Next Session
 - All quantities stored in **portions** — always divide by PortionsPerUnit for display
