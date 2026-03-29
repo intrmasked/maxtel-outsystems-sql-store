@@ -11,8 +11,8 @@ Full spec provided by user — see story in conversation history.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Queries verified against full spec v0.4. RowType removed, ORDER BY removed from production query, CAST added for nvarchar safety. User testing backend column types.
-- Incomplete items: Sandbox verification, user testing
+- Current step: Main list query running in OutSystems. Frontend built. SiteId/SiteName added. OutSystems expressions doc created. Next: Total Variance card query needs to be wired up to the UI (screenshot of card provided).
+- Incomplete items: Total Variance card wiring, sandbox verification with real data
 
 ## Tables Documentation Created
 - `database-context/tables/StockPeriodBalance/` — **NEW** — Core fact table, all quantities in portions
@@ -23,30 +23,33 @@ Full spec provided by user — see story in conversation history.
 
 ## Queries Created
 - `queries/stock/raw-stock-list/query.sql` — **GetRawStockList** — In Progress
-  - Purpose: Main paginated list, one row per LogicalItem
-  - Tables: StockPeriodBalance, StockPeriod, LogicalItem, PhysicalItem, CentralStockItem
-  - Output: LogicalItemId, ItemName, ItemType, UnitName, PortionsPerUnit, DefaultCountPeriodId, StartingCount, StartIsTheo, RawWaste, Deliveries, Transfers, UnitsCPM, EndCount, CloseQtyIsTheo, VarQty, VarDollar, VarPercent, ItemCostAtClose
+  - Purpose: Main list, one row per LogicalItem
+  - Tables: StockPeriodBalance, StockPeriod, LogicalItem, PhysicalItem, CentralStockItem, Site
+  - Output: LogicalItemId, ItemName, ItemType, UnitName, PortionsPerUnit, DefaultCountPeriodId, StartingCount, StartIsTheo, RawWaste, Deliveries, Transfers, UnitsCPM, EndCount, CloseQtyIsTheo, VarQty, VarDollar, VarPercent, ItemCostAtClose, SiteId, SiteName
 
 - `queries/stock/raw-stock-list/query-total-variance.sql` — **GetRawStockTotalVariance** — In Progress
   - Purpose: Total Variance card (TotalVarDollar + TotalVarPercent)
   - Only rows where CloseQtyIsTheo = false qualify
+  - Card shows: `-$63.50  -8.2%` format (red for negative, green for positive)
+  - **NEXT TASK**: Wire this query to the Total Variance card UI
 
 ## Key Decisions
 - **InputVar CTE pattern**: Used for @StartDate, @EndDate, @ItemSearch to handle OutSystems Lazy Parser bug
 - **Expand Inline = YES**: Used for @SiteIds, @ProductTypes, @CountFrequencies (comma-separated lists)
-- **No pagination in SQL**: Pagination handled by OutSystems application layer, not in query. Removed OFFSET/FETCH, PageSize, PageOffset, TotalRowCount.
-- **Var % formula**: Uses `(ActualClosedQty - TheoClosedQty) / TotalTheoConsumed * 100` — note this is in portions (no PortionsPerUnit needed since it cancels out)
-- **Total Variance card**: Separate query, same CTEs/filters, no pagination. Only CloseQtyIsTheo=false rows.
-- **JOIN (not LEFT JOIN)**: LogicalItem → PhysicalItem is INNER JOIN — rows with null DefaultPhysicalItemId are excluded per spec edge case
-- **ORDER BY removed from production query**: OutSystems handles sorting in application layer. Test queries keep ORDER BY for convenience.
-- **RowType column removed**: Total row identified by `ItemName = 'Total'` and `LogicalItemId = 0` instead of separate RowType column.
-- **CAST on SUM columns**: Added `CAST(... AS DECIMAL(18,4))` on RawWasteQty, DeliveredQty, TransferQty, TheoConsumedQty in Sums CTE — safety net for columns that may be nvarchar in OutSystems backend.
-- **Backend column additions**: User added `StartIsTheo`, `TransferQty`, `CloseQtyIsTheo` to StockPeriodBalance in OutSystems. TransferQty was initially nvarchar, fixed to Decimal.
+- **No pagination in SQL**: Pagination handled by OutSystems application layer
+- **Var % formula**: Uses `(ActualClosedQty - TheoClosedQty) / TotalTheoConsumed * 100` — in portions (PPU cancels out)
+- **Total Variance card**: Separate query, same CTEs/filters. Only CloseQtyIsTheo=false rows.
+- **JOIN (not LEFT JOIN)**: Rows with null DefaultPhysicalItemId excluded per spec
+- **ORDER BY removed from production query**: OutSystems handles sorting
+- **RowType column removed**: Total row identified by `ItemName = 'Total'` and `LogicalItemId = 0`
+- **CAST on SUM columns**: Safety net for nvarchar columns in OutSystems backend
+- **SiteId/SiteName added**: Joined to `{Site}` table via SiteList CTE. For single site shows that site, for multi-site shows MIN(SiteId). Total row gets `0`/`''`.
+- **OutSystems expressions doc**: Created `outsystems-expressions.md` with all column expressions + styles (bold total row, orange StartIsTheo, red CloseQtyIsTheo, green/red variance colors)
 
 ## Parameters
 | Parameter | Expand Inline | Notes |
 |-----------|--------------|-------|
-| @SiteIds | YES | IntegerList |
+| @SiteIds | YES | IntegerList — always populated (single site or all tenant sites) |
 | @StartDate | No | Date |
 | @EndDate | No | Date |
 | @ItemSearch | No | Text, optional, LIKE filter |
@@ -65,12 +68,14 @@ Full spec provided by user — see story in conversation history.
 - `queries/stock/raw-stock-list/output-structure-total-variance.json`
 - `queries/stock/raw-stock-list/metadata.json`
 - `queries/stock/raw-stock-list/README.md`
+- `queries/stock/raw-stock-list/outsystems-expressions.md`
 - `queries/stock/raw-stock-list/tests/test-ssms.sql`
 - `queries/stock/raw-stock-list/tests/test-total-variance.sql`
+- `queries/stock/raw-stock-list/tests/test-find-data.sql`
 
 ## Next Steps
-1. Total Variance card query (query-total-variance.sql) — deferred until frontend wired up
-2. Sandbox verification + user testing
+1. **Total Variance card** — wire `query-total-variance.sql` to the UI card (screenshot provided: `-$63.50 -8.2%`)
+2. Sandbox verification with real StockPeriodBalance data
 3. Mark complete when user confirms
 
 ## Change Log
@@ -78,18 +83,22 @@ Full spec provided by user — see story in conversation history.
 |------|--------|
 | 2026-03-25 | Initial queries written, table docs created |
 | 2026-03-28 | Verified against spec v0.4, removed RowType, removed ORDER BY, added CAST safety, added test-find-data.sql |
-| 2026-03-29 | Frontend built by user. Moving to detail screen query (raw-stock-detail). |
+| 2026-03-29 | Frontend built. Added SiteId/SiteName columns (Site join). Created outsystems-expressions.md. Detail screen query created separately. |
 
 ## Notes for Next Session
 - All quantities stored in **portions** — always divide by PortionsPerUnit for display
 - `CloseQtyIsTheo` / `StartIsTheo` are boolean flags driving UI indicators (red italic *)
-- Multi-site support via Expand Inline = YES on @SiteIds
+- Multi-site support via Expand Inline = YES on @SiteIds — OutSystems always passes site IDs, never null
 - Var % denominator is TotalTheoConsumed (summed across ALL periods), not just last period
 - Tables are in `StockV2` schema in actual DB but use `{TableName}` in OutSystems
+- OutSystems expressions/styles documented in `outsystems-expressions.md`
+- Total Variance card screenshot shows: `TOTAL VARIANCE` header, `-$63.50` in red, `-8.2%` in red/green
+- Detail screen query is separate: `queries/stock/raw-stock-detail/` — see `raw-stock-detail-context.md`
 
 ## Quick Resume
 To continue:
 1. Read session context: `.claude/sessions/raw-stock-list-context.md`
 2. Read table docs: `database-context/tables/StockPeriodBalance/README.md` (+ others)
 3. Check queries: `queries/stock/raw-stock-list/query.sql` and `query-total-variance.sql`
-4. Continue from: Sandbox testing
+4. Check expressions: `queries/stock/raw-stock-list/outsystems-expressions.md`
+5. **Continue from**: Total Variance card — wire `query-total-variance.sql` to the card UI. User provided screenshot of the card design.

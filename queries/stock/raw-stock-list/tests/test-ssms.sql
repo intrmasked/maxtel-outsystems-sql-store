@@ -14,6 +14,13 @@ DECLARE @CountFreqs    VARCHAR(100) = NULL;        -- NULL = all. e.g. '1,2,3'
 
 WITH
 
+-- Resolve site info
+SiteList AS (
+    SELECT S.Id AS SiteId, ISNULL(S.DisplayName, S.Name) AS SiteName
+    FROM {Site} S
+    WHERE S.Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
+),
+
 -- Date boundaries per LogicalItem
 Bounds AS (
     SELECT
@@ -105,7 +112,9 @@ FilteredData AS (
             THEN ((LP.ActualClosedQty - LP.TheoClosedQty) / S.TotalTheoConsumed) * 100
             ELSE NULL
         END AS VarPercent,
-        LP.ItemCostAtClose
+        LP.ItemCostAtClose,
+        (SELECT MIN(SiteId) FROM SiteList) AS SiteId,
+        (SELECT MIN(SiteName) FROM SiteList) AS SiteName
     FROM {LogicalItem} LI
     JOIN {PhysicalItem} PI      ON LI.DefaultPhysicalItemId = PI.Id
     JOIN {CentralStockItem} CSI ON LI.ConceptId = CSI.ConceptId
@@ -145,7 +154,9 @@ AllRows AS (
             WHEN SUM(UnitsCPM) = 0 THEN NULL
             ELSE SUM(VarQty) / SUM(UnitsCPM) * 100
         END AS VarPercent,
-        NULL     AS ItemCostAtClose
+        NULL     AS ItemCostAtClose,
+        0        AS SiteId,
+        ''       AS SiteName
     FROM FilteredData
 
     UNION ALL
@@ -158,7 +169,8 @@ AllRows AS (
         RawWaste, Deliveries, Transfers, UnitsCPM,
         EndCount, CloseQtyIsTheo,
         VarQty, VarDollar, VarPercent,
-        ItemCostAtClose
+        ItemCostAtClose,
+        SiteId, SiteName
     FROM FilteredData
 )
 
@@ -180,7 +192,9 @@ SELECT
     VarQty,
     VarDollar,
     VarPercent,
-    ItemCostAtClose
+    ItemCostAtClose,
+    SiteId,
+    SiteName
 FROM AllRows
 ORDER BY
     CASE WHEN ItemName = 'Total' THEN 0 ELSE 1 END,

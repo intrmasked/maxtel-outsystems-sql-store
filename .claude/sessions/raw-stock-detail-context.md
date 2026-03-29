@@ -11,8 +11,8 @@ From spec v0.4, Section 11.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: All files written (query, test, output structure, README, metadata). Awaiting user testing.
-- Incomplete items: Sandbox verification, user testing
+- Current step: All files written. Query runs clean in OutSystems but no StockPeriodBalance data yet to verify numbers.
+- Incomplete items: Verify with real data, user testing
 
 ## Tables Used
 - `StockPeriodBalance` — One row per period + LogicalItem (all qty in portions)

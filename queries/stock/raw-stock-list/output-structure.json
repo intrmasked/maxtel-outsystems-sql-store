@@ -16,5 +16,7 @@
   "VarQty":              "Decimal",
   "VarDollar":           "Decimal",
   "VarPercent":          "Decimal",
-  "ItemCostAtClose":     "Decimal"
+  "ItemCostAtClose":     "Decimal",
+  "SiteId":              "LongInteger",
+  "SiteName":            "Text"
 }

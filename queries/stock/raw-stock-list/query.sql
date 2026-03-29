@@ -20,7 +20,14 @@ InputVar AS (
         @ItemSearch AS ItemSearch
 ),
 
--- [CTE 1]: Date boundaries per LogicalItem in the selected range
+-- [CTE 1]: Resolve site info from passed SiteIds
+SiteList AS (
+    SELECT S.Id AS SiteId, ISNULL(S.DisplayName, S.Name) AS SiteName
+    FROM {Site} S
+    WHERE S.Id IN (@SiteIds)
+),
+
+-- [CTE 2]: Date boundaries per LogicalItem in the selected range
 Bounds AS (
     SELECT
         SB.LogicalItemId,
@@ -124,7 +131,11 @@ FilteredData AS (
             ELSE NULL
         END AS VarPercent,
 
-        LP.ItemCostAtClose
+        LP.ItemCostAtClose,
+
+        -- Site info (for row click navigation)
+        (SELECT MIN(SiteId) FROM SiteList) AS SiteId,
+        (SELECT MIN(SiteName) FROM SiteList) AS SiteName
 
     FROM {LogicalItem} LI
     JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
@@ -164,7 +175,9 @@ AllRows AS (
             WHEN SUM(UnitsCPM) = 0 THEN NULL
             ELSE SUM(VarQty) / SUM(UnitsCPM) * 100
         END AS VarPercent,
-        NULL     AS ItemCostAtClose
+        NULL     AS ItemCostAtClose,
+        0        AS SiteId,
+        ''       AS SiteName
     FROM FilteredData
 
     UNION ALL
@@ -177,7 +190,8 @@ AllRows AS (
         RawWaste, Deliveries, Transfers, UnitsCPM,
         EndCount, CloseQtyIsTheo,
         VarQty, VarDollar, VarPercent,
-        ItemCostAtClose
+        ItemCostAtClose,
+        SiteId, SiteName
     FROM FilteredData
 )
 
@@ -200,5 +214,7 @@ SELECT
     VarQty,
     VarDollar,
     VarPercent,
-    ItemCostAtClose
+    ItemCostAtClose,
+    SiteId,
+    SiteName
 FROM AllRows
