@@ -72,8 +72,8 @@ FROM LastPeriod LP
 JOIN Sums S ON LP.LogicalItemId = S.LogicalItemId
 JOIN {LogicalItem} LI            ON LP.LogicalItemId = LI.Id
 JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
-LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
-                                 AND LI.WrinNumber = CSI.WrinNumberClean
+LEFT JOIN {CentralStockItem} CSI  ON PI.ConceptId = CSI.ConceptId
+                                 AND PI.WrinNumber = CSI.WrinNumberClean
 
 WHERE LI.ItemType IN (@ProductTypes)
   AND (CSI.DefaultCountPeriodId IN (@CountFrequencies) OR CSI.DefaultCountPeriodId IS NULL)

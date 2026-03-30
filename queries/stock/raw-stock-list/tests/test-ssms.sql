@@ -117,8 +117,8 @@ FilteredData AS (
         (SELECT MIN(SiteName) FROM SiteList) AS SiteName
     FROM {LogicalItem} LI
     JOIN {PhysicalItem} PI      ON LI.DefaultPhysicalItemId = PI.Id
-    LEFT JOIN {CentralStockItem} CSI ON LI.ConceptId = CSI.ConceptId
-                                     AND LI.WrinNumber = CSI.WrinNumberClean
+    LEFT JOIN {CentralStockItem} CSI ON PI.ConceptId = CSI.ConceptId
+                                     AND PI.WrinNumber = CSI.WrinNumberClean
     JOIN Sums S                       ON LI.Id = S.LogicalItemId
     JOIN FirstPeriod FP               ON LI.Id = FP.LogicalItemId
     JOIN LastPeriod LP                ON LI.Id = LP.LogicalItemId
