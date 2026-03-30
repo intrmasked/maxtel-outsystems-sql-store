@@ -11,8 +11,8 @@ From spec v0.4, Section 11.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: All files written. Query runs clean in OutSystems but no StockPeriodBalance data yet to verify numbers.
-- Incomplete items: Verify with real data, user testing
+- Current step: Query split done (v1.1). Item Detail card now separate query. Need to test with real data.
+- Incomplete items: Verify with real data, user testing, OutSystems wiring
 
 ## Tables Used
 - `StockPeriodBalance` — One row per period + LogicalItem (all qty in portions)
@@ -56,15 +56,18 @@ One row per StockPeriod.Date in the selected date range.
 | Var $ | Last row's Var $ |
 | Var % | sum(Actual-Theo) / sum(TheoConsumed) × 100 across rows where CloseQtyIsTheo = false |
 
-### Item Detail Card (fixed metadata)
+### Item Detail Card (separate query — query-item-detail.sql)
 | Field | Source |
 |-------|--------|
+| Item Name | LogicalItem.ItemName |
 | Item Type | LogicalItem.ItemType |
 | Count Frequency | CentralStockItem.DefaultCountPeriodId |
 | WRIN | LogicalItem.WrinNumber |
 | Unit | PI.UnitName |
 
 ### Parameters
+
+**GetRawStockDetail (query.sql):**
 | Parameter | Expand Inline | Notes |
 |-----------|--------------|-------|
 | @SiteId | No | Single site from sidebar |
@@ -72,34 +75,50 @@ One row per StockPeriod.Date in the selected date range.
 | @EndDate | No | Date range end |
 | @LogicalItemId | No | Single item (from row click) |
 
+**GetRawStockItemDetail (query-item-detail.sql):**
+| Parameter | Expand Inline | Notes |
+|-----------|--------------|-------|
+| @LogicalItemId | No | Single item (from row click) |
+
 ### Filters
 - Date Range only (no item search, no product type, no count frequency on detail screen)
 
 ## Key Decisions
-- **Item Detail card in same query**: Item metadata (ItemName, ItemType, WrinNumber, UnitName, DefaultCountPeriodId) included on every row via ItemInfo CTE. OutSystems reads from first row. Avoids a separate query.
+- **Item Detail card split into separate query (v1.1)**: Same pattern as TotalVariance on list screen. OutSystems calls two Advanced SQL blocks independently. Avoids repeating metadata on every grid row.
 - **Total row identified by ReportDate IS NULL**: No RowType column — Total row has NULL ReportDate.
 - **Total row Var %**: Uses sum(VarQty)/sum(UnitsCPM) × 100 across rows where CloseQtyIsTheo = false (per spec). Different from per-row Var % which uses single-day TheoConsumedQty.
 - **Total row Start/End Count**: First row's StartingCount, last row's EndCount (not summed).
 - **Total row VarQty/VarDollar**: Last row's values (not summed).
 - **CAST on quantity columns**: Same safety net as list query for nvarchar columns.
 - **InputVar CTE**: Used for @StartDate, @EndDate, @LogicalItemId to handle OutSystems Lazy Parser bug.
+- **ItemUnit CTE**: Slimmed-down version of old ItemInfo — only fetches PortionsPerUnit for unit conversion.
 
 ## Files Created
-- `queries/stock/raw-stock-detail/query.sql`
-- `queries/stock/raw-stock-detail/tests/test-ssms.sql`
-- `queries/stock/raw-stock-detail/output-structure.json`
+- `queries/stock/raw-stock-detail/query.sql` — Main grid (13 output columns)
+- `queries/stock/raw-stock-detail/query-item-detail.sql` — Item Detail card (5 output columns)
+- `queries/stock/raw-stock-detail/output-structure.json` — 13 columns
+- `queries/stock/raw-stock-detail/output-structure-item-detail.json` — 5 columns
+- `queries/stock/raw-stock-detail/tests/test-ssms.sql` — SSMS sandbox test
+- `queries/stock/raw-stock-detail/tests/test-find-data-march.sql` — Data diagnostic for 29-30 March 2026
 - `queries/stock/raw-stock-detail/metadata.json`
 - `queries/stock/raw-stock-detail/README.md`
 
+## Changes Log
+| Date | Change |
+|------|--------|
+| 2026-03-29 | v1.0 — Initial build: all-in-one query with item metadata on every row |
+| 2026-03-30 | v1.1 — Split Item Detail card into separate query (query-item-detail.sql). Removed 5 metadata columns from main query. Updated test-ssms.sql. Created test-find-data-march.sql. |
+
 ## Next Steps
-1. Write query.sql
-2. Write test-ssms.sql
-3. Create output-structure.json
-4. Create README.md and metadata.json
-5. Test and verify
+1. Run test-find-data-march.sql to confirm data exists for 29-30 March 2026
+2. If data exists, run test-ssms.sql with a real LogicalItemId
+3. Wire up in OutSystems (two Advanced SQL blocks: grid + item detail card)
+4. User testing
 
 ## Quick Resume
 To continue:
 1. Read session context: `.claude/sessions/raw-stock-detail-context.md`
 2. Read table docs: `database-context/tables/StockPeriodBalance/README.md` (+ others)
 3. Reference list query for patterns: `queries/stock/raw-stock-list/query.sql`
+4. Main query: `queries/stock/raw-stock-detail/query.sql`
+5. Item detail query: `queries/stock/raw-stock-detail/query-item-detail.sql`

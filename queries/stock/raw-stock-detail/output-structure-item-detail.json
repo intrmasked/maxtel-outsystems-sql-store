@@ -1,0 +1,7 @@
+{
+  "ItemName":             "Text",
+  "ItemType":             "Text",
+  "WrinNumber":           "Text",
+  "UnitName":             "Text",
+  "DefaultCountPeriodId": "Integer"
+}

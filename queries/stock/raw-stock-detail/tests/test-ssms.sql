@@ -2,29 +2,23 @@
 -- Test: GetRawStockDetail — SSMS sandbox version
 -- Purpose: Full query with DECLARE params for local testing
 -- Target: SQL Server 2016+ (SSMS)
+-- Updated: 2026-03-30 — Removed item metadata (now in separate query)
 -- =============================================
 
 DECLARE @SiteId          BIGINT = 3187;
-DECLARE @StartDate       DATE = '2026-03-01';
-DECLARE @EndDate         DATE = '2026-03-25';
+DECLARE @StartDate       DATE = '2026-03-29';
+DECLARE @EndDate         DATE = '2026-03-30';
 DECLARE @LogicalItemId   BIGINT = 1;              -- Change to a valid LogicalItemId
 
 WITH
 
--- [CTE 1]: Get item metadata
-ItemInfo AS (
+-- [CTE 1]: Get PortionsPerUnit for unit conversion
+ItemUnit AS (
     SELECT
         LI.Id              AS LogicalItemId,
-        LI.ItemName,
-        LI.ItemType,
-        LI.WrinNumber,
-        PI.UnitName,
-        PI.PortionsPerUnit,
-        CSI.DefaultCountPeriodId
+        PI.PortionsPerUnit
     FROM {LogicalItem} LI
-    JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
-    LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
-                                     AND LI.WrinNumber = CSI.WrinNumberClean
+    JOIN {PhysicalItem} PI ON LI.DefaultPhysicalItemId = PI.Id
     WHERE LI.Id = @LogicalItemId
 ),
 
@@ -44,26 +38,26 @@ Bounds AS (
 DailyData AS (
     SELECT
         SP.Date              AS ReportDate,
-        SB.OpenQty           / II.PortionsPerUnit   AS StartingCount,
+        SB.OpenQty           / IU.PortionsPerUnit   AS StartingCount,
         SB.StartIsTheo,
-        CAST(SB.RawWasteQty AS DECIMAL(18,4))      / II.PortionsPerUnit   AS RawWaste,
-        CAST(SB.DeliveredQty AS DECIMAL(18,4))     / II.PortionsPerUnit   AS Deliveries,
-        CAST(SB.TransferQty AS DECIMAL(18,4))      / II.PortionsPerUnit   AS Transfers,
-        CAST(SB.TheoConsumedQty AS DECIMAL(18,4))  / II.PortionsPerUnit   AS UnitsCPM,
+        CAST(SB.RawWasteQty AS DECIMAL(18,4))      / IU.PortionsPerUnit   AS RawWaste,
+        CAST(SB.DeliveredQty AS DECIMAL(18,4))     / IU.PortionsPerUnit   AS Deliveries,
+        CAST(SB.TransferQty AS DECIMAL(18,4))      / IU.PortionsPerUnit   AS Transfers,
+        CAST(SB.TheoConsumedQty AS DECIMAL(18,4))  / IU.PortionsPerUnit   AS UnitsCPM,
         CASE
             WHEN SB.CloseQtyIsTheo = 0
-            THEN SB.ActualClosedQty / II.PortionsPerUnit
-            ELSE SB.TheoClosedQty   / II.PortionsPerUnit
+            THEN SB.ActualClosedQty / IU.PortionsPerUnit
+            ELSE SB.TheoClosedQty   / IU.PortionsPerUnit
         END AS EndCount,
         SB.CloseQtyIsTheo,
         CASE
             WHEN SB.CloseQtyIsTheo = 0
-            THEN (SB.ActualClosedQty - SB.TheoClosedQty) / II.PortionsPerUnit
+            THEN (SB.ActualClosedQty - SB.TheoClosedQty) / IU.PortionsPerUnit
             ELSE NULL
         END AS VarQty,
         CASE
             WHEN SB.CloseQtyIsTheo = 0
-            THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / II.PortionsPerUnit)
+            THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / IU.PortionsPerUnit)
                  * SB.ItemCostAtClose
             ELSE NULL
         END AS VarDollar,
@@ -72,15 +66,10 @@ DailyData AS (
             THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / SB.TheoConsumedQty) * 100
             ELSE NULL
         END AS VarPercent,
-        SB.ItemCostAtClose,
-        II.ItemName,
-        II.ItemType,
-        II.WrinNumber,
-        II.UnitName,
-        II.DefaultCountPeriodId
+        SB.ItemCostAtClose
     FROM {StockPeriodBalance} SB
     JOIN {StockPeriod} SP ON SB.StockPeriodId = SP.Id
-    JOIN ItemInfo II       ON SB.LogicalItemId = II.LogicalItemId
+    JOIN ItemUnit IU       ON SB.LogicalItemId = IU.LogicalItemId
     WHERE SB.LogicalItemId = @LogicalItemId
       AND SP.SiteId = @SiteId
       AND SP.Date BETWEEN @StartDate AND @EndDate
@@ -118,12 +107,7 @@ AllRows AS (
             ELSE SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.VarQty ELSE 0 END)
                  / SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.UnitsCPM ELSE 0 END) * 100
         END AS VarPercent,
-        NULL             AS ItemCostAtClose,
-        MAX(DD.ItemName) AS ItemName,
-        MAX(DD.ItemType) AS ItemType,
-        MAX(DD.WrinNumber) AS WrinNumber,
-        MAX(DD.UnitName) AS UnitName,
-        MAX(DD.DefaultCountPeriodId) AS DefaultCountPeriodId
+        NULL             AS ItemCostAtClose
     FROM DailyData DD
     CROSS JOIN FirstRow FR
     CROSS JOIN LastRow LR
@@ -139,8 +123,7 @@ AllRows AS (
         RawWaste, Deliveries, Transfers, UnitsCPM,
         EndCount, CloseQtyIsTheo,
         VarQty, VarDollar, VarPercent,
-        ItemCostAtClose,
-        ItemName, ItemType, WrinNumber, UnitName, DefaultCountPeriodId
+        ItemCostAtClose
     FROM DailyData
 )
 
@@ -157,12 +140,7 @@ SELECT
     VarQty,
     VarDollar,
     VarPercent,
-    ItemCostAtClose,
-    ItemName,
-    ItemType,
-    WrinNumber,
-    UnitName,
-    DefaultCountPeriodId
+    ItemCostAtClose
 FROM AllRows
 ORDER BY
     CASE WHEN ReportDate IS NULL THEN 0 ELSE 1 END,

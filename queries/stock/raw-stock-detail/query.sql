@@ -2,10 +2,12 @@
 -- Query: GetRawStockDetail
 -- Purpose: Raw Stock detail — one row per day for a single LogicalItem.
 --          All values in units (portions ÷ PortionsPerUnit).
---          Includes a Total row (ItemName = 'Total').
+--          Includes a Total row (ReportDate IS NULL).
+--          Item Detail card is a separate query (query-item-detail.sql).
 --
 -- Target: SQL Server 2016+ / OutSystems Advanced SQL
 -- Created: 2026-03-29
+-- Updated: 2026-03-30 — Split item metadata into separate query
 -- =============================================
 
 WITH
@@ -18,20 +20,13 @@ InputVar AS (
         @LogicalItemId  AS LogicalItemId
 ),
 
--- [CTE 1]: Get item metadata (UnitName, PortionsPerUnit, ItemType, WRIN, CountFreq)
-ItemInfo AS (
+-- [CTE 1]: Get PortionsPerUnit for unit conversion
+ItemUnit AS (
     SELECT
         LI.Id              AS LogicalItemId,
-        LI.ItemName,
-        LI.ItemType,
-        LI.WrinNumber,
-        PI.UnitName,
-        PI.PortionsPerUnit,
-        CSI.DefaultCountPeriodId
+        PI.PortionsPerUnit
     FROM {LogicalItem} LI
-    JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
-    LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
-                                     AND LI.WrinNumber = CSI.WrinNumberClean
+    JOIN {PhysicalItem} PI ON LI.DefaultPhysicalItemId = PI.Id
     WHERE LI.Id = (SELECT LogicalItemId FROM InputVar)
 ),
 
@@ -51,26 +46,26 @@ Bounds AS (
 DailyData AS (
     SELECT
         SP.Date              AS ReportDate,
-        SB.OpenQty           / II.PortionsPerUnit   AS StartingCount,
+        SB.OpenQty           / IU.PortionsPerUnit   AS StartingCount,
         SB.StartIsTheo,
-        CAST(SB.RawWasteQty AS DECIMAL(18,4))      / II.PortionsPerUnit   AS RawWaste,
-        CAST(SB.DeliveredQty AS DECIMAL(18,4))     / II.PortionsPerUnit   AS Deliveries,
-        CAST(SB.TransferQty AS DECIMAL(18,4))      / II.PortionsPerUnit   AS Transfers,
-        CAST(SB.TheoConsumedQty AS DECIMAL(18,4))  / II.PortionsPerUnit   AS UnitsCPM,
+        CAST(SB.RawWasteQty AS DECIMAL(18,4))      / IU.PortionsPerUnit   AS RawWaste,
+        CAST(SB.DeliveredQty AS DECIMAL(18,4))     / IU.PortionsPerUnit   AS Deliveries,
+        CAST(SB.TransferQty AS DECIMAL(18,4))      / IU.PortionsPerUnit   AS Transfers,
+        CAST(SB.TheoConsumedQty AS DECIMAL(18,4))  / IU.PortionsPerUnit   AS UnitsCPM,
         CASE
             WHEN SB.CloseQtyIsTheo = 0
-            THEN SB.ActualClosedQty / II.PortionsPerUnit
-            ELSE SB.TheoClosedQty   / II.PortionsPerUnit
+            THEN SB.ActualClosedQty / IU.PortionsPerUnit
+            ELSE SB.TheoClosedQty   / IU.PortionsPerUnit
         END AS EndCount,
         SB.CloseQtyIsTheo,
         CASE
             WHEN SB.CloseQtyIsTheo = 0
-            THEN (SB.ActualClosedQty - SB.TheoClosedQty) / II.PortionsPerUnit
+            THEN (SB.ActualClosedQty - SB.TheoClosedQty) / IU.PortionsPerUnit
             ELSE NULL
         END AS VarQty,
         CASE
             WHEN SB.CloseQtyIsTheo = 0
-            THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / II.PortionsPerUnit)
+            THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / IU.PortionsPerUnit)
                  * SB.ItemCostAtClose
             ELSE NULL
         END AS VarDollar,
@@ -79,16 +74,10 @@ DailyData AS (
             THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / SB.TheoConsumedQty) * 100
             ELSE NULL
         END AS VarPercent,
-        SB.ItemCostAtClose,
-        -- Item detail card fields (same on every row, from ItemInfo)
-        II.ItemName,
-        II.ItemType,
-        II.WrinNumber,
-        II.UnitName,
-        II.DefaultCountPeriodId
+        SB.ItemCostAtClose
     FROM {StockPeriodBalance} SB
     JOIN {StockPeriod} SP ON SB.StockPeriodId = SP.Id
-    JOIN ItemInfo II       ON SB.LogicalItemId = II.LogicalItemId
+    JOIN ItemUnit IU       ON SB.LogicalItemId = IU.LogicalItemId
     WHERE SB.LogicalItemId = (SELECT LogicalItemId FROM InputVar)
       AND SP.SiteId = @SiteId
       AND SP.Date BETWEEN (SELECT StartDate FROM InputVar) AND (SELECT EndDate FROM InputVar)
@@ -121,19 +110,13 @@ AllRows AS (
         LR.CloseQtyIsTheo,
         LR.VarQty,
         LR.VarDollar,
-        -- Var % for total: sum(Actual-Theo) / sum(TheoConsumed) * 100 where CloseQtyIsTheo = false
+        -- Var % for total: sum(VarQty) / sum(UnitsCPM) * 100 where CloseQtyIsTheo = false
         CASE
             WHEN SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.UnitsCPM ELSE 0 END) = 0 THEN NULL
             ELSE SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.VarQty ELSE 0 END)
                  / SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.UnitsCPM ELSE 0 END) * 100
         END AS VarPercent,
-        NULL             AS ItemCostAtClose,
-        -- Item detail card fields
-        MAX(DD.ItemName) AS ItemName,
-        MAX(DD.ItemType) AS ItemType,
-        MAX(DD.WrinNumber) AS WrinNumber,
-        MAX(DD.UnitName) AS UnitName,
-        MAX(DD.DefaultCountPeriodId) AS DefaultCountPeriodId
+        NULL             AS ItemCostAtClose
     FROM DailyData DD
     CROSS JOIN FirstRow FR
     CROSS JOIN LastRow LR
@@ -149,8 +132,7 @@ AllRows AS (
         RawWaste, Deliveries, Transfers, UnitsCPM,
         EndCount, CloseQtyIsTheo,
         VarQty, VarDollar, VarPercent,
-        ItemCostAtClose,
-        ItemName, ItemType, WrinNumber, UnitName, DefaultCountPeriodId
+        ItemCostAtClose
     FROM DailyData
 )
 
@@ -168,10 +150,5 @@ SELECT
     VarQty,
     VarDollar,
     VarPercent,
-    ItemCostAtClose,
-    ItemName,
-    ItemType,
-    WrinNumber,
-    UnitName,
-    DefaultCountPeriodId
+    ItemCostAtClose
 FROM AllRows
