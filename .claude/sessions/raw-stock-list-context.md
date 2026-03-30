@@ -11,8 +11,8 @@ Full spec provided by user — see story in conversation history.
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Total Variance card wiring documented in `outsystems-expressions.md`. Query + output structure already exist. User needs to add second Advanced SQL node in OutSystems and wire expressions.
-- Incomplete items: Sandbox verification with real data, user confirmation
+- Current step: Screen complete. All queries working in OutSystems. Variance card wired. Filters working (ProductTypes, CountFrequencies, ItemSearch). Theo status confirmed — variance shows NULL until actual counts are entered (correct per spec).
+- Incomplete items: None — waiting for actual count data to verify variance calculations
 
 ## Tables Documentation Created
 - `database-context/tables/StockPeriodBalance/` — **NEW** — Core fact table, all quantities in portions
@@ -74,9 +74,8 @@ Full spec provided by user — see story in conversation history.
 - `queries/stock/raw-stock-list/tests/test-find-data.sql`
 
 ## Next Steps
-1. **Total Variance card** — wire `query-total-variance.sql` to the UI card (screenshot provided: `-$63.50 -8.2%`)
-2. Sandbox verification with real StockPeriodBalance data
-3. Mark complete when user confirms
+1. Mark complete when actual count data is available and variance values are verified
+2. Detail screen — see `raw-stock-detail-context.md`
 
 ## Change Log
 | Date | Change |
@@ -86,6 +85,7 @@ Full spec provided by user — see story in conversation history.
 | 2026-03-29 | Frontend built. Added SiteId/SiteName columns (Site join). Created outsystems-expressions.md. Detail screen query created separately. |
 | 2026-03-29 | Total Variance card wiring documented — expressions, styles, layout, and OutSystems setup steps added to outsystems-expressions.md |
 | 2026-03-30 | Fixed CentralStockItem join: JOIN → LEFT JOIN (data may not exist). Changed join key from CSI.WrinNumber → CSI.WrinNumberClean (format mismatch fix). Fixed optional Expand Inline filters (@ProductTypes/@CountFrequencies) — use sentinel values from OutSystems. Fixed @ItemSearch IS NULL → = '' (empty string, not null). Updated all queries + tests + db context. |
+| 2026-03-30 | Simplified Expand Inline filter pattern — OutSystems always passes full list (same as SiteIds). ProductTypes: 'F','P' default. CountFrequencies: all IDs default. Added IS NULL fallback for CountFrequencies (LEFT JOIN). Added test-theo-status.sql diagnostic. Confirmed all 376 rows have CloseQtyIsTheo=True — variance NULL is correct per spec. Total Variance card CSS finalized (inline layout, #f8f9fa background). |
 
 ## Notes for Next Session
 - All quantities stored in **portions** — always divide by PortionsPerUnit for display
