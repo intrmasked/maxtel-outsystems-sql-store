@@ -70,6 +70,7 @@ LEFT JOIN {CentralStockItem} CSI ON LI.ConceptId = CSI.ConceptId
 WHERE (@ProductTypes IS NULL
        OR LI.ItemType IN (SELECT LTRIM(value) FROM STRING_SPLIT(@ProductTypes, ',')))
   AND (@CountFreqs IS NULL
-       OR CSI.DefaultCountPeriodId IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@CountFreqs, ',')))
+       OR CSI.DefaultCountPeriodId IN (SELECT CAST(value AS INT) FROM STRING_SPLIT(@CountFreqs, ','))
+       OR CSI.DefaultCountPeriodId IS NULL)
   AND (@ItemSearch IS NULL
        OR LI.ItemName LIKE '%' + @ItemSearch + '%');
