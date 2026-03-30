@@ -75,7 +75,7 @@ JOIN {PhysicalItem} PI           ON LI.DefaultPhysicalItemId = PI.Id
 LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
                                  AND LI.WrinNumber = CSI.WrinNumberClean
 
-WHERE ('ALL' IN (@ProductTypes)     OR LI.ItemType IN (@ProductTypes))
-  AND (0 IN (@CountFrequencies)     OR CSI.DefaultCountPeriodId IN (@CountFrequencies))
+WHERE LI.ItemType IN (@ProductTypes)
+  AND (CSI.DefaultCountPeriodId IN (@CountFrequencies) OR CSI.DefaultCountPeriodId IS NULL)
   AND ((SELECT ItemSearch FROM InputVar) = ''
        OR LI.ItemName LIKE '%' + (SELECT ItemSearch FROM InputVar) + '%')
