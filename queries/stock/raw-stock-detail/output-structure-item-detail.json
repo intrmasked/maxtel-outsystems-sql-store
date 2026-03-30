@@ -1,7 +1,7 @@
 {
-  "ItemName":             "Text",
-  "ItemType":             "Text",
-  "WrinNumber":           "Text",
-  "UnitName":             "Text",
-  "DefaultCountPeriodId": "Integer"
+  "ItemName":       "Text",
+  "ItemType":       "Text",
+  "WrinNumber":     "Text",
+  "UnitName":       "Text",
+  "CountFrequency": "Text"
 }

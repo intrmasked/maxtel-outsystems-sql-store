@@ -1,21 +1,12 @@
 -- =============================================
--- Query: GetRawStockItemDetail
--- Purpose: Item Detail card for Raw Stock detail screen.
---          Returns a single row with item metadata.
---          Separate from main grid query so OutSystems
---          can call it independently (like TotalVariance on list screen).
---
--- Target: SQL Server 2016+ / OutSystems Advanced SQL
+-- Test: GetRawStockItemDetail — SSMS sandbox version
+-- Purpose: Test Item Detail card query for a single LogicalItem
+-- Target: SQL Server 2016+ (SSMS)
 -- Created: 2026-03-30
 -- Updated: 2026-03-30 — Resolve ItemType codes + CountPeriod label
 -- =============================================
 
-WITH
-
--- [CTE 0]: InputVar — force OutSystems parameter binding (Lazy Parser fix)
-InputVar AS (
-    SELECT @LogicalItemId AS LogicalItemId
-)
+DECLARE @LogicalItemId BIGINT = 8684;  -- APPLE SLICES
 
 SELECT
     LI.ItemName,
@@ -35,4 +26,4 @@ JOIN {PhysicalItem} PI            ON LI.DefaultPhysicalItemId = PI.Id
 LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
                                   AND LI.WrinNumber = CSI.WrinNumberClean
 LEFT JOIN {CountPeriod} CP        ON CSI.DefaultCountPeriodId = CP.Id
-WHERE LI.Id = (SELECT LogicalItemId FROM InputVar)
+WHERE LI.Id = @LogicalItemId

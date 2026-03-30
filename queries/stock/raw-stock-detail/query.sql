@@ -99,6 +99,7 @@ LastRow AS (
 AllRows AS (
     -- Total row
     SELECT
+        'Total'          AS RowType,
         NULL             AS ReportDate,
         FR.StartingCount,
         FR.StartIsTheo,
@@ -127,6 +128,7 @@ AllRows AS (
 
     -- Detail rows
     SELECT
+        'Detail'         AS RowType,
         ReportDate,
         StartingCount, StartIsTheo,
         RawWaste, Deliveries, Transfers, UnitsCPM,
@@ -138,6 +140,7 @@ AllRows AS (
 
 -- [FINAL]: Output
 SELECT
+    RowType,
     ReportDate,
     StartingCount,
     StartIsTheo,

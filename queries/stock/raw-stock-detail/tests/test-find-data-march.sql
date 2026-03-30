@@ -27,8 +27,8 @@ SELECT
     SB.ItemCostAtClose,
     -- Diagnostic: how many items exist per date
     COUNT(*) OVER(PARTITION BY SP.Date) AS ItemsOnDate,
-    -- Diagnostic: how many dates have data
-    COUNT(DISTINCT SP.Date) OVER() AS DatesWithData,
+    -- Diagnostic: how many distinct dates have data
+    DENSE_RANK() OVER(ORDER BY SP.Date) + DENSE_RANK() OVER(ORDER BY SP.Date DESC) - 1 AS DatesWithData,
     -- Diagnostic: total rows
     COUNT(*) OVER() AS TotalRows
 FROM {StockPeriodBalance} SB

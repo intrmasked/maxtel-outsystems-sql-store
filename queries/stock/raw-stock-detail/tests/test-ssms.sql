@@ -91,6 +91,7 @@ LastRow AS (
 AllRows AS (
     -- Total row
     SELECT
+        'Total'          AS RowType,
         NULL             AS ReportDate,
         FR.StartingCount,
         FR.StartIsTheo,
@@ -118,6 +119,7 @@ AllRows AS (
 
     -- Detail rows
     SELECT
+        'Detail'         AS RowType,
         ReportDate,
         StartingCount, StartIsTheo,
         RawWaste, Deliveries, Transfers, UnitsCPM,
@@ -128,6 +130,7 @@ AllRows AS (
 )
 
 SELECT
+    RowType,
     ReportDate,
     StartingCount,
     StartIsTheo,
@@ -143,5 +146,5 @@ SELECT
     ItemCostAtClose
 FROM AllRows
 ORDER BY
-    CASE WHEN ReportDate IS NULL THEN 0 ELSE 1 END,
+    CASE WHEN RowType = 'Total' THEN 0 ELSE 1 END,
     ReportDate;

@@ -1,4 +1,5 @@
 {
+  "RowType":         "Text",
   "ReportDate":      "Date",
   "StartingCount":   "Decimal",
   "StartIsTheo":     "Boolean",
