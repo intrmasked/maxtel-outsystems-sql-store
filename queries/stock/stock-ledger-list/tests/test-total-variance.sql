@@ -36,7 +36,7 @@ Sums AS (
     GROUP BY SB.LogicalItemId
 ),
 
--- Last period — only rows with actual count (CloseQtyIsTheo = false)
+-- Last period — only rows with actual count (CloseQtyIsActual = true)
 LastPeriod AS (
     SELECT
         SB.LogicalItemId,
@@ -47,7 +47,7 @@ LastPeriod AS (
     JOIN {StockPeriod} SP ON SB.StockPeriodId = SP.Id
     JOIN Bounds B ON SB.LogicalItemId = B.LogicalItemId AND SP.Date = B.LastDate
     WHERE SP.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
-      AND SB.CloseQtyIsTheo = 0
+      AND SB.CloseQtyIsActual = 1
 )
 
 SELECT

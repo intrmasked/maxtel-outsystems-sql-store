@@ -50,10 +50,10 @@ Item Detail card — single row with item metadata.
 | Transfers | Summed in Total row |
 | UnitsCPM | Summed in Total row |
 | EndCount | Last row's value in Total row |
-| CloseQtyIsTheo | Red * indicator |
-| VarQty | Last row's value in Total row. NULL if CloseQtyIsTheo = true |
-| VarDollar | Last row's value in Total row. NULL if CloseQtyIsTheo = true |
-| VarPercent | Total: sum(VarQty)/sum(UnitsCPM) × 100 where CloseQtyIsTheo=false |
+| CloseQtyIsActual | Red * indicator |
+| VarQty | Last row's value in Total row. NULL if CloseQtyIsActual = false |
+| VarDollar | Last row's value in Total row. NULL if CloseQtyIsActual = false |
+| VarPercent | Total: sum(VarQty)/sum(UnitsCPM) × 100 where CloseQtyIsActual=true |
 | ItemCostAtClose | NULL in Total row |
 
 ## Item Detail Card Columns

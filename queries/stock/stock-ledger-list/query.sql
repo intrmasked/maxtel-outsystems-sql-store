@@ -73,7 +73,7 @@ LastPeriod AS (
         SB.LogicalItemId,
         SB.ActualClosedQty,
         SB.TheoClosedQty,
-        SB.CloseQtyIsTheo,
+        SB.CloseQtyIsActual,
         SB.ItemCostAtClose
     FROM {StockPeriodBalance} SB
     JOIN {StockPeriod} SP ON SB.StockPeriodId = SP.Id
@@ -103,22 +103,22 @@ FilteredData AS (
 
         -- End Count (last period, converted to units)
         CASE
-            WHEN LP.CloseQtyIsTheo = 0
+            WHEN LP.CloseQtyIsActual = 1
             THEN LP.ActualClosedQty / PI.PortionsPerUnit
             ELSE LP.TheoClosedQty   / PI.PortionsPerUnit
         END AS EndCount,
-        LP.CloseQtyIsTheo,
+        LP.CloseQtyIsActual,
 
         -- Var Qty (last period only, converted to units)
         CASE
-            WHEN LP.CloseQtyIsTheo = 0
+            WHEN LP.CloseQtyIsActual = 1
             THEN (LP.ActualClosedQty - LP.TheoClosedQty) / PI.PortionsPerUnit
             ELSE NULL
         END AS VarQty,
 
         -- Var $ (Var Qty * ItemCostAtClose)
         CASE
-            WHEN LP.CloseQtyIsTheo = 0
+            WHEN LP.CloseQtyIsActual = 1
             THEN ((LP.ActualClosedQty - LP.TheoClosedQty) / PI.PortionsPerUnit)
                  * LP.ItemCostAtClose
             ELSE NULL
@@ -126,7 +126,7 @@ FilteredData AS (
 
         -- Var % (Var Qty / total TheoConsumed in units * 100)
         CASE
-            WHEN LP.CloseQtyIsTheo = 0 AND S.TotalTheoConsumed <> 0
+            WHEN LP.CloseQtyIsActual = 1 AND S.TotalTheoConsumed <> 0
             THEN ((LP.ActualClosedQty - LP.TheoClosedQty) / S.TotalTheoConsumed) * 100
             ELSE NULL
         END AS VarPercent,
@@ -168,7 +168,7 @@ AllRows AS (
         SUM(Transfers)   AS Transfers,
         SUM(UnitsCPM)    AS UnitsCPM,
         NULL     AS EndCount,
-        CAST(0 AS BIT) AS CloseQtyIsTheo,
+        CAST(0 AS BIT) AS CloseQtyIsActual,
         SUM(VarQty)      AS VarQty,
         SUM(VarDollar)   AS VarDollar,
         CASE
@@ -188,7 +188,7 @@ AllRows AS (
         DefaultCountPeriodId,
         StartingCount, StartIsTheo,
         RawWaste, Deliveries, Transfers, UnitsCPM,
-        EndCount, CloseQtyIsTheo,
+        EndCount, CloseQtyIsActual,
         VarQty, VarDollar, VarPercent,
         ItemCostAtClose,
         SiteId, SiteName
@@ -210,7 +210,7 @@ SELECT
     Transfers,
     UnitsCPM,
     EndCount,
-    CloseQtyIsTheo,
+    CloseQtyIsActual,
     VarQty,
     VarDollar,
     VarPercent,

@@ -33,7 +33,7 @@ Populated by the SyncListener (automated) or Settings card (manual). Fields like
 | `TheoConsumedQty` | Decimal | NOT NULL | Theoretical consumption in portions. From LogicalItemUsage: SalesQty + CrewQty + DiscountQty + ManagerQty + WasteQty - RefundQty |
 | `TheoClosedQty` | Decimal | NOT NULL | Theoretical end count in portions. Calculated: OpenQty + DeliveredQty + TransferQty - RawWasteQty - TheoConsumedQty |
 | `ActualClosedQty` | Decimal | NULL | Actual counted end quantity in portions. Null until populated by count entry flow |
-| `CloseQtyIsTheo` | Boolean | DEFAULT true | True when ActualClosedQty has not been entered. End Count displays TheoClosedQty with red italic * in UI |
+| `CloseQtyIsActual` | Boolean | DEFAULT false | True when ActualClosedQty has been entered via count entry. False = theoretical (End Count displays TheoClosedQty with red italic * in UI) |
 | `ItemCostAtClose` | Decimal | NULL | Unit cost from BO_RawItemPrice at time of processing. Used for Var $ calculation |
 | `IsWasteTracked` | Boolean | NOT NULL | Whether waste is tracked for this item |
 
@@ -83,26 +83,26 @@ StockPeriodBalance → LogicalItem (on LogicalItemId)
 
 | Display Field | Calculation | Blank When |
 |---------------|-------------|------------|
-| Var Qty | (ActualClosedQty - TheoClosedQty) / PortionsPerUnit | CloseQtyIsTheo = true |
-| Var $ | Var Qty * ItemCostAtClose | CloseQtyIsTheo = true |
-| Var % | Var Qty / (TheoConsumedQty / PortionsPerUnit) * 100 | CloseQtyIsTheo = true OR TheoConsumedQty = 0 |
+| Var Qty | (ActualClosedQty - TheoClosedQty) / PortionsPerUnit | CloseQtyIsActual = false |
+| Var $ | Var Qty * ItemCostAtClose | CloseQtyIsActual = false |
+| Var % | Var Qty / (TheoConsumedQty / PortionsPerUnit) * 100 | CloseQtyIsActual = false OR TheoConsumedQty = 0 |
 
 ---
 
 ## Population Rules
 
 ### On Create (SyncListener)
-- `OpenQty` = Prior day's ActualClosedQty (or TheoClosedQty if CloseQtyIsTheo=true). Zero if no prior record.
+- `OpenQty` = Prior day's ActualClosedQty (or TheoClosedQty if CloseQtyIsActual=true). Zero if no prior record.
 - `StartIsTheo` = True if from TheoClosedQty or no prior record
 - `TheoConsumedQty` = From LogicalItemUsage
 - `TheoClosedQty` = OpenQty + DeliveredQty + TransferQty - RawWasteQty - TheoConsumedQty
-- `CloseQtyIsTheo` = true (default until actual count entered)
+- `CloseQtyIsActual` = false (default until actual count entered)
 - `ActualClosedQty` = null
 - `DeliveredQty`, `TransferQty`, `RawWasteQty` = 0
 
 ### On Update (re-run is idempotent)
 - Recalculates: OpenQty, StartIsTheo, TheoConsumedQty, TheoClosedQty, ItemCostAtClose
-- Never touches: DeliveredQty, TransferQty, RawWasteQty, ActualClosedQty, CloseQtyIsTheo
+- Never touches: DeliveredQty, TransferQty, RawWasteQty, ActualClosedQty, CloseQtyIsActual
 
 ---
 
@@ -138,7 +138,7 @@ GROUP BY SB.LogicalItemId
 
 - Use `{StockPeriodBalance}` in Advanced SQL
 - All quantities in portions — always divide by `PortionsPerUnit` for display
-- `CloseQtyIsTheo` and `StartIsTheo` drive UI indicators (red italic *)
+- `CloseQtyIsActual` and `StartIsTheo` drive UI indicators (red italic *)
 - Read-only from Raw Stock screens
 
 ---

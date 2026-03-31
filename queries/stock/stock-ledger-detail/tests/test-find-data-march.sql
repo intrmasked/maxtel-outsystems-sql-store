@@ -22,7 +22,7 @@ SELECT
     SB.TheoConsumedQty,
     SB.TheoClosedQty,
     SB.ActualClosedQty,
-    SB.CloseQtyIsTheo,
+    SB.CloseQtyIsActual,
     SB.StartIsTheo,
     SB.ItemCostAtClose,
     -- Diagnostic: how many items exist per date

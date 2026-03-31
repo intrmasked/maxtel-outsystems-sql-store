@@ -38,10 +38,10 @@ One row per StockPeriod.Date in the selected date range.
 | Deliveries | SB.DeliveredQty ÷ PPU | |
 | Transfers | SB.TransferQty ÷ PPU | |
 | Units CPM | SB.TheoConsumedQty ÷ PPU | |
-| End Count | Actual or Theo ÷ PPU | Red * if CloseQtyIsTheo = true |
-| Var Qty | (Actual - Theo) ÷ PPU | Blank if CloseQtyIsTheo = true |
-| Var $ | VarQty × ItemCostAtClose | Blank if CloseQtyIsTheo = true |
-| Var % | VarQty ÷ (TheoConsumedQty ÷ PPU) × 100 | Blank if CloseQtyIsTheo = true or TheoConsumedQty = 0 |
+| End Count | Actual or Theo ÷ PPU | Red * if CloseQtyIsActual = false |
+| Var Qty | (Actual - Theo) ÷ PPU | Blank if CloseQtyIsActual = false |
+| Var $ | VarQty × ItemCostAtClose | Blank if CloseQtyIsActual = false |
+| Var % | VarQty ÷ (TheoConsumedQty ÷ PPU) × 100 | Blank if CloseQtyIsActual = false or TheoConsumedQty = 0 |
 
 ### Totals Row Rules
 | Field | Value |
@@ -54,7 +54,7 @@ One row per StockPeriod.Date in the selected date range.
 | End Count | Last row's End Count |
 | Var Qty | Last row's Var Qty |
 | Var $ | Last row's Var $ |
-| Var % | sum(Actual-Theo) / sum(TheoConsumed) × 100 across rows where CloseQtyIsTheo = false |
+| Var % | sum(Actual-Theo) / sum(TheoConsumed) × 100 across rows where CloseQtyIsActual = true |
 
 ### Item Detail Card (separate query — query-item-detail.sql)
 | Field | Source |
@@ -90,7 +90,7 @@ One row per StockPeriod.Date in the selected date range.
 - **ItemType resolved in SQL (v1.2)**: CASE maps F→Food, P→Paper, S→Supplies, H→Happy Meal, N→No Recipe.
 - **CountFrequency resolved in SQL (v1.2)**: JOIN to CountPeriod table for label instead of raw ID.
 - **CSI join through PhysicalItem (v1.3)**: Changed from `LI.ConceptId + LI.WrinNumber` → `PI.ConceptId + PI.WrinNumber = CSI.WrinNumberClean`.
-- **Total row Var %**: Uses sum(VarQty)/sum(UnitsCPM) × 100 across rows where CloseQtyIsTheo = false (per spec). Different from per-row Var % which uses single-day TheoConsumedQty.
+- **Total row Var %**: Uses sum(VarQty)/sum(UnitsCPM) × 100 across rows where CloseQtyIsActual = true (per spec). Different from per-row Var % which uses single-day TheoConsumedQty.
 - **Total row Start/End Count**: First row's StartingCount, last row's EndCount (not summed).
 - **Total row VarQty/VarDollar**: Last row's values (not summed).
 - **CAST on quantity columns**: Same safety net as list query for nvarchar columns.
@@ -100,16 +100,16 @@ One row per StockPeriod.Date in the selected date range.
 ## 📌 PINNED: Variance Data Issue (2026-03-31)
 **Status**: Pending business/data team clarification
 
-**Problem**: On 30 March 2026 (SiteId 3187), all Paper items have `CloseQtyIsTheo = False` with `ActualClosedQty = 0`, while `TheoClosedQty` is large negative. This produces massive positive variances (e.g. BAG FRIES SMALL: VarQty = 691, Var% = 100%).
+**Problem**: On 30 March 2026 (SiteId 3187), all Paper items have `CloseQtyIsActual = True` with `ActualClosedQty = 0`, while `TheoClosedQty` is large negative. This produces massive positive variances (e.g. BAG FRIES SMALL: VarQty = 691, Var% = 100%).
 
 **Root cause options**:
 1. Real count — someone entered 0 for all items (unlikely for 65+ items)
 2. System reset/close — period closed and system defaulted ActualClosedQty = 0
-3. Source system bug — CloseQtyIsTheo should be True for these rows
+3. Source system bug — CloseQtyIsActual should be True for these rows
 
-**Impact**: Affects both list and detail screens. Query logic is correct (`Actual - Theo` when `CloseQtyIsTheo = False`). The data itself may be wrong.
+**Impact**: Affects both list and detail screens. Query logic is correct (`Actual - Theo` when `CloseQtyIsActual = True`). The data itself may be wrong.
 
-**Action needed**: Confirm with stock data team what `ActualClosedQty = 0 + CloseQtyIsTheo = False` means when TheoClosedQty is negative. If it's not a real count, we may need a guard clause in SQL.
+**Action needed**: Confirm with stock data team what `ActualClosedQty = 0 + CloseQtyIsActual = True` means when TheoClosedQty is negative. If it's not a real count, we may need a guard clause in SQL.
 
 **Diagnostic test**: `queries/stock/stock-ledger-list/tests/test-variance-diagnostic.sql`
 

@@ -22,13 +22,13 @@ List query. Returns one row per LogicalItem with:
 - Starting Count (first period OpenQty)
 - Summed: RawWaste, Deliveries, Transfers, UnitsCPM
 - End Count (last period ActualClosedQty or TheoClosedQty)
-- Variance: Qty, $, % (only when CloseQtyIsTheo = false)
+- Variance: Qty, $, % (only when CloseQtyIsActual = true)
 ### 2. `query-total-variance.sql` — GetRawStockTotalVariance
 Same filters, returns:
 - `TotalVarDollar` = SUM((Actual - Theo) * ItemCostAtClose) for qualifying rows
 - `TotalVarPercent` = SUM(Actual - Theo) / SUM(TheoConsumed) * 100
 
-Only rows where `CloseQtyIsTheo = false` on the last period qualify.
+Only rows where `CloseQtyIsActual = true` on the last period qualify.
 
 ---
 
@@ -66,7 +66,7 @@ Only rows where `CloseQtyIsTheo = false` on the last period qualify.
 | Deliveries | `SUM(DeliveredQty)` across all periods |
 | Transfers | `SUM(TransferQty)` across all periods |
 | Units CPM | `SUM(TheoConsumedQty)` across all periods |
-| End Count | `ActualClosedQty` (or `TheoClosedQty` if CloseQtyIsTheo=true) from **last** period |
+| End Count | `ActualClosedQty` (or `TheoClosedQty` if CloseQtyIsActual=false) from **last** period |
 | Var Qty | `(ActualClosedQty - TheoClosedQty) / PortionsPerUnit` — last period only |
 | Var $ | `Var Qty * ItemCostAtClose` — last period only |
 | Var % | `(ActualClosedQty - TheoClosedQty) / TotalTheoConsumed * 100` |
@@ -78,7 +78,7 @@ Only rows where `CloseQtyIsTheo = false` on the last period qualify.
 | Column | Condition | Display |
 |--------|-----------|---------|
 | Starting Count | `StartIsTheo = true` | Red italic `*` appended |
-| End Count | `CloseQtyIsTheo = true` | Red italic `*` appended. Var Qty/$/% shown as `—` |
+| End Count | `CloseQtyIsActual = false` | Red italic `*` appended. Var Qty/$/% shown as `—` |
 
 ---
 
@@ -88,7 +88,7 @@ Only rows where `CloseQtyIsTheo = false` on the last period qualify.
 |----------|-----------|
 | `DefaultPhysicalItemId` is null | Row excluded (JOIN filters it out) |
 | `TheoConsumedQty = 0` for all periods | Var % = NULL (blank) |
-| `CloseQtyIsTheo = true` on last period | Var Qty/$/% all NULL. End Count shows TheoClosedQty |
+| `CloseQtyIsActual = false` on last period | Var Qty/$/% all NULL. End Count shows TheoClosedQty |
 | No rows in date range | Empty result. Variance card returns NULL/NULL |
 | Single-day range | FirstDate = LastDate. Same row for start and end |
 

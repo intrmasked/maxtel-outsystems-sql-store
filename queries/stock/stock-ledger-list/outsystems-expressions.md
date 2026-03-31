@@ -95,14 +95,14 @@ If(Cur.ItemName = "Total", "font-bold", "")
 ## End Count
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     FormatDecimal(Cur.EndCount, 2, ".", ",") + "*",
     FormatDecimal(Cur.EndCount, 2, ".", ","))
 ```
 **Style:**
 ```
 If(Cur.ItemName = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, " text-red font-italic", "")
+If(not Cur.CloseQtyIsActual, " text-red font-italic", "")
 ```
 
 ---
@@ -110,14 +110,14 @@ If(Cur.CloseQtyIsTheo, " text-red font-italic", "")
 ## Var Qty
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     "—",
     FormatDecimal(Cur.VarQty, 2, ".", ","))
 ```
 **Style:**
 ```
 If(Cur.ItemName = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, "",
+If(not Cur.CloseQtyIsActual, "",
     If(Cur.VarQty > 0, " text-green",
         If(Cur.VarQty < 0, " text-red", "")))
 ```
@@ -127,7 +127,7 @@ If(Cur.CloseQtyIsTheo, "",
 ## Var $
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     "—",
     If(Cur.VarDollar < 0,
         "-$" + FormatDecimal(Abs(Cur.VarDollar), 2, ".", ","),
@@ -136,7 +136,7 @@ If(Cur.CloseQtyIsTheo,
 **Style:**
 ```
 If(Cur.ItemName = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, "",
+If(not Cur.CloseQtyIsActual, "",
     If(Cur.VarDollar > 0, " text-green",
         If(Cur.VarDollar < 0, " text-red", "")))
 ```
@@ -146,7 +146,7 @@ If(Cur.CloseQtyIsTheo, "",
 ## Var %
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     "—",
     If(Cur.VarPercent = NullDecimal(),
         "—",
@@ -155,7 +155,7 @@ If(Cur.CloseQtyIsTheo,
 **Style:**
 ```
 If(Cur.ItemName = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, "",
+If(not Cur.CloseQtyIsActual, "",
     If(Cur.VarPercent > 0, " text-green",
         If(Cur.VarPercent < 0, " text-red", "")))
 ```
@@ -245,7 +245,7 @@ If(TV.TotalVarPercent > 0, "text-green",
 ---
 
 ## Notes
-- `"—"` = em dash, shown when variance is not applicable (CloseQtyIsTheo = true)
+- `"—"` = em dash, shown when variance is not applicable (CloseQtyIsActual = false)
 - Var $ uses `+$` / `-$` prefix format (e.g., `+$2.50`, `-$60.50`) matching mockup
 - Green = positive variance, Red = negative variance
 - Bold = Total row (identified by `Cur.ItemName = "Total"`)

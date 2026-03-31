@@ -86,14 +86,14 @@ If(Cur.RowType = "Total", "font-bold", "")
 ## End Count
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     FormatDecimal(Cur.EndCount, 2, ".", ",") + "*",
     FormatDecimal(Cur.EndCount, 2, ".", ","))
 ```
 **Style:**
 ```
 If(Cur.RowType = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, " text-red font-italic", "")
+If(not Cur.CloseQtyIsActual, " text-red font-italic", "")
 ```
 
 ---
@@ -101,14 +101,14 @@ If(Cur.CloseQtyIsTheo, " text-red font-italic", "")
 ## Var Qty
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     "—",
     FormatDecimal(Cur.VarQty, 2, ".", ","))
 ```
 **Style:**
 ```
 If(Cur.RowType = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, "",
+If(not Cur.CloseQtyIsActual, "",
     If(Cur.VarQty > 0, " text-green",
         If(Cur.VarQty < 0, " text-red", "")))
 ```
@@ -118,7 +118,7 @@ If(Cur.CloseQtyIsTheo, "",
 ## Var $
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     "—",
     If(Cur.VarDollar < 0,
         "-$" + FormatDecimal(Abs(Cur.VarDollar), 2, ".", ","),
@@ -127,7 +127,7 @@ If(Cur.CloseQtyIsTheo,
 **Style:**
 ```
 If(Cur.RowType = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, "",
+If(not Cur.CloseQtyIsActual, "",
     If(Cur.VarDollar > 0, " text-green",
         If(Cur.VarDollar < 0, " text-red", "")))
 ```
@@ -137,7 +137,7 @@ If(Cur.CloseQtyIsTheo, "",
 ## Var %
 **Expression:**
 ```
-If(Cur.CloseQtyIsTheo,
+If(not Cur.CloseQtyIsActual,
     "—",
     If(Cur.VarPercent = NullDecimal(),
         "—",
@@ -146,7 +146,7 @@ If(Cur.CloseQtyIsTheo,
 **Style:**
 ```
 If(Cur.RowType = "Total", "font-bold", "") +
-If(Cur.CloseQtyIsTheo, "",
+If(not Cur.CloseQtyIsActual, "",
     If(Cur.VarPercent > 0, " text-green",
         If(Cur.VarPercent < 0, " text-red", "")))
 ```
@@ -252,11 +252,11 @@ Item.ItemName
 ---
 
 ## Notes
-- `"—"` = em dash, shown when variance is not applicable (CloseQtyIsTheo = true)
+- `"—"` = em dash, shown when variance is not applicable (CloseQtyIsActual = false)
 - Var $ uses `+$` / `-$` prefix format (e.g., `+$16.50`, `-$22.00`) matching mockup
 - Green = positive variance, Red = negative variance
 - Orange italic with `*` = theoretical starting count (StartIsTheo = true)
-- Red italic with `*` = theoretical end count (CloseQtyIsTheo = true)
+- Red italic with `*` = theoretical end count (CloseQtyIsActual = false)
 - Bold = Total row (identified by `Cur.RowType = "Total"`)
 - `Abs()` = OutSystems built-in absolute value function
 - `NullDecimal()` = check for NULL Var % (when TheoConsumedQty = 0)

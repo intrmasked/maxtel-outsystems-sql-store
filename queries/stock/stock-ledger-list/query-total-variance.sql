@@ -3,7 +3,7 @@
 -- Purpose: Total Variance card for Raw Stock summary screen.
 --          Returns TotalVarDollar + TotalVarPercent across all
 --          filtered rows (not just current page).
---          Only rows where CloseQtyIsTheo = false on the last
+--          Only rows where CloseQtyIsActual = true on the last
 --          period qualify for variance calculation.
 -- Target: SQL Server 2016+ / OutSystems Advanced SQL
 -- Created: 2026-03-25
@@ -43,7 +43,7 @@ Sums AS (
     GROUP BY SB.LogicalItemId
 ),
 
--- [CTE 3]: Last period snapshot — only rows where CloseQtyIsTheo = false
+-- [CTE 3]: Last period snapshot — only rows where CloseQtyIsActual = true
 LastPeriod AS (
     SELECT
         SB.LogicalItemId,
@@ -54,7 +54,7 @@ LastPeriod AS (
     JOIN {StockPeriod} SP ON SB.StockPeriodId = SP.Id
     JOIN Bounds B ON SB.LogicalItemId = B.LogicalItemId AND SP.Date = B.LastDate
     WHERE SP.SiteId IN (@SiteIds)
-      AND SB.CloseQtyIsTheo = 0
+      AND SB.CloseQtyIsActual = 1
 )
 
 -- [FINAL]: Aggregate variance across all qualifying rows

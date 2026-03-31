@@ -45,24 +45,24 @@ DailyData AS (
         CAST(SB.TransferQty AS DECIMAL(18,4))      / IU.PortionsPerUnit   AS Transfers,
         CAST(SB.TheoConsumedQty AS DECIMAL(18,4))  / IU.PortionsPerUnit   AS UnitsCPM,
         CASE
-            WHEN SB.CloseQtyIsTheo = 0
+            WHEN SB.CloseQtyIsActual = 1
             THEN SB.ActualClosedQty / IU.PortionsPerUnit
             ELSE SB.TheoClosedQty   / IU.PortionsPerUnit
         END AS EndCount,
-        SB.CloseQtyIsTheo,
+        SB.CloseQtyIsActual,
         CASE
-            WHEN SB.CloseQtyIsTheo = 0
+            WHEN SB.CloseQtyIsActual = 1
             THEN (SB.ActualClosedQty - SB.TheoClosedQty) / IU.PortionsPerUnit
             ELSE NULL
         END AS VarQty,
         CASE
-            WHEN SB.CloseQtyIsTheo = 0
+            WHEN SB.CloseQtyIsActual = 1
             THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / IU.PortionsPerUnit)
                  * SB.ItemCostAtClose
             ELSE NULL
         END AS VarDollar,
         CASE
-            WHEN SB.CloseQtyIsTheo = 0 AND SB.TheoConsumedQty <> 0
+            WHEN SB.CloseQtyIsActual = 1 AND SB.TheoConsumedQty <> 0
             THEN ((SB.ActualClosedQty - SB.TheoClosedQty) / SB.TheoConsumedQty) * 100
             ELSE NULL
         END AS VarPercent,
@@ -82,7 +82,7 @@ FirstRow AS (
     WHERE ReportDate = (SELECT FirstDate FROM Bounds)
 ),
 LastRow AS (
-    SELECT EndCount, CloseQtyIsTheo, VarQty, VarDollar
+    SELECT EndCount, CloseQtyIsActual, VarQty, VarDollar
     FROM DailyData
     WHERE ReportDate = (SELECT LastDate FROM Bounds)
 ),
@@ -100,20 +100,20 @@ AllRows AS (
         SUM(DD.Transfers)   AS Transfers,
         SUM(DD.UnitsCPM)    AS UnitsCPM,
         LR.EndCount,
-        LR.CloseQtyIsTheo,
+        LR.CloseQtyIsActual,
         LR.VarQty,
         LR.VarDollar,
         CASE
-            WHEN SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.UnitsCPM ELSE 0 END) = 0 THEN NULL
-            ELSE SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.VarQty ELSE 0 END)
-                 / SUM(CASE WHEN DD.CloseQtyIsTheo = 0 THEN DD.UnitsCPM ELSE 0 END) * 100
+            WHEN SUM(CASE WHEN DD.CloseQtyIsActual = 1 THEN DD.UnitsCPM ELSE 0 END) = 0 THEN NULL
+            ELSE SUM(CASE WHEN DD.CloseQtyIsActual = 1 THEN DD.VarQty ELSE 0 END)
+                 / SUM(CASE WHEN DD.CloseQtyIsActual = 1 THEN DD.UnitsCPM ELSE 0 END) * 100
         END AS VarPercent,
         NULL             AS ItemCostAtClose
     FROM DailyData DD
     CROSS JOIN FirstRow FR
     CROSS JOIN LastRow LR
     GROUP BY FR.StartingCount, FR.StartIsTheo,
-             LR.EndCount, LR.CloseQtyIsTheo, LR.VarQty, LR.VarDollar
+             LR.EndCount, LR.CloseQtyIsActual, LR.VarQty, LR.VarDollar
 
     UNION ALL
 
@@ -123,7 +123,7 @@ AllRows AS (
         CONVERT(VARCHAR(11), ReportDate, 106) AS ReportDate,
         StartingCount, StartIsTheo,
         RawWaste, Deliveries, Transfers, UnitsCPM,
-        EndCount, CloseQtyIsTheo,
+        EndCount, CloseQtyIsActual,
         VarQty, VarDollar, VarPercent,
         ItemCostAtClose
     FROM DailyData
@@ -139,7 +139,7 @@ SELECT
     Transfers,
     UnitsCPM,
     EndCount,
-    CloseQtyIsTheo,
+    CloseQtyIsActual,
     VarQty,
     VarDollar,
     VarPercent,

@@ -12,7 +12,7 @@
   "Transfers":           "Decimal",
   "UnitsCPM":            "Decimal",
   "EndCount":            "Decimal",
-  "CloseQtyIsTheo":      "Boolean",
+  "CloseQtyIsActual":    "Boolean",
   "VarQty":              "Decimal",
   "VarDollar":           "Decimal",
   "VarPercent":          "Decimal",

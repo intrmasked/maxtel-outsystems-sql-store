@@ -24,7 +24,7 @@ SELECT
     SB.TheoConsumedQty,
     SB.TheoClosedQty,
     SB.ActualClosedQty,
-    SB.CloseQtyIsTheo,
+    SB.CloseQtyIsActual,
     SB.ItemCostAtClose,
 
     -- Converted to units
@@ -35,18 +35,18 @@ SELECT
 
     -- VarQty calculation (what we compute)
     CASE
-        WHEN SB.CloseQtyIsTheo = 0
+        WHEN SB.CloseQtyIsActual = 1
         THEN (SB.ActualClosedQty - SB.TheoClosedQty) / PI.PortionsPerUnit
         ELSE NULL
     END AS VarQty,
 
-    -- Key question: is CloseQtyIsTheo false (0) when it should be true?
+    -- Key question: is CloseQtyIsActual false (0) when it should be true?
     CASE
-        WHEN SB.CloseQtyIsTheo = 0 AND SB.ActualClosedQty = 0 AND SB.TheoClosedQty = 0
-        THEN 'SUSPECT: Both 0 but CloseQtyIsTheo=false'
-        WHEN SB.CloseQtyIsTheo = 0 AND SB.ActualClosedQty = SB.TheoClosedQty
+        WHEN SB.CloseQtyIsActual = 1 AND SB.ActualClosedQty = 0 AND SB.TheoClosedQty = 0
+        THEN 'SUSPECT: Both 0 but CloseQtyIsActual=true'
+        WHEN SB.CloseQtyIsActual = 1 AND SB.ActualClosedQty = SB.TheoClosedQty
         THEN 'No variance (Actual=Theo)'
-        WHEN SB.CloseQtyIsTheo = 0
+        WHEN SB.CloseQtyIsActual = 1
         THEN 'Real variance'
         ELSE 'Theo (no variance shown)'
     END AS DiagnosticFlag
@@ -58,5 +58,5 @@ JOIN {PhysicalItem} PI   ON LI.DefaultPhysicalItemId = PI.Id
 WHERE SP.SiteId = @SiteId
   AND SP.Date BETWEEN @StartDate AND @EndDate
   AND LI.ItemType = 'P'
-  AND SB.CloseQtyIsTheo = 0
+  AND SB.CloseQtyIsActual = 1
 ORDER BY SP.Date, LI.ItemName
