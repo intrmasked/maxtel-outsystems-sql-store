@@ -22,12 +22,12 @@ Full spec provided by user — see story in conversation history.
 - `database-context/tables/LogicalItem/` — **UPDATED** — Added ItemType column, relationships to new tables
 
 ## Queries Created
-- `queries/stock/raw-stock-list/query.sql` — **GetRawStockList** — In Progress
+- `queries/stock/stock-ledger-list/query.sql` — **GetRawStockList** — In Progress
   - Purpose: Main list, one row per LogicalItem
   - Tables: StockPeriodBalance, StockPeriod, LogicalItem, PhysicalItem, CentralStockItem, Site
   - Output: LogicalItemId, ItemName, ItemType, UnitName, PortionsPerUnit, DefaultCountPeriodId, StartingCount, StartIsTheo, RawWaste, Deliveries, Transfers, UnitsCPM, EndCount, CloseQtyIsTheo, VarQty, VarDollar, VarPercent, ItemCostAtClose, SiteId, SiteName
 
-- `queries/stock/raw-stock-list/query-total-variance.sql` — **GetRawStockTotalVariance** — In Progress
+- `queries/stock/stock-ledger-list/query-total-variance.sql` — **GetRawStockTotalVariance** — In Progress
   - Purpose: Total Variance card (TotalVarDollar + TotalVarPercent)
   - Only rows where CloseQtyIsTheo = false qualify
   - Card shows: `-$63.50  -8.2%` format (red for negative, green for positive)
@@ -62,16 +62,16 @@ Full spec provided by user — see story in conversation history.
 - `database-context/tables/PhysicalItem/README.md`
 - `database-context/tables/CentralStockItem/README.md`
 - `database-context/tables/LogicalItem/README.md` (updated)
-- `queries/stock/raw-stock-list/query.sql`
-- `queries/stock/raw-stock-list/query-total-variance.sql`
-- `queries/stock/raw-stock-list/output-structure.json`
-- `queries/stock/raw-stock-list/output-structure-total-variance.json`
-- `queries/stock/raw-stock-list/metadata.json`
-- `queries/stock/raw-stock-list/README.md`
-- `queries/stock/raw-stock-list/outsystems-expressions.md`
-- `queries/stock/raw-stock-list/tests/test-ssms.sql`
-- `queries/stock/raw-stock-list/tests/test-total-variance.sql`
-- `queries/stock/raw-stock-list/tests/test-find-data.sql`
+- `queries/stock/stock-ledger-list/query.sql`
+- `queries/stock/stock-ledger-list/query-total-variance.sql`
+- `queries/stock/stock-ledger-list/output-structure.json`
+- `queries/stock/stock-ledger-list/output-structure-total-variance.json`
+- `queries/stock/stock-ledger-list/metadata.json`
+- `queries/stock/stock-ledger-list/README.md`
+- `queries/stock/stock-ledger-list/outsystems-expressions.md`
+- `queries/stock/stock-ledger-list/tests/test-ssms.sql`
+- `queries/stock/stock-ledger-list/tests/test-total-variance.sql`
+- `queries/stock/stock-ledger-list/tests/test-find-data.sql`
 
 ## 📌 PINNED: Variance Data Issue (2026-03-31)
 **Status**: Pending business/data team clarification
@@ -83,11 +83,11 @@ Full spec provided by user — see story in conversation history.
 2. System reset/close — period closed and system defaulted ActualClosedQty = 0
 3. Source system bug — CloseQtyIsTheo should be True for these rows
 
-**Diagnostic test**: `queries/stock/raw-stock-list/tests/test-variance-diagnostic.sql`
+**Diagnostic test**: `queries/stock/stock-ledger-list/tests/test-variance-diagnostic.sql`
 
 ## Next Steps
 1. 📌 Resolve variance data issue (pending business team clarification)
-2. Detail screen — see `raw-stock-detail-context.md`
+2. Detail screen — see `stock-ledger-detail-context.md`
 
 ## Change Log
 | Date | Change |
@@ -108,12 +108,12 @@ Full spec provided by user — see story in conversation history.
 - Tables are in `StockV2` schema in actual DB but use `{TableName}` in OutSystems
 - OutSystems expressions/styles documented in `outsystems-expressions.md`
 - Total Variance card screenshot shows: `TOTAL VARIANCE` header, `-$63.50` in red, `-8.2%` in red/green
-- Detail screen query is separate: `queries/stock/raw-stock-detail/` — see `raw-stock-detail-context.md`
+- Detail screen query is separate: `queries/stock/stock-ledger-detail/` — see `stock-ledger-detail-context.md`
 
 ## Quick Resume
 To continue:
-1. Read session context: `.claude/sessions/raw-stock-list-context.md`
+1. Read session context: `.claude/sessions/stock-ledger-list-context.md`
 2. Read table docs: `database-context/tables/StockPeriodBalance/README.md` (+ others)
-3. Check queries: `queries/stock/raw-stock-list/query.sql` and `query-total-variance.sql`
-4. Check expressions: `queries/stock/raw-stock-list/outsystems-expressions.md`
+3. Check queries: `queries/stock/stock-ledger-list/query.sql` and `query-total-variance.sql`
+4. Check expressions: `queries/stock/stock-ledger-list/outsystems-expressions.md`
 5. **Continue from**: Total Variance card — wire `query-total-variance.sql` to the card UI. User provided screenshot of the card design.

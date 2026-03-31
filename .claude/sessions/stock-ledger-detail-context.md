@@ -21,7 +21,7 @@ From spec v0.4, Section 11.
 - `PhysicalItem` — UnitName, PortionsPerUnit conversion
 - `CentralStockItem` — DefaultCountPeriodId for Item Detail card
 
-Table docs already exist from raw-stock-list work.
+Table docs already exist from stock-ledger-list work.
 
 ## Spec Summary (Section 11)
 
@@ -111,19 +111,19 @@ One row per StockPeriod.Date in the selected date range.
 
 **Action needed**: Confirm with stock data team what `ActualClosedQty = 0 + CloseQtyIsTheo = False` means when TheoClosedQty is negative. If it's not a real count, we may need a guard clause in SQL.
 
-**Diagnostic test**: `queries/stock/raw-stock-list/tests/test-variance-diagnostic.sql`
+**Diagnostic test**: `queries/stock/stock-ledger-list/tests/test-variance-diagnostic.sql`
 
 ## Files Created
-- `queries/stock/raw-stock-detail/query.sql` — Main grid (14 output columns incl. RowType)
-- `queries/stock/raw-stock-detail/query-item-detail.sql` — Item Detail card (5 output columns)
-- `queries/stock/raw-stock-detail/output-structure.json` — 14 columns
-- `queries/stock/raw-stock-detail/output-structure-item-detail.json` — 5 columns
-- `queries/stock/raw-stock-detail/outsystems-expressions.md` — All column expressions + styles
-- `queries/stock/raw-stock-detail/tests/test-ssms.sql` — SSMS sandbox test
-- `queries/stock/raw-stock-detail/tests/test-item-detail.sql` — Item Detail card test
-- `queries/stock/raw-stock-detail/tests/test-find-data-march.sql` — Data diagnostic for 29-30 March 2026
-- `queries/stock/raw-stock-detail/metadata.json`
-- `queries/stock/raw-stock-detail/README.md`
+- `queries/stock/stock-ledger-detail/query.sql` — Main grid (14 output columns incl. RowType)
+- `queries/stock/stock-ledger-detail/query-item-detail.sql` — Item Detail card (5 output columns)
+- `queries/stock/stock-ledger-detail/output-structure.json` — 14 columns
+- `queries/stock/stock-ledger-detail/output-structure-item-detail.json` — 5 columns
+- `queries/stock/stock-ledger-detail/outsystems-expressions.md` — All column expressions + styles
+- `queries/stock/stock-ledger-detail/tests/test-ssms.sql` — SSMS sandbox test
+- `queries/stock/stock-ledger-detail/tests/test-item-detail.sql` — Item Detail card test
+- `queries/stock/stock-ledger-detail/tests/test-find-data-march.sql` — Data diagnostic for 29-30 March 2026
+- `queries/stock/stock-ledger-detail/metadata.json`
+- `queries/stock/stock-ledger-detail/README.md`
 
 ## Changes Log
 | Date | Change |
@@ -139,8 +139,8 @@ One row per StockPeriod.Date in the selected date range.
 
 ## Quick Resume
 To continue:
-1. Read session context: `.claude/sessions/raw-stock-detail-context.md`
+1. Read session context: `.claude/sessions/stock-ledger-detail-context.md`
 2. Read table docs: `database-context/tables/StockPeriodBalance/README.md` (+ others)
-3. Reference list query for patterns: `queries/stock/raw-stock-list/query.sql`
-4. Main query: `queries/stock/raw-stock-detail/query.sql`
-5. Item detail query: `queries/stock/raw-stock-detail/query-item-detail.sql`
+3. Reference list query for patterns: `queries/stock/stock-ledger-list/query.sql`
+4. Main query: `queries/stock/stock-ledger-detail/query.sql`
+5. Item detail query: `queries/stock/stock-ledger-detail/query-item-detail.sql`
