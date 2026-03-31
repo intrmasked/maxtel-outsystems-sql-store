@@ -1,0 +1,17 @@
+{
+  "name": "stock-transfers-list",
+  "category": "stock",
+  "story": "1.3.1 - View Transfer List",
+  "description": "Returns transfer list for Pending or Completed view with direction indicators and context-aware status badges",
+  "created": "2026-03-31",
+  "author": "Claude",
+  "tables": ["Transfer", "StockMovement", "StockMovementLine", "Site", "User"],
+  "parameters": [
+    { "name": "SiteIds", "type": "VARCHAR", "expandInline": true, "description": "Comma-separated Site IDs the user has access to" },
+    { "name": "ViewType", "type": "VARCHAR", "expandInline": false, "description": "'P' = Pending, 'C' = Completed" },
+    { "name": "FilterSiteId", "type": "BIGINT", "expandInline": false, "description": "Optional: filter to a specific counterpart site (0 = all)" },
+    { "name": "StartDate", "type": "DATE", "expandInline": false, "description": "Optional: start date filter (Completed view only)" },
+    { "name": "EndDate", "type": "DATE", "expandInline": false, "description": "Optional: end date filter (Completed view only)" }
+  ],
+  "status": "in-progress"
+}

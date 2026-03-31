@@ -1,0 +1,18 @@
+{
+  "StockMovementId":  "LongInteger",
+  "FromSiteId":       "LongInteger",
+  "ToSiteId":         "LongInteger",
+  "FromSiteName":     "Text",
+  "ToSiteName":       "Text",
+  "CreatedAt":        "Date",
+  "ApprovedDate":     "Date",
+  "LineCount":        "Integer",
+  "ExGST":            "Decimal",
+  "GST":              "Decimal",
+  "Total":            "Decimal",
+  "IsApproved":       "Boolean",
+  "CreatedByName":    "Text",
+  "ApprovedByName":   "Text",
+  "ApprovedAt":       "Date",
+  "Comment":          "Text"
+}
