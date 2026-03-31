@@ -1,0 +1,32 @@
+{
+  "header": {
+    "StockMovementId":        "LongInteger",
+    "ApprovedDate":           "Date",
+    "CreatedAt":              "Date",
+    "FromSiteId":             "LongInteger",
+    "ToSiteId":               "LongInteger",
+    "FromSiteName":           "Text",
+    "ToSiteName":             "Text",
+    "IsApproved":             "Boolean",
+    "SenderApprovedByName":   "Text",
+    "SenderApprovedAt":       "Date",
+    "ReceiverApprovedByName": "Text",
+    "ReceiverApprovedAt":     "Date",
+    "NetAmount":              "Decimal",
+    "TaxAmount":              "Decimal",
+    "GrossAmount":            "Decimal",
+    "Comment":                "Text"
+  },
+  "lines": {
+    "LineId":          "LongInteger",
+    "PhysicalItemId":  "LongInteger",
+    "Code":            "Text",
+    "Description":     "Text",
+    "Cartons":         "Integer",
+    "Inners":          "Integer",
+    "Units":           "Integer",
+    "TotalUnits":      "Integer",
+    "PricePerUnit":    "Decimal",
+    "Cost":            "Decimal"
+  }
+}

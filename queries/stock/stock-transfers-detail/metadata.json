@@ -1,0 +1,17 @@
+{
+  "name": "stock-transfers-detail",
+  "category": "stock",
+  "story": "1.3.2 - View Transfer Detail (Pending)",
+  "description": "Returns transfer header (approval status, sites, amounts) and line items (item code, quantities, pricing) for the detail screen",
+  "created": "2026-03-31",
+  "author": "Claude",
+  "tables": ["Transfer", "StockMovement", "StockMovementLine", "Site", "User", "PhysicalItem"],
+  "queries": [
+    { "file": "query-header.sql", "description": "Transfer header with approval panel and totals" },
+    { "file": "query-lines.sql", "description": "Line items with quantities and pricing" }
+  ],
+  "parameters": [
+    { "name": "StockMovementId", "type": "BIGINT", "expandInline": false, "description": "The transfer to view" }
+  ],
+  "status": "in-progress"
+}
