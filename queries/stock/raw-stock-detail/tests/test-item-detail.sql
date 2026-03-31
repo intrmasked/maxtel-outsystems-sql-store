@@ -23,7 +23,7 @@ SELECT
     ISNULL(CP.Label, '—') AS CountFrequency
 FROM {LogicalItem} LI
 JOIN {PhysicalItem} PI            ON LI.DefaultPhysicalItemId = PI.Id
-LEFT JOIN {CentralStockItem} CSI  ON LI.ConceptId = CSI.ConceptId
-                                  AND LI.WrinNumber = CSI.WrinNumberClean
+LEFT JOIN {CentralStockItem} CSI  ON PI.ConceptId = CSI.ConceptId
+                                  AND PI.WrinNumber = CSI.WrinNumberClean
 LEFT JOIN {CountPeriod} CP        ON CSI.DefaultCountPeriodId = CP.Id
 WHERE LI.Id = @LogicalItemId

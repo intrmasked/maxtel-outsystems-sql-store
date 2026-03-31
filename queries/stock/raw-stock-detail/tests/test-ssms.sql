@@ -92,7 +92,7 @@ AllRows AS (
     -- Total row
     SELECT
         'Total'          AS RowType,
-        NULL             AS ReportDate,
+        'Total'          AS ReportDate,
         FR.StartingCount,
         FR.StartIsTheo,
         SUM(DD.RawWaste)    AS RawWaste,
@@ -120,7 +120,7 @@ AllRows AS (
     -- Detail rows
     SELECT
         'Detail'         AS RowType,
-        ReportDate,
+        CONVERT(VARCHAR(11), ReportDate, 106) AS ReportDate,
         StartingCount, StartIsTheo,
         RawWaste, Deliveries, Transfers, UnitsCPM,
         EndCount, CloseQtyIsTheo,

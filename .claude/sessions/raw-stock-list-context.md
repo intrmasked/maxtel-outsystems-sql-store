@@ -73,8 +73,20 @@ Full spec provided by user — see story in conversation history.
 - `queries/stock/raw-stock-list/tests/test-total-variance.sql`
 - `queries/stock/raw-stock-list/tests/test-find-data.sql`
 
+## 📌 PINNED: Variance Data Issue (2026-03-31)
+**Status**: Pending business/data team clarification
+
+**Problem**: On 30 March 2026 (SiteId 3187), all Paper items have `CloseQtyIsTheo = False` with `ActualClosedQty = 0`, while `TheoClosedQty` is large negative. This produces massive positive variances (e.g. BAG FRIES SMALL: VarQty = 691, Var% = 100%).
+
+**Root cause options**:
+1. Real count — someone entered 0 for all items (unlikely for 65+ items)
+2. System reset/close — period closed and system defaulted ActualClosedQty = 0
+3. Source system bug — CloseQtyIsTheo should be True for these rows
+
+**Diagnostic test**: `queries/stock/raw-stock-list/tests/test-variance-diagnostic.sql`
+
 ## Next Steps
-1. Mark complete when actual count data is available and variance values are verified
+1. 📌 Resolve variance data issue (pending business team clarification)
 2. Detail screen — see `raw-stock-detail-context.md`
 
 ## Change Log
@@ -86,6 +98,7 @@ Full spec provided by user — see story in conversation history.
 | 2026-03-29 | Total Variance card wiring documented — expressions, styles, layout, and OutSystems setup steps added to outsystems-expressions.md |
 | 2026-03-30 | Fixed CentralStockItem join: JOIN → LEFT JOIN (data may not exist). Changed join key from CSI.WrinNumber → CSI.WrinNumberClean (format mismatch fix). Fixed optional Expand Inline filters (@ProductTypes/@CountFrequencies) — use sentinel values from OutSystems. Fixed @ItemSearch IS NULL → = '' (empty string, not null). Updated all queries + tests + db context. |
 | 2026-03-30 | Simplified Expand Inline filter pattern — OutSystems always passes full list (same as SiteIds). ProductTypes: 'F','P' default. CountFrequencies: all IDs default. Added IS NULL fallback for CountFrequencies (LEFT JOIN). Added test-theo-status.sql diagnostic. Confirmed all 376 rows have CloseQtyIsTheo=True — variance NULL is correct per spec. Total Variance card CSS finalized (inline layout, #f8f9fa background). |
+| 2026-03-31 | Changed CSI join from LI→CSI to PI→CSI (PhysicalItem path) across all list queries + tests. Pinned variance data issue (ActualClosedQty=0 with CloseQtyIsTheo=False on 30 March). Added test-variance-diagnostic.sql. |
 
 ## Notes for Next Session
 - All quantities stored in **portions** — always divide by PortionsPerUnit for display

@@ -1,6 +1,6 @@
 {
   "RowType":         "Text",
-  "ReportDate":      "Date",
+  "ReportDate":      "Text",
   "StartingCount":   "Decimal",
   "StartIsTheo":     "Boolean",
   "RawWaste":        "Decimal",
