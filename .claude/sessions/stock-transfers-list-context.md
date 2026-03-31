@@ -6,9 +6,10 @@
 User wants to see a list of all stock transfers involving their accessible sites. Supports Pending and Completed views with direction indicators, context-aware status badges, store filter, and date range filter.
 
 ## Status
-- [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Query written, needs testing against sandbox
-- Incomplete items: Sandbox verification, user testing
+- [ ] Complete / [ ] In Progress / [X] In Testing
+- Current step: Query deployed to OutSystems, runs successfully (empty data — Transfer entity columns just added)
+- Incomplete items: Real data testing once Create Transfer screen is built
+- Git commit: `6a250d9`
 
 ## Tables Documentation Created
 - `database-context/tables/StockMovement/` - **NEW** - Parent record for all stock movements
