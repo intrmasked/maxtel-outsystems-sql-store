@@ -27,6 +27,7 @@
     "Units":           "Integer",
     "TotalUnits":      "Integer",
     "PricePerUnit":    "Decimal",
-    "Cost":            "Decimal"
+    "Cost":            "Decimal",
+    "IsTotal":         "Integer"
   }
 }

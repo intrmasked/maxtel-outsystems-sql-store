@@ -1,13 +1,9 @@
 -- =============================================
--- Query: Stock Transfer Detail - Line Items
--- Purpose: Returns line items for the Transfer Detail screen
--- Story: 1.3.2 - View Transfer Detail (Pending)
--- Target: SQL Server 2014+ / OutSystems Advanced SQL
--- Created: 2026-03-31
+-- Test: Stock Transfer Detail - Line Items (SSMS Version)
+-- Purpose: Test lines query with total row in sandbox
 -- =============================================
 
--- Input Parameters (OutSystems):
---   @StockMovementId  BIGINT  Expand Inline = NO  The transfer to view
+DECLARE @StockMovementId BIGINT = 40;
 
 -- Line items
 SELECT

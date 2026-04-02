@@ -1,15 +1,10 @@
 -- =============================================
--- Query: Stock Transfer Detail - Header
--- Purpose: Returns transfer header, approval status panel,
---          and memo for the Transfer Detail screen
--- Story: 1.3.2 - View Transfer Detail (Pending)
--- Target: SQL Server 2014+ / OutSystems Advanced SQL
--- Created: 2026-03-31
+-- Test: Stock Transfer Detail - Header (SSMS Version)
+-- Purpose: Test header query in sandbox
 -- =============================================
 
--- Input Parameters (OutSystems):
---   @StockMovementId  BIGINT    Expand Inline = NO  The transfer to view
---   @CountryCode      VARCHAR   Expand Inline = NO  Tenant country code: 'AU', 'NZ', or 'Fj' (from GetTenantCountryCode())
+DECLARE @StockMovementId BIGINT = 40;
+DECLARE @CountryCode VARCHAR(2) = 'NZ';
 
 WITH InputVar AS (
     SELECT
@@ -46,7 +41,7 @@ SELECT
     approvedByUser.Name AS ReceiverApprovedByName,
     t.ApprovedAt AS ReceiverApprovedAt,
 
-    -- Amounts
+    -- Amounts (fall back to line totals when sm amounts are 0/null)
     CASE WHEN ISNULL(sm.NetAmount, 0) = 0 THEN ISNULL(lineTotals.TotalNetAmount, 0) ELSE sm.NetAmount END AS NetAmount,
     CASE WHEN ISNULL(sm.TaxAmount, 0) = 0 THEN ISNULL(lineTotals.TotalNetAmount, 0) * (SELECT GSTRate FROM InputVar) ELSE sm.TaxAmount END AS TaxAmount,
     CASE WHEN ISNULL(sm.GrossAmount, 0) = 0 THEN ISNULL(lineTotals.TotalNetAmount, 0) * (1 + (SELECT GSTRate FROM InputVar)) ELSE sm.GrossAmount END AS GrossAmount,
@@ -61,7 +56,7 @@ INNER JOIN {Site} toSite ON sm.DeliverySiteId = toSite.Id
 LEFT JOIN {User} createdByUser ON sm.CreatedBy = createdByUser.Id
 LEFT JOIN {User} approvedByUser ON t.ApprovedByUserId = approvedByUser.Id
 
--- Line totals for pending transfers (sm amounts are null)
+-- Line totals for pending transfers (sm amounts are 0/null)
 LEFT JOIN (
     SELECT
         sml.StockMovementId,

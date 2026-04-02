@@ -112,8 +112,8 @@ SELECT
     td.ToSiteId,
 
     -- Site names
-    fromSite.DisplayName AS FromSiteName,
-    toSite.DisplayName AS ToSiteName,
+    fromSite.Name AS FromSiteName,
+    toSite.Name AS ToSiteName,
 
     -- Dates
     td.CreatedAt,
