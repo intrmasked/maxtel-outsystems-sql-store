@@ -13,6 +13,7 @@
 --   @FilterSiteId  BIGINT    Expand Inline = NO   Optional: filter to transfers involving this specific site (0 = all)
 --   @StartDate     DATE      Expand Inline = NO   Optional: filter start date (Completed view only)
 --   @EndDate       DATE      Expand Inline = NO   Optional: filter end date (Completed view only)
+--   @CountryCode   VARCHAR   Expand Inline = NO   Tenant country code: 'AU', 'NZ', or 'Fj' (from GetTenantCountryCode())
 
 WITH
 
@@ -22,7 +23,14 @@ InputVar AS (
         @ViewType AS ViewType,
         @FilterSiteId AS FilterSiteId,
         @StartDate AS StartDate,
-        @EndDate AS EndDate
+        @EndDate AS EndDate,
+        @CountryCode AS CountryCode,
+        CASE @CountryCode
+            WHEN 'AU' THEN 0.10
+            WHEN 'NZ' THEN 0.15
+            WHEN 'Fj' THEN 0.15
+            ELSE 0.10
+        END AS GSTRate
 ),
 
 -- [CTE 2]: Get all transfers involving user's accessible sites
@@ -87,8 +95,8 @@ LineSummary AS (
         sml.StockMovementId,
         COUNT(*) AS LineCount,
         SUM(sml.NetAmount) AS LinesNetAmount,
-        SUM(sml.NetAmount) * 0.1 AS LinesGST,
-        SUM(sml.NetAmount) * 1.1 AS LinesGrossAmount
+        SUM(sml.NetAmount) * (SELECT GSTRate FROM InputVar) AS LinesGST,
+        SUM(sml.NetAmount) * (1 + (SELECT GSTRate FROM InputVar)) AS LinesGrossAmount
     FROM {StockMovementLine} sml
     INNER JOIN TransferData td ON sml.StockMovementId = td.StockMovementId
     GROUP BY sml.StockMovementId

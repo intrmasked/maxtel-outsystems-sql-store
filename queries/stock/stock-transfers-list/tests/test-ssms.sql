@@ -9,6 +9,7 @@ DECLARE @ViewType VARCHAR(1) = 'P';       -- 'P' = Pending, 'C' = Completed
 DECLARE @FilterSiteId BIGINT = 0;          -- 0 = all sites
 DECLARE @StartDate DATE = NULL;            -- NULL = no start filter
 DECLARE @EndDate DATE = NULL;              -- NULL = no end filter
+DECLARE @CountryCode VARCHAR(2) = 'NZ';   -- 'AU', 'NZ', or 'Fj'
 
 WITH
 
@@ -17,7 +18,14 @@ InputVar AS (
         @ViewType AS ViewType,
         @FilterSiteId AS FilterSiteId,
         @StartDate AS StartDate,
-        @EndDate AS EndDate
+        @EndDate AS EndDate,
+        @CountryCode AS CountryCode,
+        CASE @CountryCode
+            WHEN 'AU' THEN 0.10
+            WHEN 'NZ' THEN 0.15
+            WHEN 'Fj' THEN 0.15
+            ELSE 0.10
+        END AS GSTRate
 ),
 
 -- Get all transfers involving user's accessible sites
@@ -70,8 +78,8 @@ LineSummary AS (
         sml.StockMovementId,
         COUNT(*) AS LineCount,
         SUM(sml.NetAmount) AS LinesNetAmount,
-        SUM(sml.NetAmount) * 0.1 AS LinesGST,
-        SUM(sml.NetAmount) * 1.1 AS LinesGrossAmount
+        SUM(sml.NetAmount) * (SELECT GSTRate FROM InputVar) AS LinesGST,
+        SUM(sml.NetAmount) * (1 + (SELECT GSTRate FROM InputVar)) AS LinesGrossAmount
     FROM {StockMovementLine} sml
     INNER JOIN TransferData td ON sml.StockMovementId = td.StockMovementId
     GROUP BY sml.StockMovementId
