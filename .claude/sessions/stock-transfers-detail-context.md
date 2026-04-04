@@ -9,8 +9,18 @@
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] In Testing
-- Current step: Approve + Decline server actions complete, pending view frontend mostly built
-- Remaining: Completed (True) view widget tree, end-to-end testing with StockPeriodBalance verification
+- Current step: Approve verified ✅, building Completed (True) view
+- Remaining: Completed (True) view widget tree, end-to-end testing
+
+### Approve Verification (2026-04-03)
+- Tested with StockMovementId=42, NZ site (15% GST)
+- StockMovement: Net=224.52, Tax=33.678, Gross=258.198 ✅
+- Transfer: IsApproved=True, ApprovedByUserId=317662 ✅
+- Lines: 2 items, total=224.52 (matches SM_NetAmount) ✅
+- StockPeriodBalance: 1 of 2 items had LogicalItem mapping
+  - Sender (3188): TransferQty=-12 ✅
+  - Receiver (3189): TransferQty=+12 ✅
+- Items without LogicalItem mapping skipped (expected behavior)
 
 ## Queries Created
 - `queries/stock/stock-transfers-detail/` - Status: in-testing
@@ -122,21 +132,63 @@ Container (class: "transfer-detail-pending")
 .total-row-highlight { background-color: #f5f5f5; border-top: 2px solid #333; }
 ```
 
-## Completed View (True branch) — TBD
-Transfer report layout:
-- "Transfer report" title centered, Invoice number
-- Info row: Supplied by / Supplied to / Invoice date / Status badge (COMPLETE · READ-ONLY)
-- Line items table + Total ex GST
-- Memo
-- DIGITAL APPROVAL RECORD section
-- Two approval cards (both green, with dates)
-- No action buttons
+## Completed View (True branch) — DONE ✅
+Built and verified (2026-04-03). Matches mockup at maxtel-stock.surge.sh.
+
+### Widget Tree
+```
+If (IsApproved = True)
+└─ Container (class: "detail-card")
+    ├─ Container (class: "report-header")
+    │   ├─ Expression: "Transfer Report"
+    │   └─ Expression: "Invoice: " + StockMovementId
+    ├─ Container (class: "report-meta-grid")
+    │   ├─ Container → Label "Supplied by:" + Expression: FromSiteName
+    │   ├─ Container → Label "Invoice date:" + Expression: FormatDateTime(CreatedAt, "d/MM/yyyy")
+    │   ├─ Container → Label "Supplied To:" + Expression: ToSiteName
+    │   └─ Container → Label "Status:" + Expression: "Complete · read-only" (class: "badge-complete")
+    ├─ [Existing Datagrid — query-lines.sql, same as pending view]
+    ├─ Container (class: "memo-box", visible: Comment <> "")
+    │   └─ Expression: "Memo: " + Comment
+    ├─ Expression: "Digital approval record" (class: "digital-approval-title")
+    └─ Container (class: "appr-grid")
+        ├─ Container (class: "appr-side")
+        │   ├─ Expression (class: "appr-title"): FromSiteName + " (outgoing)"
+        │   ├─ Container (class: "appr-row") → Container (class: "dot dot-ok") + Expression: SenderApprovedByName
+        │   └─ Expression (class: "appr-meta"): FormatDateTime(SenderApprovedAt, "d MMM yyyy")
+        └─ Container (class: "appr-side")
+            ├─ Expression (class: "appr-title"): ToSiteName + " (incoming)"
+            ├─ Container (class: "appr-row") → Container (class: "dot dot-ok") + Expression: ReceiverApprovedByName
+            └─ Expression (class: "appr-meta"): FormatDateTime(ReceiverApprovedAt, "d MMM yyyy")
+```
+
+### CSS (completed view classes)
+```css
+.detail-card { background:#fff; border:1px solid #e3e6e8; border-radius:6px; padding:20px 24px; margin-bottom:16px; }
+.report-header { text-align:center; padding-bottom:14px; margin-bottom:16px; border-bottom:1px solid #e3e6e8; }
+.report-header span { display:block; }
+.report-header span:first-child { font-size:20px; font-weight:700; }
+.report-header span:last-child { font-size:14px; color:#888; margin-top:4px; }
+.report-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:14px; margin-bottom:20px; }
+.report-meta-grid .label { font-weight:400; color:#888; }
+.badge-complete { display:inline-block; background:#d4edda; color:#155724; border:2px solid #81c784; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+.memo-box { border:1px solid #e3e6e8; border-radius:4px; padding:10px 14px; font-size:14px; color:#666; margin-bottom:16px; }
+.digital-approval-title { font-size:13px; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:12px; }
+.appr-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.appr-side { background:#f8f9fb; border:1px solid #e3e6e8; border-radius:6px; padding:12px 14px; }
+.appr-title { font-size:13px; font-weight:600; color:#666; text-transform:uppercase; letter-spacing:0.04em; margin-bottom:6px; }
+.appr-row { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:500; }
+.appr-meta { font-size:13px; color:#888; margin-top:4px; }
+.dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.dot-ok { background:#28a745; }
+```
 
 ## Next Steps
-1. Test approve with items that have LogicalItem mappings (verify StockPeriodBalance)
-2. Build completed (True) view widget tree
-3. End-to-end testing
-4. Commit and update session
+1. ~~Test approve with items that have LogicalItem mappings (verify StockPeriodBalance)~~ ✅ Done
+2. ~~Build completed (True) view widget tree~~ ✅ Done
+3. Build main list screen frontend (Pending/Complete toggle, filters, datagrid) — **CURRENT**
+4. Wire everything together + end-to-end testing
+5. Commit and update session
 
 ## Quick Resume
 1. Read this context
