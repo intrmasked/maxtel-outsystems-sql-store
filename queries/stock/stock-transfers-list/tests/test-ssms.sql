@@ -5,7 +5,7 @@
 -- =============================================
 
 DECLARE @SiteIds VARCHAR(200) = '3187,3188,3189';
-DECLARE @ViewType VARCHAR(1) = 'P';       -- 'P' = Pending, 'C' = Completed
+DECLARE @ViewType VARCHAR(1) = 'P';       -- 'P' = Pending, 'A' = Approved/Completed
 DECLARE @FilterSiteId BIGINT = 0;          -- 0 = all sites
 DECLARE @StartDate DATE = NULL;            -- NULL = no start filter
 DECLARE @EndDate DATE = NULL;              -- NULL = no end filter
@@ -51,7 +51,7 @@ TransferData AS (
       AND (
           ((SELECT ViewType FROM InputVar) = 'P' AND t.IsApproved = 0)
           OR
-          ((SELECT ViewType FROM InputVar) = 'C' AND t.IsApproved = 1)
+          ((SELECT ViewType FROM InputVar) = 'A' AND t.IsApproved = 1)
       )
       -- SSMS: use STRING_SPLIT for comma-separated site list
       AND (

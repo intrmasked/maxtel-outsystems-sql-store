@@ -9,7 +9,7 @@
 
 -- Input Parameters (OutSystems):
 --   @SiteIds       VARCHAR   Expand Inline = YES  Comma-separated Site IDs the user has access to
---   @ViewType      VARCHAR   Expand Inline = NO   'P' = Pending, 'C' = Completed
+--   @ViewType      VARCHAR   Expand Inline = NO   'P' = Pending, 'A' = Approved/Completed
 --   @FilterSiteId  BIGINT    Expand Inline = NO   Optional: filter to transfers involving this specific site (0 = all)
 --   @StartDate     DATE      Expand Inline = NO   Optional: filter start date (Completed view only)
 --   @EndDate       DATE      Expand Inline = NO   Optional: filter end date (Completed view only)
@@ -65,7 +65,7 @@ TransferData AS (
       AND (
           ((SELECT ViewType FROM InputVar) = 'P' AND t.IsApproved = 0)
           OR
-          ((SELECT ViewType FROM InputVar) = 'C' AND t.IsApproved = 1)
+          ((SELECT ViewType FROM InputVar) = 'A' AND t.IsApproved = 1)
       )
       -- User must have access to at least one side of the transfer
       AND (
