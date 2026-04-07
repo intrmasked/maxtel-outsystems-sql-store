@@ -106,6 +106,9 @@ LineSummary AS (
 SELECT
     td.StockMovementId,
 
+    -- Invoice number: SiteId-XXXXXX (6 digit zero-padded StockMovementId)
+    CAST(td.FromSiteId AS VARCHAR) + '-' + REPLICATE('0', 6 - LEN(CAST(td.StockMovementId AS VARCHAR))) + CAST(td.StockMovementId AS VARCHAR) AS InvoiceNumber,
+
     -- Direction relative to the first accessible site in the user's list
     -- OutSystems will determine direction based on viewing site context
     td.FromSiteId,

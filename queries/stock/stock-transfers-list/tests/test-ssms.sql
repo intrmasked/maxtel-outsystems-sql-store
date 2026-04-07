@@ -87,6 +87,7 @@ LineSummary AS (
 
 SELECT
     td.StockMovementId,
+    CAST(td.FromSiteId AS VARCHAR) + '-' + REPLICATE('0', 6 - LEN(CAST(td.StockMovementId AS VARCHAR))) + CAST(td.StockMovementId AS VARCHAR) AS InvoiceNumber,
     td.FromSiteId,
     td.ToSiteId,
     fromSite.Name AS FromSiteName,

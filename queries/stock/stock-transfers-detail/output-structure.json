@@ -1,6 +1,7 @@
 {
   "header": {
     "StockMovementId":        "LongInteger",
+    "InvoiceNumber":          "Text",
     "ApprovedDate":           "Date",
     "CreatedAt":              "Date",
     "FromSiteId":             "LongInteger",

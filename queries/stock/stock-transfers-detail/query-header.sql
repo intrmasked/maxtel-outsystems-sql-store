@@ -25,6 +25,9 @@ WITH InputVar AS (
 SELECT
     sm.Id AS StockMovementId,
 
+    -- Invoice number: SiteId-XXXXXX (6 digit zero-padded StockMovementId)
+    CAST(t.FromSiteId AS VARCHAR) + '-' + REPLICATE('0', 6 - LEN(CAST(sm.Id AS VARCHAR))) + CAST(sm.Id AS VARCHAR) AS InvoiceNumber,
+
     -- Transfer info
     sm.Date AS ApprovedDate,
     sm.CreatedAt,

@@ -8,9 +8,9 @@
 - 1.3.4: Decline a Transfer
 
 ## Status
-- [ ] Complete / [X] In Progress / [ ] In Testing
-- Current step: Approve verified ✅, building Completed (True) view
-- Remaining: Completed (True) view widget tree, end-to-end testing
+- [ ] Complete / [ ] In Progress / [X] In Testing
+- Current step: All queries, server actions, and frontend views complete
+- Remaining: End-to-end testing only
 
 ### Approve Verification (2026-04-03)
 - Tested with StockMovementId=42, NZ site (15% GST)
@@ -58,7 +58,7 @@
 - **Site names**: Use `Name` not `DisplayName` (changed across all queries)
 - **Lines total row**: UNION ALL with IsTotal=1 identifier, OutSystems uses If widget per row
 - **Decline = hard delete**: Lines → Transfer → StockMovement, no balance updates
-- **Invoice ID**: No separate field in DB — using StockMovementId directly
+- **Invoice Number format**: `FromSiteId-XXXXXX` (6-digit zero-padded StockMovementId, e.g., `202-000004`). Computed in SQL, returned as `InvoiceNumber` Text column in both list and detail queries
 - **StockPeriodBalance via existing action**: Use `UpdateStockPeriodBalanceTransfers(SiteId, Date)` from StockLedger folder — handles LogicalItem resolution, portions conversion, create-if-missing. Called twice (sender + receiver) instead of custom loop
 - **Skip if no LogicalItem**: Items without LogicalItem mapping won't get balance updates (data issue, not code issue)
 
@@ -183,15 +183,27 @@ If (IsApproved = True)
 .dot-ok { background:#28a745; }
 ```
 
+## Main List Screen (2026-04-07)
+- Two separate datagrids (Pending / Completed) wrapped in If on ViewType
+- **Pending columns**: Direction badge, Invoice, Date, From, To, Lines, Ex GST, Total (incl. GST), Status
+- **Completed columns**: Direction badge, Invoice, Date, From, To, Lines, Ex GST, GST, Total, Approved by (out), Approved by (in)
+- **Direction badge**: `If(ToSiteId = SelectedSiteId, "↓ In", "↑ Out")` — hidden when no specific site selected
+- **Status badge**: `If(ToSiteId = SelectedSiteId, "Awaiting your approval", "Awaiting " + ToSiteName)`
+- **StatusBadge block CSS classes**: `.pending` (red), `.approved` (green), `.info` (blue), `.awaiting` (blue outline)
+- **Notification bubble**: `TransfersNotifBlock` — counts pending transfers where `DeliverySiteId = SelectedSiteId`, updates on site change
+- **Store filter**: `@FilterSiteId` — filters on both FromSiteId and ToSiteId (0 = all)
+- **Role**: `StockInvoice_Admin` required for Create, Approve, Decline. View is open to all with site access.
+
 ## Next Steps
 1. ~~Test approve with items that have LogicalItem mappings (verify StockPeriodBalance)~~ ✅ Done
 2. ~~Build completed (True) view widget tree~~ ✅ Done
-3. Build main list screen frontend (Pending/Complete toggle, filters, datagrid) — **CURRENT**
-4. Wire everything together + end-to-end testing
-5. Commit and update session
+3. ~~Build main list screen frontend~~ ✅ Done
+4. ~~Add InvoiceNumber format (SiteId-XXXXXX) to list + detail queries~~ ✅ Done
+5. End-to-end testing — **CURRENT**
 
 ## Quick Resume
 1. Read this context
-2. Approve + Decline actions are done in Stock_CS
-3. Pending view frontend is mostly done
-4. Continue from: Completed (True) view + end-to-end testing
+2. All queries done: list (query.sql), detail header (query-header.sql), detail lines (query-lines.sql)
+3. All server actions done: ApproveStockTransfer, DeleteStockTransfer
+4. All frontend views done: Pending list, Completed list, Pending detail, Completed detail
+5. Continue from: End-to-end testing
