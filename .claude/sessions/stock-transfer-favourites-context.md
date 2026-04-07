@@ -8,7 +8,7 @@ A Site needs to be able to select favourites for use in the Transfer screens. Fa
 - **Create/Edit screen** — site "To Site" dropdown
 
 Requirements:
-- New table `StockTransferFavouriteSite` to store favourites
+- New table `SiteFavourite` to store favourites
 - Default setup action: set defaults to other active sites in same tenant. If receiving NullSiteId → run for all active sites (one-time on publish to production)
 - Settings screen section for managing favourites (add/delete)
 - "Edit favourites" link below dropdown lists in transfer screens
@@ -70,19 +70,20 @@ Requirements:
 - `{Site}` — Site table (`Is Multi-tenant = Yes`, tenant-filtered in Advanced SQL)
 - Site via existing module's Server Action — cross-tenant access (Show Tenant Identifier enabled)
 
-### New Table: `StockTransferFavouriteSite`
-| Column | Data Type | Nullable | Description |
-|--------|-----------|----------|-------------|
-| `Id` | BIGINT (PK) | NOT NULL | OutSystems auto-generated PK |
-| `SiteId` | BIGINT | NOT NULL | The site that owns this favourite (FK → Site.Id) |
-| `FavouriteSiteId` | BIGINT | NOT NULL | The favourited site (FK → Site.Id, can be cross-tenant) |
-| `CountryCode` | VARCHAR | NULL | Country code (denormalized for filtering) |
-| `CreatedDate` | DATETIME | NOT NULL | When the favourite was created |
-| `CreatedBy` | BIGINT | NULL | User who created the favourite |
-| `ModifiedDate` | DATETIME | NULL | Last modification timestamp |
-| `ModifiedBy` | BIGINT | NULL | User who last modified |
+### New Table: `SiteFavourite`
+| Column | Data Type | Mandatory | Description |
+|--------|-----------|-----------|-------------|
+| `Id` | Long Integer (PK) | Yes | OutSystems auto-generated PK |
+| `SiteId` | Site Identifier | Yes | The site that owns this favourite (FK → Site.Id) |
+| `FavouriteSiteId` | Long Integer | Yes | The favourited site — **NOT Site Identifier** (avoids tenant-filtered FK for cross-tenant support) |
+| `FavouriteSiteName` | Text (100) | No | Denormalized name — stored at insert time to avoid cross-tenant JOIN |
+| `CountryCode` | Text (10) | No | Country code for filtering |
+| `CreatedBy` | User Identifier | No | User who added the favourite |
+| `CreatedDate` | Date Time | Yes | Default: `CurrDateTime()` |
 
-**Note**: Table docs to be created at `database-context/tables/StockTransferFavouriteSite/README.md`
+**Key**: `FavouriteSiteId` is Long Integer (not Site Identifier) to bypass tenant FK. `FavouriteSiteName` is denormalized to avoid cross-tenant JOIN.
+**Module**: `Stock_CS` (universal — not tied to transfers)
+**Table docs**: `database-context/tables/SiteFavourite/README.md` ✅ Created
 
 ## Backend Action Plan
 
@@ -97,7 +98,7 @@ Requirements:
 
 | # | Query Name | Category | Purpose | Priority |
 |---|-----------|----------|---------|----------|
-| 2 | `get-favourite-sites` | `stock` | Get a site's favourite sites for dropdown population. Joins `{StockTransferFavouriteSite}` with `{Site}` to get display names. Since favourites store the SiteId, and we only need to display names for already-saved favourites, `{Site}` tenant filtering may or may not be an issue here — need to verify. | **P1 — Next** |
+| 2 | `get-favourite-sites` | `stock` | Get a site's favourite sites for dropdown population. Joins `{SiteFavourite}` with `{Site}` to get display names. Since favourites store the SiteId, and we only need to display names for already-saved favourites, `{Site}` tenant filtering may or may not be an issue here — need to verify. | **P1 — Next** |
 | 3 | `setup-default-favourites` | `stock` | INSERT default favourites for a site (or all active sites if NullSiteId). Defaults = other active sites in same tenant (uses `{Site}` which is tenant-safe for same-tenant). Idempotent — skips sites that already have favourites. | **P1** |
 | 4 | `add-favourite-site` | `stock` | INSERT a single favourite. Likely handled by OutSystems entity action — TBD. | **P2** |
 | 5 | `remove-favourite-site` | `stock` | DELETE a single favourite. Likely handled by OutSystems entity action — TBD. | **P2** |
@@ -133,13 +134,13 @@ queries/stock/setup-default-favourites/    ← Phase 2
 └── tests/
     └── test-ssms.sql
 
-database-context/tables/StockTransferFavouriteSite/
+database-context/tables/SiteFavourite/
 └── README.md
 ```
 
 ## Next Steps
 1. **Build Server Action** `GetAllSitesByCountryCode` in existing module (OutSystems work, not SQL)
-2. **Create table docs** for `StockTransferFavouriteSite` (once entity is created)
+2. **Create table docs** for `SiteFavourite` (once entity is created)
 3. **Build `get-favourite-sites` query** (Phase 2) — need to verify if `{Site}` join works for cross-tenant favourite names
 4. **Build `setup-default-favourites` query** (Phase 2)
 5. Evaluate if add/remove need custom SQL or OutSystems entity actions
@@ -150,11 +151,11 @@ database-context/tables/StockTransferFavouriteSite/
 - Cross-tenant site list handled via Server Action, NOT SQL
 - `get-favourite-sites` query will need to join favourites to Site for names — may hit the same tenant issue if favourite sites are from other tenants. Consider denormalizing site name into the favourites table.
 - Role checks (`StockInvoice_Admin` / `MaxtelSupport`) are app-layer — not in SQL
-- The `StockTransferFavouriteSite` table doesn't exist yet — user will create it in OutSystems
+- The `SiteFavourite` table doesn't exist yet — user will create it in OutSystems
 
 ## Quick Resume
 To continue:
 1. Read this context file
 2. Build Server Action in OutSystems (cross-tenant site list)
-3. Create `StockTransferFavouriteSite` entity in OutSystems
+3. Create `SiteFavourite` entity in OutSystems
 4. Then build Phase 2 SQL queries
