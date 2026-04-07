@@ -13,6 +13,7 @@
 --   @FilterSiteId  BIGINT    Expand Inline = NO   Optional: filter to transfers involving this specific site (0 = all)
 --   @StartDate     DATE      Expand Inline = NO   Optional: filter start date (Completed view only)
 --   @EndDate       DATE      Expand Inline = NO   Optional: filter end date (Completed view only)
+--   @SelectedSiteId BIGINT   Expand Inline = NO   Currently selected site from sidebar
 --   @CountryCode   VARCHAR   Expand Inline = NO   Tenant country code: 'AU', 'NZ', or 'Fj' (from GetTenantCountryCode())
 
 WITH
@@ -21,6 +22,7 @@ WITH
 InputVar AS (
     SELECT
         @ViewType AS ViewType,
+        @SelectedSiteId AS SelectedSiteId,
         @FilterSiteId AS FilterSiteId,
         @StartDate AS StartDate,
         @EndDate AS EndDate,
@@ -72,7 +74,13 @@ TransferData AS (
           t.FromSiteId IN (@SiteIds)
           OR sm.DeliverySiteId IN (@SiteIds)
       )
-      -- Optional: filter to a specific counterpart site
+      -- Sidebar site filter: selected site must be on either side (0 = all sites, skip filter)
+      AND (
+          (SELECT SelectedSiteId FROM InputVar) = 0
+          OR t.FromSiteId = (SELECT SelectedSiteId FROM InputVar)
+          OR sm.DeliverySiteId = (SELECT SelectedSiteId FROM InputVar)
+      )
+      -- Optional: store dropdown filter — narrows to transfers between sidebar site and this specific site
       AND (
           (SELECT FilterSiteId FROM InputVar) = 0
           OR t.FromSiteId = (SELECT FilterSiteId FROM InputVar)
