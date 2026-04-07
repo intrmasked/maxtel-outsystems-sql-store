@@ -66,7 +66,18 @@ INNER JOIN {Site} s ON sf.SiteId = s.Id
 - `Id_Site` is the external system identifier, NOT used for internal joins
 
 ### Multi-Tenant Support
-OutSystems automatically handles tenant filtering, so you typically don't need additional WHERE clauses for tenant isolation.
+- **`Is Multi-tenant = Yes`** on the Site entity — OutSystems auto-filters by current tenant
+- `{Site}` in Advanced SQL blocks will **only return current tenant's sites**
+- SQL Sandbox does NOT apply tenant filtering (misleading for testing)
+
+### Cross-Tenant Access
+When you need all sites across tenants (e.g., Transfer Favourites):
+- **Module**: `Access_MCW_V2` — has Site with **Show Tenant Identifier** enabled
+- **Server Action**: `GetAllSitesByCountryCode` (located in `Access_MCW_V2`)
+  - Input: `CountryCode` (Text), `SiteId` (LongInteger — to exclude)
+  - Output: List of `{Id, Name, CountryCode}`
+- **Do NOT use `{Site}` in Advanced SQL** for cross-tenant queries — it will be tenant-filtered
+- **Do NOT use physical table names** (e.g., `[OSDEV1].dbo.[OSUSR_H1R_SITE_T18]`) — they don't work in Advanced SQL blocks
 
 ## Common Patterns
 
@@ -102,7 +113,7 @@ GROUP BY sf.CalendarDate, s.DisplayName
 - **External SWC Site ID**: `Id_Site` is for external Xero tables only - NOT used for SalesFact joins
 - **Active Status**: Use `isActive = 1` to filter for currently active sites
 - **Display Name**: Prefer `DisplayName` over `Name` for user-facing reports
-- **Tenant Filtering**: OutSystems handles multi-tenant isolation automatically
+- **Tenant Filtering**: `Is Multi-tenant = Yes` — `{Site}` auto-filters by tenant in Advanced SQL. For cross-tenant access, use `Access_MCW_V2` module's Server Action
 
 ## Usage in Queries
 
@@ -131,7 +142,7 @@ WHERE (@SiteId IS NULL OR s.Id = @SiteId)
 
 - **Indexing**: Ensure index on `Id` (primary key) for optimal join performance
 - **Active Filter**: `isActive` column should be indexed if frequently filtered
-- **Tenant Isolation**: OutSystems handles this automatically via framework
+- **Tenant Isolation**: OutSystems auto-filters by tenant. Cross-tenant access via `Access_MCW_V2` only
 
 ## Related Tables
 
@@ -145,3 +156,4 @@ WHERE (@SiteId IS NULL OR s.Id = @SiteId)
 | Date | Change | Author |
 |------|--------|--------|
 | 2025-12-18 | Initial documentation created | Claude |
+| 2026-04-07 | Added multi-tenant details, cross-tenant access via Access_MCW_V2 | Claude |
