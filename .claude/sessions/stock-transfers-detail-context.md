@@ -8,9 +8,8 @@
 - 1.3.4: Decline a Transfer
 
 ## Status
-- [ ] Complete / [ ] In Progress / [X] In Testing
-- Current step: All queries, server actions, and frontend views complete
-- Remaining: End-to-end testing only
+- [X] Complete / [ ] In Progress / [ ] In Testing
+- All tested, in peer review
 
 ### Approve Verification (2026-04-03)
 - Tested with StockMovementId=42, NZ site (15% GST)
