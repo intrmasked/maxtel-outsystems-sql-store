@@ -103,7 +103,7 @@ Container (class: "transfer-detail-pending")
 - **Description**: If(IsTotal=1, "Total ex GST", Description) — bold + right-aligned for total
 - **Cartons/Inners/Units**: If(IsTotal=1, "", If(value=0, "—", value))
 - **Total Units**: If(IsTotal=1, "", TotalUnits)
-- **Price/Unit**: If(IsTotal=1, "", "$" + FormatDecimal(PricePerUnit, 5, ".", ","))
+- **Price/Unit**: If(IsTotal=1, "", "$" + FormatDecimal(PricePerUnit, 2, ".", ","))
 - **Cost**: "$" + FormatDecimal(Cost, 2, ".", ",") — bold blue for total row
 
 ### CSS
@@ -115,8 +115,17 @@ Container (class: "transfer-detail-pending")
     margin-bottom: 16px;
     font-size: 15px;
     font-weight: 500;
+    gap: 16px;
 }
-.header-meta { font-size: 13px; color: #666; font-weight: 400; }
+.transfer-detail-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.invoice-number { white-space: nowrap; font-size: 15px; font-weight: 500; }
+.header-meta { font-size: 13px; color: #666; font-weight: 400; white-space: nowrap; }
 .approval-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
 .approval-card { padding: 16px; border: 1px solid #e0e0e0; border-radius: 6px; }
 .approval-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
@@ -132,7 +141,7 @@ Container (class: "transfer-detail-pending")
 ```
 
 ## Completed View (True branch) — DONE ✅
-Built and verified (2026-04-03). Matches mockup at maxtel-stock.surge.sh.
+Built and verified (2026-04-03). Updated 2026-04-09: left-aligned report header, Invoice date = ReceiverApprovedAt, Price/Unit 2dp.
 
 ### Widget Tree
 ```
@@ -143,7 +152,7 @@ If (IsApproved = True)
     │   └─ Expression: "Invoice: " + StockMovementId
     ├─ Container (class: "report-meta-grid")
     │   ├─ Container → Label "Supplied by:" + Expression: FromSiteName
-    │   ├─ Container → Label "Invoice date:" + Expression: FormatDateTime(CreatedAt, "d/MM/yyyy")
+    │   ├─ Container → Label "Invoice date:" + Expression: FormatDateTime(ReceiverApprovedAt, "d/MM/yyyy")
     │   ├─ Container → Label "Supplied To:" + Expression: ToSiteName
     │   └─ Container → Label "Status:" + Expression: "Complete · read-only" (class: "badge-complete")
     ├─ [Existing Datagrid — query-lines.sql, same as pending view]
@@ -164,10 +173,10 @@ If (IsApproved = True)
 ### CSS (completed view classes)
 ```css
 .detail-card { background:#fff; border:1px solid #e3e6e8; border-radius:6px; padding:20px 24px; margin-bottom:16px; }
-.report-header { text-align:center; padding-bottom:14px; margin-bottom:16px; border-bottom:1px solid #e3e6e8; }
+.report-header { text-align:left; padding-bottom:14px; margin-bottom:16px; border-bottom:1px solid #e3e6e8; }
 .report-header span { display:block; }
-.report-header span:first-child { font-size:20px; font-weight:700; }
-.report-header span:last-child { font-size:14px; color:#888; margin-top:4px; }
+.report-header span:first-child { font-size:20px; font-weight:700; margin-bottom:2px; }
+.report-header span:last-child { font-size:14px; color:#888; margin-top:0; }
 .report-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:14px; margin-bottom:20px; }
 .report-meta-grid .label { font-weight:400; color:#888; }
 .badge-complete { display:inline-block; background:#d4edda; color:#155724; border:2px solid #81c784; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
@@ -193,12 +202,22 @@ If (IsApproved = True)
 - **Store filter**: `@FilterSiteId` — filters on both FromSiteId and ToSiteId (0 = all)
 - **Role**: `StockInvoice_Admin` required for Create, Approve, Decline. View is open to all with site access.
 
+## Changes (2026-04-09)
+- **Pending view header**: Fixed wrapping — added `flex-shrink: 0`, `white-space: nowrap`, `gap` to header bar
+- **Invoice number**: Added `.invoice-number` class with `white-space: nowrap`
+- **Alert block**: Created `AlertNoWrap` block with `.alert-nowrap-style/icon/title` classes (single-line, icon centered)
+- **Completed view**: Left-aligned report header, tightened invoice number gap
+- **Invoice date**: Changed from `CreatedAt` to `ReceiverApprovedAt` (actual approval date)
+- **Price/Unit**: Changed from 5dp to 2dp
+- **Transfer entity**: Changed `ApprovedAt` from Text to DateTime
+
 ## Next Steps
 1. ~~Test approve with items that have LogicalItem mappings (verify StockPeriodBalance)~~ ✅ Done
 2. ~~Build completed (True) view widget tree~~ ✅ Done
 3. ~~Build main list screen frontend~~ ✅ Done
 4. ~~Add InvoiceNumber format (SiteId-XXXXXX) to list + detail queries~~ ✅ Done
-5. End-to-end testing — **CURRENT**
+5. ~~End-to-end testing~~ ✅ Done
+6. ~~CSS fixes + Invoice date + Price/Unit 2dp~~ ✅ Done (2026-04-09)
 
 ## Quick Resume
 1. Read this context
