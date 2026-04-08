@@ -60,6 +60,7 @@ Create Transfer screen — sending store user selects receiving site, adds line 
 - [X] `RemoveOnClick` — removes row + recalcs Total row
 - [X] `physicalItemDropdownOnChanged` — recalcs Total row after item/price change
 - [X] QtyTotal formula fix: `If(UnitsInCarton = 0, 1, UnitsInCarton)` / `If(UnitsInInners = 0, 1, UnitsInInners)` to prevent zero multiplication
+- [X] QtyTotal formula fix (2026-04-09): Removed `× UnitsInInners` from cartons — UnitsInCarton is already total units per carton, not inners per carton
 
 ## Pending Steps
 - [X] SaveTransfer — validation + create StockMovement + Transfer + StockMovementLine records
@@ -69,8 +70,11 @@ Create Transfer screen — sending store user selects receiving site, adds line 
 - **No SQL queries**: All data via OutSystems aggregates (items, price) and server actions (save)
 - **PhysicalItem** (not LogicalItem): PRD explicitly uses PhysicalItemId on StockMovementLine
 - **Total row at position 0**: Identified by `Description = "Total-Description"`
-- **QtyTotal formula**: `(QtyOfCases × If(UnitsInCarton=0,1,UnitsInCarton) × If(UnitsInInners=0,1,UnitsInInners)) + (QtyOfInners × If(UnitsInInners=0,1,UnitsInInners)) + QtyOfLoose`
+- **QtyTotal formula**: `(QtyOfCases × If(UnitsInCarton=0,1,UnitsInCarton)) + (QtyOfInners × If(UnitsInInners=0,1,UnitsInInners)) + QtyOfLoose`
+- **UnitsInCarton** = total individual units per carton (already resolved to base unit, NOT inners per carton)
+- **UnitsInInners** = total individual units per inner (already resolved to base unit)
 - **Zero conversion factor fix**: When UnitsInCarton or UnitsInInners = 0 (item has no carton/inner packing level), treat as 1 to prevent zeroing out the calculation
+- **Formula fix (2026-04-09)**: Removed extra `× UnitsInInners` from cartons part — old formula double-counted by treating UnitsInCarton as "inners per carton"
 - **NetAmount formula**: `QtyTotal × UnitPrice`
 - **GST dynamic by country**: AU = 10%, NZ = 15%, Fj = 15% — uses @CountryCode param from GetTenantCountryCode()
 
@@ -193,11 +197,12 @@ BO_RawItem.Refkey = PhysicalItem.BO_RawItemId                  (Only With)
 - UnitPrice (decimal 18,5) — resolved at save time
 - NetAmount (decimal 18,4) — QtyTotal × UnitPrice
 
-### QtyTotal Formula (PRD)
-`(QtyOfCases × CartonQty × InnerQty) + (QtyOfInners × InnerQty) + QtyOfLoose`
-- CartonQty = PhysicalItem.UnitsInCarton
-- InnerQty = PhysicalItem.UnitsInInners
-- **Fix applied**: Treat 0 as 1 to prevent zero multiplication when item has no carton/inner packing level
+### QtyTotal Formula (Corrected 2026-04-09)
+`(QtyOfCases × UnitsInCarton) + (QtyOfInners × UnitsInInners) + QtyOfLoose`
+- UnitsInCarton = total individual units per carton (already resolved to base unit)
+- UnitsInInners = total individual units per inner (already resolved to base unit)
+- **Zero-safety**: Treat 0 as 1 to prevent zeroing out when item has no carton/inner packing level
+- **Old formula was wrong**: `Cases × UnitsInCarton × UnitsInInners` double-counted because UnitsInCarton is already the total units, not inners per carton
 
 ### Unit Price Resolution (PRD)
 ```sql
