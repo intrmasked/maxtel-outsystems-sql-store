@@ -18,7 +18,7 @@ Requirements:
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] In Testing
-- Current step: Backend done — moving to UI (Phase 3)
+- Current step: CRUD built — Add & Remove working, wiring UI next
 
 ## The Cross-Tenant Problem — RESOLVED (Server Action Approach)
 
@@ -130,39 +130,55 @@ Requirements:
 - Added `SiteName` column (Text 100) — denormalized owning site name
 - Cleared all existing data (`DELETE FROM {SiteFavorties}`) and re-ran `SetupDefaultFavourites`
 
-## Phase 4: CRUD Server Actions — PENDING
+## Phase 4: CRUD Server Actions — COMPLETE ✅
 
 ### Stock_CS Module — Server Actions (Private)
 
-**1. AddSiteFavourite** (Server Action, Private)
-- **Input**: `SiteId`, `SiteName`, `FavouriteSiteId`, `FavouriteSiteName`, `FavouriteCountryCode`
+**1. AddSiteFavourites** (Server Action, Private) ✅
+- **Input**: `SiteId` (Site Identifier), `FavouriteSiteId` (Long Integer), `FavouriteSiteName` (Text), `FavouriteCountryCode` (Text)
 - **Logic**:
   1. Duplicate check → Aggregate `{SiteFavorties}` WHERE `SiteId = SiteId AND FavouriteSiteId = FavouriteSiteId`
-  2. If exists → return Success=False, Message="Already a favourite"
-  3. Else → `CreateSiteFavorties` with all fields + `CreatedBy = GetUserId()`, `CreatedDate = CurrDateTime()`
-- **Output**: `Success` (Boolean), `Message` (Text)
+  2. If NOT empty → throw Application Exception "Already a favourite"
+  3. Get owner site name → Aggregate `{Site}` WHERE `Id = SiteId`
+  4. Create record with all fields + `CreatedBy = GetUserId()`, `CreatedDate = CurrDateTime()`
+- **Note**: Server looks up `SiteName` (owner) itself. Client sends `FavouriteSiteName` + `FavouriteCountryCode` from dropdown data.
+- **Bug found & fixed**: Initial If condition was backwards (`List.Empty? → True → Exception`). Fixed to `NOT List.Empty? → Exception`.
 
-**2. RemoveSiteFavourite** (Server Action, Private)
-- **Input**: `SiteFavortiesId` (the record Id)
+**2. RemoveSiteFavourite** (Server Action, Private) ✅
+- **Input**: `SiteFavortiesId` (SiteFavorties Identifier)
 - **Logic**: `DeleteSiteFavorties(SiteFavortiesId)`
-- **Output**: `Success` (Boolean)
 
-### Stock_CS Module — Service Actions (Public wrappers)
-- `AddSiteFavourite` (Public) → calls private `AddSiteFavourite`
+### Stock_CS Module — Service Actions (Public wrappers) ✅
+- `AddSiteFavourites` (Public) → calls private `AddSiteFavourites`
 - `RemoveSiteFavourite` (Public) → calls private `RemoveSiteFavourite`
 
-### UI Module — Client Actions
+### UI Module — Client Actions ✅
 
-**OnClick_AddFavourite:**
-1. Validate: `FavouriteSiteId <> 0`
-2. If `SelectedSiteId <> NullIdentifier()` → use `SelectedSiteId`, else use local `SiteId`
-3. Call `AddSiteFavourite` service action
-4. Refresh datagrid aggregate
-5. Reset dropdown
+**AddFavoritesOnClick:**
+1. Validate: `Local_FavouriteSiteId <> 0`
+2. Determine owner: `If(SelectedSiteId <> NullIdentifier(), SelectedSiteId, Local_SiteId)`
+3. Filter AllSites data to get `FavouriteCountryCode`
+4. Call `AddSiteFavourites` service action
+5. Refresh `GetSiteFavorites` → datagrid updates
+6. Reset local variables
 
-**OnClick_RemoveFavourite** (per datagrid row):
-1. Call `RemoveSiteFavourite` with row's `SiteFavorties.Id`
-2. Refresh datagrid aggregate
+**RemoveOnClick** (per datagrid row):
+1. Call `RemoveSiteFavourite` with `GetSiteFavorites.List.Current.SiteFavorties.Id`
+2. Refresh `GetSiteFavorites` → datagrid updates
+
+**TenantSitesOnChanged** (Owner Site dropdown):
+- Stores `SelectedOptionList.Current.Value` → `Local_SiteId`
+
+**AllSitesOnChanged** (Favourite Site dropdown):
+- Stores `Value` → `Local_FavouriteSiteId`, `Label` → `Local_FavouriteSiteName`
+
+### Screen Local Variables
+| Name | Type | Default |
+|------|------|---------|
+| `Local_SiteId` | Site Identifier | `NullIdentifier()` |
+| `Local_FavouriteSiteId` | Long Integer | `0` |
+| `Local_FavouriteSiteName` | Text | `""` |
+| `Local_FavouriteCountryCode` | Text | `""` |
 
 ### CSS Classes
 | Class | Applied To | Purpose |
@@ -182,11 +198,12 @@ Requirements:
 - **No ConceptId needed**: SiteId + CountryCode is sufficient
 
 ## Next Steps
-1. **Build settings screen UI** — searchable dropdown + favourites list
-2. **Wire "Populate All" button** in settings
-3. **Integrate favourites into transfer screen dropdowns**
-4. **Handle empty state** — "No Sites" + "Edit Favourites" link
-5. **Role checks** — restrict editing to StockInvoice_Admin / MaxtelSupport
+1. ~~**Build settings screen UI**~~ ✅ Dropdowns + Add button + Datagrid done
+2. ~~**CRUD server/service actions**~~ ✅ Add + Remove built & working
+3. **Wire "Populate All" button** — move to header, call `SetupDefaultFavourites`
+4. **Integrate favourites into transfer screen dropdowns** — aggregate on `{SiteFavorties}`
+5. **Handle empty state** — "No Sites" + "Edit Favourites" link
+6. **Role checks** — restrict editing to StockInvoice_Admin / MaxtelSupport
 
 ## Notes for Next Session
 - Physical table name (ref only): `[OSDEV1].dbo.[OSUSR_H1R_SITE_T18]`
