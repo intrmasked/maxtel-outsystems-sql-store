@@ -12,6 +12,24 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
 
 ---
 
+## OutSystems Server Action Convention
+
+**Always use Service Actions to expose logic from CS modules.**
+
+- **Server Actions** in `_CS` modules should be **private** (Public = No)
+- Create a **Service Action** as the public wrapper that calls the private Server Action
+- This keeps the CS module's internal logic encapsulated
+- UI modules consume the Service Action, never the Server Action directly
+
+**Pattern:**
+```
+Stock_CS module:
+├─ Server Action: SetupDefaultFavourites (Private)    ← actual logic
+└─ Service Action: SetupDefaultFavourites (Public)    ← wrapper, calls the Server Action
+```
+
+---
+
 ## When User Says "Start" or Gives Story Instructions
 
 ### Automatic Workflow:

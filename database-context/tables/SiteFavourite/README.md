@@ -16,6 +16,7 @@ Universal favourite sites table. Each site can mark other sites as favourites, i
 |-------------|-----------|-----------|---------|-------------|
 | `Id` | Long Integer (PK) | Yes | Auto | OutSystems auto-generated primary key |
 | `SiteId` | Site Identifier | Yes | — | The site that owns this favourite (FK → Site.Id) |
+| `SiteName` | Text (100) | No | — | Denormalized name of the owning site, stored at insert time |
 | `FavouriteSiteId` | Long Integer | Yes | — | The favourited site's Id. **Long Integer, NOT Site Identifier** — avoids tenant-filtered FK constraint for cross-tenant support |
 | `FavouriteSiteName` | Text (100) | No | — | Denormalized site name, stored at insert time. Avoids cross-tenant JOIN to `{Site}` when displaying |
 | `FavouriteCountryCode` | Text (10) | No | — | Country code of the favourited site, for regional filtering |

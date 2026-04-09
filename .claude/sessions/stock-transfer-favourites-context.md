@@ -47,6 +47,7 @@ Requirements:
 |--------|-----------|-----------|-------------|
 | `Id` | Long Integer (PK) | Yes | OutSystems auto-generated PK |
 | `SiteId` | Site Identifier | Yes | The site that owns this favourite (FK → Site.Id) |
+| `SiteName` | Text (100) | No | Denormalized name of the owning site — stored at insert time |
 | `FavouriteSiteId` | Long Integer | Yes | The favourited site — **NOT Site Identifier** (avoids tenant-filtered FK) |
 | `FavouriteSiteName` | Text (100) | No | Denormalized name — stored at insert time |
 | `FavouriteCountryCode` | Text (10) | No | Country code of the favourited site |
@@ -84,26 +85,39 @@ Requirements:
 ## Phase 3: UI Integration — IN PROGRESS
 
 ### Settings Screen — Favourites Management
-**Pattern**: Searchable dropdown + favourites list
-- Search dropdown at top to find and add sites (cross-tenant via `GetAllSitesByCountryCode`)
-- Below: list of current favourites with remove button on each row
-- Role-restricted: `StockInvoice_Admin` or `MaxtelSupport` only
+**Pattern**: Dropdown + Add button + Datagrid with remove
+
+**Conditional logic**:
+- If `SelectedSiteId <> NullIdentifier()` → site is pre-selected, hide site picker
+- If `SelectedSiteId = NullIdentifier()` → show site picker, allow managing any site's favourites
 
 **Layout**:
 ```
-[Settings Section: Transfer Favourites]
-┌─────────────────────────────────────┐
-│ Add site: [🔍 Search sites...    ▾] │
-├─────────────────────────────────────┤
-│ Coastlands                    [✕]  │
-│ Mana                          [✕]  │
-│ Paraparaumu                   [✕]  │
-│ Porirua Plaza                 [✕]  │
-└─────────────────────────────────────┘
+[▾ Select site (owner)  ]  [▾ Select favourite site ]  [+ Add]
+ ↑ hidden if SelectedSiteId    ↑ cross-tenant list
+   is already set               (GetAllSitesByCountryCode)
+
+| Site (owner)     | Favourite Site   | Action  |
+|------------------|------------------|---------|
+| Coastlands       | Mana             | Remove  |
+| Coastlands       | Paraparaumu      | Remove  |
+| Coastlands       | Porirua Plaza    | Remove  |
+
+[Populate Defaults]  ← bottom, show when empty or MaxtelSupport
 ```
 
+**Datagrid columns**:
+- `SiteName` — owning site (denormalized from `{SiteFavorties}.SiteName`)
+- `FavouriteSiteName` — the favourited site
+- Remove button — calls `DeleteSiteFavorties`
+
+**Data sources**:
+- Datagrid: Aggregate on `{SiteFavorties}`, filtered by SiteId if SelectedSiteId set
+- Favourite dropdown: `GetAllSitesByCountryCode` (cross-tenant)
+- Site dropdown: standard `{Site}` aggregate (current tenant only)
+
 ### Transfer Screen Dropdown Integration
-- Dropdowns show favourites only (from `{SiteFavorties}`)
+- Dropdowns show favourites only (from `{SiteFavorties}` aggregate)
 - Empty state: "No Sites" with "Edit Favourites" link
 - "Edit Favourites" link below dropdown options
 
@@ -111,6 +125,50 @@ Requirements:
 - In settings screen, button calls `SetupDefaultFavourites` with `NullIdentifier()`
 - One-time use on first publish to production
 - Idempotent — won't overwrite existing favourites
+
+### Table Change (2026-04-09)
+- Added `SiteName` column (Text 100) — denormalized owning site name
+- Cleared all existing data (`DELETE FROM {SiteFavorties}`) and re-ran `SetupDefaultFavourites`
+
+## Phase 4: CRUD Server Actions — PENDING
+
+### Stock_CS Module — Server Actions (Private)
+
+**1. AddSiteFavourite** (Server Action, Private)
+- **Input**: `SiteId`, `SiteName`, `FavouriteSiteId`, `FavouriteSiteName`, `FavouriteCountryCode`
+- **Logic**:
+  1. Duplicate check → Aggregate `{SiteFavorties}` WHERE `SiteId = SiteId AND FavouriteSiteId = FavouriteSiteId`
+  2. If exists → return Success=False, Message="Already a favourite"
+  3. Else → `CreateSiteFavorties` with all fields + `CreatedBy = GetUserId()`, `CreatedDate = CurrDateTime()`
+- **Output**: `Success` (Boolean), `Message` (Text)
+
+**2. RemoveSiteFavourite** (Server Action, Private)
+- **Input**: `SiteFavortiesId` (the record Id)
+- **Logic**: `DeleteSiteFavorties(SiteFavortiesId)`
+- **Output**: `Success` (Boolean)
+
+### Stock_CS Module — Service Actions (Public wrappers)
+- `AddSiteFavourite` (Public) → calls private `AddSiteFavourite`
+- `RemoveSiteFavourite` (Public) → calls private `RemoveSiteFavourite`
+
+### UI Module — Client Actions
+
+**OnClick_AddFavourite:**
+1. Validate: `FavouriteSiteId <> 0`
+2. If `SelectedSiteId <> NullIdentifier()` → use `SelectedSiteId`, else use local `SiteId`
+3. Call `AddSiteFavourite` service action
+4. Refresh datagrid aggregate
+5. Reset dropdown
+
+**OnClick_RemoveFavourite** (per datagrid row):
+1. Call `RemoveSiteFavourite` with row's `SiteFavorties.Id`
+2. Refresh datagrid aggregate
+
+### CSS Classes
+| Class | Applied To | Purpose |
+|-------|-----------|---------|
+| `fav-add-row` | Outer Container | `display:flex; gap:12px; align-items:flex-end; margin-bottom:16px` |
+| `fav-dropdown` | Each dropdown Container | `flex:1` |
 
 ## Key Decisions
 - **Server Action for cross-tenant sites**: `Access_MCW_V2` module with Show Tenant Identifier
