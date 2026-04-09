@@ -1,9 +1,10 @@
-# SiteFavourite Table
+# SiteFavorties Table
 
-**Schema**: `{SiteFavourite}`
+**Schema**: `{SiteFavorties}`
 **Type**: Configuration / User Preference
 **Purpose**: Stores a site's favourite sites for use in dropdowns and filters across features (Transfers, etc.)
 **Module**: `Stock_CS`
+**Note**: Entity name has a typo ("Favorties" instead of "Favourites") — kept as-is to match OutSystems entity
 
 ## Overview
 
@@ -17,9 +18,17 @@ Universal favourite sites table. Each site can mark other sites as favourites, i
 | `SiteId` | Site Identifier | Yes | — | The site that owns this favourite (FK → Site.Id) |
 | `FavouriteSiteId` | Long Integer | Yes | — | The favourited site's Id. **Long Integer, NOT Site Identifier** — avoids tenant-filtered FK constraint for cross-tenant support |
 | `FavouriteSiteName` | Text (100) | No | — | Denormalized site name, stored at insert time. Avoids cross-tenant JOIN to `{Site}` when displaying |
-| `CountryCode` | Text (10) | No | — | Country code for regional filtering |
+| `FavouriteCountryCode` | Text (10) | No | — | Country code of the favourited site, for regional filtering |
 | `CreatedBy` | User Identifier | No | — | User who added the favourite |
 | `CreatedDate` | Date Time | Yes | `CurrDateTime()` | When the favourite was created |
+
+## Entity Actions (Auto-generated)
+- `CreateSiteFavorties`
+- `CreateOrUpdateSiteFavorties`
+- `UpdateSiteFavorties`
+- `GetSiteFavorties`
+- `GetSiteFavortiesForUpdate`
+- `DeleteSiteFavorties`
 
 ## Key Design Decisions
 
@@ -49,7 +58,7 @@ Universal favourite sites table. Each site can mark other sites as favourites, i
 
 ### Filter Columns
 - `SiteId` — Primary filter: get favourites for a specific site
-- `CountryCode` — Secondary filter: regional grouping
+- `FavouriteCountryCode` — Secondary filter: regional grouping
 
 ## Common Patterns
 
@@ -58,7 +67,7 @@ Universal favourite sites table. Each site can mark other sites as favourites, i
 SELECT
     sf.FavouriteSiteId,
     sf.FavouriteSiteName
-FROM {SiteFavourite} sf
+FROM {SiteFavorties} sf
 WHERE sf.SiteId = @SiteId
 ```
 No JOIN to `{Site}` needed — name is denormalized.
@@ -66,16 +75,16 @@ No JOIN to `{Site}` needed — name is denormalized.
 ### Check if a Site Has Favourites Set Up
 ```sql
 SELECT COUNT(*)
-FROM {SiteFavourite} sf
+FROM {SiteFavorties} sf
 WHERE sf.SiteId = @SiteId
 ```
 
 ### Add a Favourite (OutSystems Entity Action)
-Use `CreateSiteFavourite` entity action — no custom SQL needed.
+Use `CreateSiteFavorties` entity action — no custom SQL needed.
 Populate `FavouriteSiteName` from the `GetAllSitesByCountryCode` Server Action result at insert time.
 
 ### Remove a Favourite (OutSystems Entity Action)
-Use `DeleteSiteFavourite` entity action — no custom SQL needed.
+Use `DeleteSiteFavorties` entity action — no custom SQL needed.
 
 ## Related Tables
 
@@ -93,3 +102,4 @@ Use `DeleteSiteFavourite` entity action — no custom SQL needed.
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-04-07 | Initial documentation created | Claude |
+| 2026-04-09 | Updated to match actual OutSystems entity (SiteFavorties, FavouriteCountryCode, CreatedDate) | Claude |
