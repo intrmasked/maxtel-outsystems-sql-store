@@ -3,7 +3,7 @@
 **OutSystems Entity**: User
 **Module**: System
 **Purpose**: End-user accounts for the application. Shared across eSpaces via the same user provider.
-**Last Updated**: 2026-03-31
+**Last Updated**: 2026-04-12
 
 ---
 
@@ -76,6 +76,35 @@ INNER JOIN {User} u ON sm.CreatedBy = u.Id
 
 ---
 
+## 🚨 CRITICAL: Cross-Tenant Limitation
+
+**`{User}` is tenant-filtered at the OutSystems Advanced SQL runtime layer.**
+
+Although the underlying `User` table is **physically shared** across tenants (same DB table, same rows), OutSystems applies tenant scoping to the `{User}` entity when you reference it from an Advanced SQL block. This means:
+
+- A query executed **in Tenant A** cannot see users that belong to **Tenant B** via `{User}`
+- `LEFT JOIN {User} u ON t.SomeUserId = u.Id` will return **NULL** for cross-tenant users
+- The sandbox (MCP SQL bridge) does NOT apply this filter — queries resolve cross-tenant users fine there, which is misleading during testing
+- **Symptom**: User name displays correctly when viewed by the same tenant that performed the action, but is blank when viewed by another tenant
+
+### Workaround: Denormalize names at write time
+
+Snapshot the user's display name onto the owning row **at the moment the action is performed** (while the current tenant still has visibility of its own user). Read from the snapshot column at query time — never join `{User}` for display purposes in cross-tenant contexts.
+
+**Example**: Stock transfers between different tenants
+- `StockMovement.CreatedByUserName` — written during transfer creation
+- `Transfer.ApprovedByUserName` — written during transfer approval
+- Detail query reads these columns directly, no `{User}` join
+
+See [Transfer → Cross-Tenant Notes](../Transfer/README.md#cross-tenant-notes) for the full pattern.
+
+### When `{User}` joins are still safe
+- Queries that only ever run within a single tenant's scope (no cross-tenant references)
+- Lookups for the **currently logged-in user** (always same-tenant by definition)
+- Admin/reporting queries running outside a tenant filter (rare)
+
+---
+
 ## Related Tables
 
 - [StockMovement](../StockMovement/README.md) — CreatedBy
@@ -88,3 +117,4 @@ INNER JOIN {User} u ON sm.CreatedBy = u.Id
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-03-31 | Initial documentation from PRD 1.3 + OutSystems screenshot | Claude |
+| 2026-04-12 | Added critical cross-tenant limitation warning — {User} is tenant-filtered at Advanced SQL layer | Claude |

@@ -15,6 +15,16 @@ WITH InputVar AS (
             WHEN 'Fj' THEN 0.15
             ELSE 0.10
         END AS GSTRate
+),
+
+-- Deduped favourite site names (one name per FavouriteSiteId)
+-- Provides denormalized name fallback for cross-tenant sites
+FavouriteNames AS (
+    SELECT
+        FavouriteSiteId,
+        MAX(FavouriteSiteName) AS FavouriteSiteName
+    FROM {SiteFavorties}
+    GROUP BY FavouriteSiteId
 )
 
 SELECT
@@ -27,11 +37,11 @@ SELECT
     sm.Date AS ApprovedDate,
     sm.CreatedAt,
 
-    -- Sites
+    -- Sites (fallback to denormalized name for cross-tenant favourites)
     t.FromSiteId,
     sm.DeliverySiteId AS ToSiteId,
-    fromSite.Name AS FromSiteName,
-    toSite.Name AS ToSiteName,
+    COALESCE(fromSite.Name, sfFrom.FavouriteSiteName) AS FromSiteName,
+    COALESCE(toSite.Name, sfTo.FavouriteSiteName) AS ToSiteName,
 
     -- Status
     t.IsApproved,
@@ -54,8 +64,15 @@ SELECT
 
 FROM {Transfer} t
 INNER JOIN {StockMovement} sm ON t.StockMovementId = sm.Id
-INNER JOIN {Site} fromSite ON t.FromSiteId = fromSite.Id
-INNER JOIN {Site} toSite ON sm.DeliverySiteId = toSite.Id
+
+-- Site names (LEFT JOIN — cross-tenant favourites won't resolve via tenant-filtered {Site})
+LEFT JOIN {Site} fromSite ON t.FromSiteId = fromSite.Id
+LEFT JOIN {Site} toSite ON sm.DeliverySiteId = toSite.Id
+
+-- Denormalized name fallback for cross-tenant favourites
+LEFT JOIN FavouriteNames sfFrom ON sfFrom.FavouriteSiteId = t.FromSiteId
+LEFT JOIN FavouriteNames sfTo ON sfTo.FavouriteSiteId = sm.DeliverySiteId
+
 LEFT JOIN {User} createdByUser ON sm.CreatedBy = createdByUser.Id
 LEFT JOIN {User} approvedByUser ON t.ApprovedByUserId = approvedByUser.Id
 

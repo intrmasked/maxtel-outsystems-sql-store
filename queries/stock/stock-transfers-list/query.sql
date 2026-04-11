@@ -184,5 +184,10 @@ LEFT JOIN FavouriteNames sfTo ON sfTo.FavouriteSiteId = td.ToSiteId
 LEFT JOIN LineSummary ls ON ls.StockMovementId = td.StockMovementId
 
 -- User names
+-- ⚠️ KNOWN LIMITATION: {User} is tenant-filtered by OutSystems at the Advanced SQL
+-- layer, so cross-tenant user names return NULL here. Denormalization workaround
+-- was attempted (StockMovement.CreatedByUserName + Transfer.ApprovedByUserName)
+-- but broke the list query with "Input string was not in a correct format" in
+-- OutSystems runtime. Reverted until root cause is found. See session context.
 LEFT JOIN {User} createdByUser ON td.CreatedBy = createdByUser.Id
 LEFT JOIN {User} approvedByUser ON td.ApprovedByUserId = approvedByUser.Id

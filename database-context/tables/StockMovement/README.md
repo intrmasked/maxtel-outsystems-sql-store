@@ -3,7 +3,7 @@
 **OutSystems Entity**: StockMovement
 **Module**: Stock (Stock_CS)
 **Purpose**: Parent record for all stock movements — deliveries, transfers, and adjustments
-**Last Updated**: 2026-03-31
+**Last Updated**: 2026-04-12
 
 ---
 
@@ -32,6 +32,7 @@ For **transfers specifically**:
 | `TaxAmount` | Decimal(18,4) | NULL | GST amount. Calculated on approval for transfers |
 | `GrossAmount` | Decimal(18,4) | NULL | Total incl. GST. Calculated on approval for transfers |
 | `CreatedBy` | Integer | FK, NOT NULL | FK → User.Id. User who created the movement |
+| `CreatedByUserName` | NVarChar | NULL | Denormalized snapshot of `User.Name` captured at creation time. Required because `{User}` is tenant-filtered at the Advanced SQL layer — see [Transfer → Cross-Tenant Notes](../Transfer/README.md#cross-tenant-notes) |
 | `CreatedAt` | DateTime | NOT NULL | UTC timestamp of record creation |
 
 ---
@@ -108,6 +109,7 @@ GROUP BY sm.Id, sm.Date
 - `MovementTypeId = 2` for transfers
 - `Date` is null for pending transfers — filter accordingly
 - `DeliverySiteId` is the **receiving** site for transfers (not the sender)
+- **Never join `{User}` to resolve `CreatedBy` name** — use the denormalized `CreatedByUserName` column instead. `{User}` is tenant-filtered and cross-tenant users return NULL. See [Transfer → Cross-Tenant Notes](../Transfer/README.md#cross-tenant-notes).
 
 ---
 
@@ -126,3 +128,4 @@ GROUP BY sm.Id, sm.Date
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-03-31 | Initial documentation from PRD 1.3 + OutSystems entity | Claude |
+| 2026-04-12 | Added CreatedByUserName column for cross-tenant {User} workaround | Claude |
