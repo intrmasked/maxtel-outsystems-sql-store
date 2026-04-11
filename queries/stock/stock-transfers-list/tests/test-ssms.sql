@@ -1,21 +1,24 @@
 -- =============================================
 -- Test: Stock Transfers List (SSMS Version)
--- Purpose: Test the transfers list query in SSMS sandbox
+-- Purpose: Test the full transfers list query in SSMS sandbox
 -- Uses DECLARE + STRING_SPLIT for @SiteIds
+-- Matches production query.sql
 -- =============================================
 
-DECLARE @SiteIds VARCHAR(200) = '3187,3188,3189';
-DECLARE @ViewType VARCHAR(1) = 'P';       -- 'P' = Pending, 'A' = Approved/Completed
-DECLARE @FilterSiteId BIGINT = 0;          -- 0 = all sites
-DECLARE @StartDate DATE = NULL;            -- NULL = no start filter
-DECLARE @EndDate DATE = NULL;              -- NULL = no end filter
-DECLARE @CountryCode VARCHAR(2) = 'NZ';   -- 'AU', 'NZ', or 'Fj'
+DECLARE @SiteIds VARCHAR(500) = '3187,3188,3189';
+DECLARE @ViewType VARCHAR(1) = 'P';        -- 'P' = Pending, 'A' = Approved/Completed
+DECLARE @FilterSiteId BIGINT = 0;           -- 0 = all sites
+DECLARE @SelectedSiteId BIGINT = 0;         -- 0 = all sites (sidebar filter)
+DECLARE @StartDate DATE = NULL;             -- NULL = no start filter
+DECLARE @EndDate DATE = NULL;               -- NULL = no end filter
+DECLARE @CountryCode VARCHAR(2) = 'NZ';     -- 'AU', 'NZ', or 'Fj'
 
 WITH
 
 InputVar AS (
     SELECT
         @ViewType AS ViewType,
+        @SelectedSiteId AS SelectedSiteId,
         @FilterSiteId AS FilterSiteId,
         @StartDate AS StartDate,
         @EndDate AS EndDate,
@@ -48,21 +51,30 @@ TransferData AS (
     FROM {Transfer} t
     INNER JOIN {StockMovement} sm ON t.StockMovementId = sm.Id
     WHERE sm.MovementTypeId = 2
+      -- Filter by view type
       AND (
           ((SELECT ViewType FROM InputVar) = 'P' AND t.IsApproved = 0)
           OR
           ((SELECT ViewType FROM InputVar) = 'A' AND t.IsApproved = 1)
       )
-      -- SSMS: use STRING_SPLIT for comma-separated site list
+      -- SSMS: use STRING_SPLIT for comma-separated site list (security boundary)
       AND (
           t.FromSiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
           OR sm.DeliverySiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       )
+      -- Sidebar site filter: selected site must be on either side (0 = all sites, skip filter)
+      AND (
+          (SELECT SelectedSiteId FROM InputVar) = 0
+          OR t.FromSiteId = (SELECT SelectedSiteId FROM InputVar)
+          OR sm.DeliverySiteId = (SELECT SelectedSiteId FROM InputVar)
+      )
+      -- Optional: dropdown filter — narrows to transfers involving this specific site
       AND (
           (SELECT FilterSiteId FROM InputVar) = 0
           OR t.FromSiteId = (SELECT FilterSiteId FROM InputVar)
           OR sm.DeliverySiteId = (SELECT FilterSiteId FROM InputVar)
       )
+      -- Optional: date range filter (Completed view only)
       AND (
           (SELECT ViewType FROM InputVar) = 'P'
           OR (
@@ -71,6 +83,15 @@ TransferData AS (
               ((SELECT EndDate FROM InputVar) IS NULL OR sm.Date <= (SELECT EndDate FROM InputVar))
           )
       )
+),
+
+-- Deduped favourite names fallback
+FavouriteNames AS (
+    SELECT
+        FavouriteSiteId,
+        MAX(FavouriteSiteName) AS FavouriteSiteName
+    FROM {SiteFavorties}
+    GROUP BY FavouriteSiteId
 ),
 
 LineSummary AS (
@@ -87,15 +108,19 @@ LineSummary AS (
 
 SELECT
     td.StockMovementId,
+
+    -- Invoice number: SiteId-XXXXXX (6 digit zero-padded StockMovementId)
     CAST(td.FromSiteId AS VARCHAR) + '-' + REPLICATE('0', 6 - LEN(CAST(td.StockMovementId AS VARCHAR))) + CAST(td.StockMovementId AS VARCHAR) AS InvoiceNumber,
+
     td.FromSiteId,
     td.ToSiteId,
-    fromSite.Name AS FromSiteName,
-    toSite.Name AS ToSiteName,
+    COALESCE(fromSite.Name, sfFrom.FavouriteSiteName) AS FromSiteName,
+    COALESCE(toSite.Name, sfTo.FavouriteSiteName) AS ToSiteName,
     td.CreatedAt,
     td.ApprovedDate,
     ISNULL(ls.LineCount, 0) AS LineCount,
 
+    -- Amounts
     CASE
         WHEN td.IsApproved = 1 THEN ISNULL(td.NetAmount, 0)
         ELSE ISNULL(ls.LinesNetAmount, 0)
@@ -117,12 +142,16 @@ SELECT
     td.ApprovedAt,
     td.Comment,
 
-    -- Verification stats
-    COUNT(*) OVER() AS Total_Rows
+    -- Verification stats (single SELECT — sandbox-safe)
+    COUNT(*) OVER() AS Total_Rows,
+    SUM(CASE WHEN td.IsApproved = 0 THEN 1 ELSE 0 END) OVER() AS Total_Pending,
+    SUM(CASE WHEN td.IsApproved = 1 THEN 1 ELSE 0 END) OVER() AS Total_Approved
 
 FROM TransferData td
-INNER JOIN {Site} fromSite ON td.FromSiteId = fromSite.Id
-INNER JOIN {Site} toSite ON td.ToSiteId = toSite.Id
+LEFT JOIN {Site} fromSite ON td.FromSiteId = fromSite.Id
+LEFT JOIN {Site} toSite ON td.ToSiteId = toSite.Id
+LEFT JOIN FavouriteNames sfFrom ON sfFrom.FavouriteSiteId = td.FromSiteId
+LEFT JOIN FavouriteNames sfTo ON sfTo.FavouriteSiteId = td.ToSiteId
 LEFT JOIN LineSummary ls ON ls.StockMovementId = td.StockMovementId
 LEFT JOIN {User} createdByUser ON td.CreatedBy = createdByUser.Id
-LEFT JOIN {User} approvedByUser ON td.ApprovedByUserId = approvedByUser.Id
+LEFT JOIN {User} approvedByUser ON td.ApprovedByUserId = approvedByUser.Id;

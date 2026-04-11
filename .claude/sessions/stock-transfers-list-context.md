@@ -6,9 +6,10 @@
 User wants to see a list of all stock transfers involving their accessible sites. Supports Pending and Completed views with direction indicators, context-aware status badges, store filter, and date range filter.
 
 ## Status
-- [X] Complete / [ ] In Progress / [ ] In Testing
-- All tested, in peer review
-- Git commit: `6a250d9`
+- [ ] Complete / [X] In Progress / [ ] In Testing
+- Reopened 2026-04-12 to integrate cross-tenant favourites support
+- Query updated: LEFT JOIN + FavouriteNames CTE for cross-tenant name fallback
+- Git commit (original): `6a250d9`
 
 ## Tables Documentation Created
 - `database-context/tables/StockMovement/` - **NEW** - Parent record for all stock movements
@@ -45,11 +46,50 @@ User wants to see a list of all stock transfers involving their accessible sites
 - [ ] Pending count badge — separate query or OutSystems aggregate (TBD)
 - [ ] Export button — OutSystems UI concern, not SQL
 
+## Cross-Tenant Favourites Integration (2026-04-12)
+
+### Problem
+Favourites are cross-tenant — a site can favourite sites in other tenants. The original query used `INNER JOIN {Site}` which drops rows for any cross-tenant FromSiteId/ToSiteId (since `{Site}` is tenant-filtered).
+
+### Solution: Option 2 — Denormalized name fallback
+Use denormalized `FavouriteSiteName` from `{SiteFavorties}` as a fallback when `{Site}` doesn't resolve.
+
+### Changes made to `query.sql`:
+1. **Added `FavouriteNames` CTE** — dedupes `{SiteFavorties}` to one row per `FavouriteSiteId`:
+   ```sql
+   FavouriteNames AS (
+       SELECT FavouriteSiteId, MAX(FavouriteSiteName) AS FavouriteSiteName
+       FROM {SiteFavorties}
+       GROUP BY FavouriteSiteId
+   )
+   ```
+2. **Changed `{Site}` joins to LEFT JOIN** — cross-tenant rows no longer dropped
+3. **Added `FavouriteNames` LEFT JOINs** for both From/To sides
+4. **Output uses COALESCE**:
+   ```sql
+   COALESCE(fromSite.Name, sfFrom.FavouriteSiteName) AS FromSiteName,
+   COALESCE(toSite.Name, sfTo.FavouriteSiteName) AS ToSiteName
+   ```
+
+### Data Action Changes (GetTransfersData)
+- Now combines tenant sites + favourites into `@SiteIds` list
+- Flow: `GetSiteById → SitesInLine → GetSiteFavorites → FavoritesInline → TotalSitesInlineText → TransfersListSQL`
+- `TotalSitesInlineText = SitesInLine.Output + "," + FavoritesInline.Output`
+- **Open issue**: Inline function outputs `N'3187'` format (text literals) instead of raw integers — need numeric-list helper or manual build
+
+### Behaviour Matrix
+| Scenario | Shows up? |
+|----------|-----------|
+| Transfer between two tenant sites | ✅ (via `{Site}`) |
+| Transfer involving favourited cross-tenant site | ✅ (via `FavouriteNames` fallback) |
+| Transfer involving non-favourited cross-tenant site | ❌ (not in `@SiteIds`) |
+
 ## Next Steps
-1. Test query in sandbox with real data
-2. Verify column alignment with OutSystems Output Structure
-3. Consider if pending count badge needs a separate lightweight query
-4. Move to Story 1.3.2 (Transfer Detail) when ready
+1. ~~Test query in sandbox with real data~~ ✅ Done — sandbox doesn't apply tenant filtering so results misleading
+2. Fix `@SiteIds` format — currently returning `N'3187'` from inline helper, needs to be raw integers
+3. Test cross-tenant favourites in actual Advanced SQL block (not sandbox)
+4. Verify `COALESCE` fallback resolves cross-tenant names correctly
+5. Handle "All Sites" case — `SelectedSiteId = 0` should pull all tenant favourites
 
 ## Notes for Next Session
 - GST rate hardcoded at 10% for pending transfer amount calculation — confirm with user

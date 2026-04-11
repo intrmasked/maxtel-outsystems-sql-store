@@ -18,7 +18,7 @@ Requirements:
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] In Testing
-- Current step: Settings panel + CRUD complete. Next: wire favourites into Transfer List & Create/Edit screens
+- Current step: Transfer List integration in progress. Create screen integration pending.
 
 ## The Cross-Tenant Problem — RESOLVED (Server Action Approach)
 
@@ -197,16 +197,43 @@ Requirements:
 - **SetupDefaultFavourites is idempotent**: Skips sites that already have favourites
 - **No ConceptId needed**: SiteId + CountryCode is sufficient
 
-## Next Steps — Phase 5: Transfer Screen Integration
-1. **Transfer List screen** — wire favourites into filter dropdown (filter block)
-2. **Transfer Create/Edit screen** — wire favourites into "To Site" dropdown
-3. **Handle empty state** — "No Sites" + "Edit Favourites" link
-4. **Role checks** — restrict editing to StockInvoice_Admin / MaxtelSupport (settings panel)
+## Phase 5: Transfer Screen Integration — IN PROGRESS
+
+### Transfer List Screen — Data Action Changes
+`GetTransfersData` data action flow now combines tenant sites + favourites:
+```
+GetSiteById → SitesInLine → GetSiteFavorites → FavoritesInline → TotalSitesInlineText → TransfersListSQL
+```
+
+**Key assign:**
+```
+TotalSitesInlineText = SitesInLine.Output + "," + FavoritesInline.Output
+```
+
+**SQL query changes** (in `queries/stock/stock-transfers-list/query.sql`):
+1. Added `FavouriteNames` CTE — dedupes `{SiteFavorties}` to one row per `FavouriteSiteId`
+2. Changed `INNER JOIN {Site}` → `LEFT JOIN {Site}` so cross-tenant rows don't drop
+3. Added `LEFT JOIN FavouriteNames` for both sides
+4. Output uses `COALESCE(fromSite.Name, sfFrom.FavouriteSiteName)` — tenanted name first, fallback to denormalized favourite name
+
+**Why**: `{Site}` is tenant-filtered, so cross-tenant favourites can't resolve through it. Denormalized `FavouriteSiteName` from `{SiteFavorties}` is the fallback source of truth.
+
+### Open Issues
+- **Inline helper output format**: `BuildSafe_InClauseTextList` returns `N'3187'` (Unicode text literals) instead of raw integers like `3187`. Need numeric-list helper or manual ForEach build for `@SiteIds` to work with `IN (@SiteIds)` on a BIGINT column.
+- **All Sites case** (`SelectedSiteId = 0`): should pull all tenant favourites, not just one site's — need conditional logic in data action
+
+### Still Pending
+1. **Fix `@SiteIds` format** — raw integers, not text literals
+2. **All Sites favourites logic** — pull all tenant favourites when SelectedSiteId = 0
+3. **Transfer Create screen** — wire "To Site" dropdown to `{SiteFavorties}` aggregate
+4. **Handle empty state** — "No Sites" + "Edit Favourites" link in dropdowns
+5. **Role checks** — restrict editing to StockInvoice_Admin / MaxtelSupport (settings panel)
 
 ## Completed ✅
 1. ~~**Build settings screen UI**~~ ✅ Dropdowns + Add button + Datagrid
 2. ~~**CRUD server/service actions**~~ ✅ Add + Remove built & working
 3. ~~**Settings panel integration in Manager**~~ ✅ Done
+4. ~~**Transfer List SQL query — cross-tenant name fallback**~~ ✅ Done (FavouriteNames CTE)
 
 ## Notes for Next Session
 - Physical table name (ref only): `[OSDEV1].dbo.[OSUSR_H1R_SITE_T18]`

@@ -97,6 +97,16 @@ TransferData AS (
       )
 ),
 
+-- [CTE 2b]: Deduped favourite site names (one name per FavouriteSiteId)
+--           Avoids row multiplication from multiple sites favouriting the same site
+FavouriteNames AS (
+    SELECT
+        FavouriteSiteId,
+        MAX(FavouriteSiteName) AS FavouriteSiteName
+    FROM {SiteFavorties}
+    GROUP BY FavouriteSiteId
+),
+
 -- [CTE 3]: Line item aggregation
 LineSummary AS (
     SELECT
@@ -122,9 +132,9 @@ SELECT
     td.FromSiteId,
     td.ToSiteId,
 
-    -- Site names
-    fromSite.Name AS FromSiteName,
-    toSite.Name AS ToSiteName,
+    -- Site names (fallback to denormalized name for cross-tenant favourites)
+    COALESCE(fromSite.Name, sfFrom.FavouriteSiteName) AS FromSiteName,
+    COALESCE(toSite.Name, sfTo.FavouriteSiteName) AS ToSiteName,
 
     -- Dates
     td.CreatedAt,
@@ -162,9 +172,13 @@ SELECT
 
 FROM TransferData td
 
--- Site names
-INNER JOIN {Site} fromSite ON td.FromSiteId = fromSite.Id
-INNER JOIN {Site} toSite ON td.ToSiteId = toSite.Id
+-- Site names (LEFT JOIN — cross-tenant favourites won't resolve via tenant-filtered {Site})
+LEFT JOIN {Site} fromSite ON td.FromSiteId = fromSite.Id
+LEFT JOIN {Site} toSite ON td.ToSiteId = toSite.Id
+
+-- Denormalized name fallback for cross-tenant favourites (deduped via FavouriteNames CTE)
+LEFT JOIN FavouriteNames sfFrom ON sfFrom.FavouriteSiteId = td.FromSiteId
+LEFT JOIN FavouriteNames sfTo ON sfTo.FavouriteSiteId = td.ToSiteId
 
 -- Line summary
 LEFT JOIN LineSummary ls ON ls.StockMovementId = td.StockMovementId
