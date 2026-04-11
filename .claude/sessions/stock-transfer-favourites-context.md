@@ -18,7 +18,7 @@ Requirements:
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] In Testing
-- Current step: CRUD built — Add & Remove working, wiring UI next
+- Current step: Settings panel + CRUD complete. Next: wire favourites into Transfer List & Create/Edit screens
 
 ## The Cross-Tenant Problem — RESOLVED (Server Action Approach)
 
@@ -82,7 +82,7 @@ Requirements:
 3. Return done message
 **Tested**: Site 3189 populated successfully
 
-## Phase 3: UI Integration — IN PROGRESS
+## Phase 3: Settings Panel — COMPLETE ✅
 
 ### Settings Screen — Favourites Management
 **Pattern**: Dropdown + Add button + Datagrid with remove
@@ -197,13 +197,16 @@ Requirements:
 - **SetupDefaultFavourites is idempotent**: Skips sites that already have favourites
 - **No ConceptId needed**: SiteId + CountryCode is sufficient
 
-## Next Steps
-1. ~~**Build settings screen UI**~~ ✅ Dropdowns + Add button + Datagrid done
+## Next Steps — Phase 5: Transfer Screen Integration
+1. **Transfer List screen** — wire favourites into filter dropdown (filter block)
+2. **Transfer Create/Edit screen** — wire favourites into "To Site" dropdown
+3. **Handle empty state** — "No Sites" + "Edit Favourites" link
+4. **Role checks** — restrict editing to StockInvoice_Admin / MaxtelSupport (settings panel)
+
+## Completed ✅
+1. ~~**Build settings screen UI**~~ ✅ Dropdowns + Add button + Datagrid
 2. ~~**CRUD server/service actions**~~ ✅ Add + Remove built & working
-3. **Wire "Populate All" button** — move to header, call `SetupDefaultFavourites`
-4. **Integrate favourites into transfer screen dropdowns** — aggregate on `{SiteFavorties}`
-5. **Handle empty state** — "No Sites" + "Edit Favourites" link
-6. **Role checks** — restrict editing to StockInvoice_Admin / MaxtelSupport
+3. ~~**Settings panel integration in Manager**~~ ✅ Done
 
 ## Notes for Next Session
 - Physical table name (ref only): `[OSDEV1].dbo.[OSUSR_H1R_SITE_T18]`
