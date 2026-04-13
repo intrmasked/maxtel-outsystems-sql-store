@@ -54,11 +54,11 @@ TransferData AS (
         sm.GrossAmount,
 
         -- Approval info
-        t.ApprovedByUserId,
+        t.ApprovedByUserName,
         t.ApprovedAt,
 
         -- Created by
-        sm.CreatedBy
+        sm.CreatedByUserName
 
     FROM {Transfer} t
     INNER JOIN {StockMovement} sm ON t.StockMovementId = sm.Id
@@ -97,16 +97,6 @@ TransferData AS (
       )
 ),
 
--- [CTE 2b]: Deduped favourite site names (one name per FavouriteSiteId)
---           Avoids row multiplication from multiple sites favouriting the same site
-FavouriteNames AS (
-    SELECT
-        FavouriteSiteId,
-        MAX(FavouriteSiteName) AS FavouriteSiteName
-    FROM {SiteFavorties}
-    GROUP BY FavouriteSiteId
-),
-
 -- [CTE 3]: Line item aggregation
 LineSummary AS (
     SELECT
@@ -132,9 +122,9 @@ SELECT
     td.FromSiteId,
     td.ToSiteId,
 
-    -- Site names (fallback to denormalized name for cross-tenant favourites)
-    COALESCE(fromSite.Name, sfFrom.FavouriteSiteName) AS FromSiteName,
-    COALESCE(toSite.Name, sfTo.FavouriteSiteName) AS ToSiteName,
+    -- Site names (NULL for cross-tenant sites — OutSystems resolves via access_mcw)
+    fromSite.Name AS FromSiteName,
+    toSite.Name AS ToSiteName,
 
     -- Dates
     td.CreatedAt,
@@ -162,9 +152,9 @@ SELECT
     -- Status
     td.IsApproved,
 
-    -- Approval info (Completed view)
-    createdByUser.Name AS CreatedByName,
-    approvedByUser.Name AS ApprovedByName,
+    -- Approval info (Completed view) — denormalized snapshots, no {User} join needed
+    td.CreatedByUserName AS CreatedByName,
+    td.ApprovedByUserName AS ApprovedByName,
     td.ApprovedAt,
 
     -- Memo
@@ -172,22 +162,12 @@ SELECT
 
 FROM TransferData td
 
--- Site names (LEFT JOIN — cross-tenant favourites won't resolve via tenant-filtered {Site})
+-- Site names (LEFT JOIN — cross-tenant sites return NULL, resolved by OutSystems)
 LEFT JOIN {Site} fromSite ON td.FromSiteId = fromSite.Id
 LEFT JOIN {Site} toSite ON td.ToSiteId = toSite.Id
-
--- Denormalized name fallback for cross-tenant favourites (deduped via FavouriteNames CTE)
-LEFT JOIN FavouriteNames sfFrom ON sfFrom.FavouriteSiteId = td.FromSiteId
-LEFT JOIN FavouriteNames sfTo ON sfTo.FavouriteSiteId = td.ToSiteId
 
 -- Line summary
 LEFT JOIN LineSummary ls ON ls.StockMovementId = td.StockMovementId
 
--- User names
--- ⚠️ KNOWN LIMITATION: {User} is tenant-filtered by OutSystems at the Advanced SQL
--- layer, so cross-tenant user names return NULL here. Denormalization workaround
--- was attempted (StockMovement.CreatedByUserName + Transfer.ApprovedByUserName)
--- but broke the list query with "Input string was not in a correct format" in
--- OutSystems runtime. Reverted until root cause is found. See session context.
-LEFT JOIN {User} createdByUser ON td.CreatedBy = createdByUser.Id
-LEFT JOIN {User} approvedByUser ON td.ApprovedByUserId = approvedByUser.Id
+-- No {User} joins needed — using denormalized snapshot columns:
+-- StockMovement.CreatedByUserName (set at creation) + Transfer.ApprovedByUserName (set at approval)
