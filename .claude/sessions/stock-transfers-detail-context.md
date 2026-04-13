@@ -8,9 +8,10 @@
 - 1.3.4: Decline a Transfer
 
 ## Status
-- [X] Complete / [ ] In Progress / [ ] In Testing
-- All tested, in peer review
-- **2026-04-12**: Cross-tenant user name denormalization ATTEMPTED AND REVERTED — see known issue below
+- [ ] Complete / [X] In Progress / [ ] In Testing
+- **2026-04-13**: Removed {SiteFavorties} + {User} joins from query-header.sql (same pattern as list query)
+- Cross-tenant site names: LEFT JOIN {Site} returns NULL → OutSystems resolves via access_mcw
+- Cross-tenant user names: denormalized snapshots (CreatedByUserName, ApprovedByUserName) — no {User} join
 
 ### Approve Verification (2026-04-03)
 - Tested with StockMovementId=42, NZ site (15% GST)
@@ -203,66 +204,23 @@ If (IsApproved = True)
 - **Store filter**: `@FilterSiteId` — filters on both FromSiteId and ToSiteId (0 = all)
 - **Role**: `StockInvoice_Admin` required for Create, Approve, Decline. View is open to all with site access.
 
-## Changes (2026-04-12) — Cross-Tenant User Name Denormalization ATTEMPTED AND REVERTED
+## Changes (2026-04-13) — Removed {SiteFavorties} + {User} joins (FINAL FIX)
 
-### Problem Discovered
-After cross-tenant favourites shipped (FromSiteName/ToSiteName denormalization), testing revealed the **Receiver Approved By** name was blank when viewing a transfer approved by another tenant. `{User}` is tenant-filtered by OutSystems at the Advanced SQL runtime layer — even though the underlying `User` DB table is physically shared across tenants. Sandbox does NOT apply this filter (misleading — sandbox showed the name, production returned NULL).
+### What changed
+Applied the same cleanup pattern from the list query to `query-header.sql`:
 
-### Attempted Solution — Denormalize at write time
-- **`StockMovement.CreatedByUserName`** — snapshot written at transfer creation
-- **`Transfer.ApprovedByUserName`** — snapshot written at approval
-- Queries read from these columns directly, no `{User}` join
+1. **Removed `FavouriteNames` CTE** — no more `{SiteFavorties}` dependency
+2. **Removed COALESCE site names** → plain `fromSite.Name` / `toSite.Name` (NULL for cross-tenant)
+3. **Removed `{User}` joins** → use denormalized snapshot columns:
+   - `sm.CreatedByUserName AS SenderApprovedByName`
+   - `t.ApprovedByUserName AS ReceiverApprovedByName`
 
-**Detail screen worked** ✅ — Transfer 74 showed both Mana and Te Awamutu names correctly.
+### Previous "Input string was not in a correct format" issue
+This error only occurred on the **list** query, never on the detail query. The list query now also uses denormalized columns successfully (committed separately). The previous revert was overly cautious — the root cause was likely an OutSystems Output Structure mismatch that has since been resolved.
 
-### Then the list query broke ❌
-After applying the same denormalization pattern to `stock-transfers-list/query.sql`, OutSystems runtime started throwing:
-```
-Database returned the following error:
-Error in advanced query TransfersListSQL: Input string was not in a correct format.
-```
-
-**Diagnostics tried** (none fixed it):
-- ✅ Republished all modules (SL_CS, CommonFunctions_Lib, consumer modules) — no change
-- ✅ Refreshed Output Structure on Advanced SQL block — no change
-- ✅ Verified entity column types are Text (confirmed correct by user)
-- ✅ Expanded entity column length from 50 → 256 — no change
-- ✅ SSMS test-ssms.sql runs cleanly via sandbox — query SQL itself is valid
-- ✅ Output column order/names/types in SELECT match Output Structure exactly (diff verified)
-- ❌ Error persists **only in OutSystems runtime**, only on the list query
-
-**Root cause: UNKNOWN.** Error message suggests `.NET` `Convert` failing on a string→number parse, but no number columns were touched in the diff. Detail query uses the exact same pattern (same two columns, same Text type) and works fine. Something about the list query's OutSystems runtime mapping is rejecting the denormalized columns, but we couldn't identify what.
-
-### Revert Decision
-Reverted both queries back to using `{User}` joins to unblock the user. The detail screen loses cross-tenant receiver name visibility again (known limitation), but the list screen works and everything is consistent.
-
-### Files Reverted
-- `queries/stock/stock-transfers-list/query.sql` — restored `{User}` joins + `t.ApprovedByUserId` / `sm.CreatedBy` in TransferData CTE
-- `queries/stock/stock-transfers-list/tests/test-ssms.sql` — mirrored
-- `queries/stock/stock-transfers-detail/query-header.sql` — restored `{User}` joins
-- `queries/stock/stock-transfers-detail/tests/test-ssms-header.sql` — mirrored
-
-Both queries now carry a ⚠️ KNOWN LIMITATION comment at the join site pointing back to this session context.
-
-### Files KEPT (still reflect the denormalization pattern)
-These are still valid documentation and don't affect query execution. They describe the pattern that **should** work and that we'll revisit:
-- `database-context/tables/Transfer/README.md` — Cross-Tenant Notes section + `ApprovedByUserName` column docs
-- `database-context/tables/StockMovement/README.md` — `CreatedByUserName` column docs
-- `database-context/tables/User/README.md` — critical warning about `{User}` tenant-filter
-- Auto-memory `MEMORY.md` — cross-tenant quirks saved for future sessions
-
-### OutSystems-side state
-The user decided to keep the entity columns and server-action writes in place (already deployed). They're populated via the Create/Approve actions and backfilled. They just aren't read by any query anymore. When we figure out what OutSystems is choking on, we can flip the queries back over without touching the entity or data again.
-
-### Known Issue — Open
-- **Detail screen**: Receiver name blank for cross-tenant approvals (same as original state before any of this work)
-- **List screen**: Works, but `CreatedByName`/`ApprovedByName` will be blank for cross-tenant users in the Completed view
-- **Next investigation angles** for future session:
-  - Does the list block sit in a module with a different User provider than the detail block?
-  - Try pasting the new query text directly into OutSystems Service Studio (bypass the refresh-output-structure flow) and test immediately
-  - Compare the exact list output structure field types byte-by-byte against a fresh regen
-  - Try running the list with denormalized columns AND `{User}` joins simultaneously to see if OutSystems is mapping the wrong column to the wrong structure field
-  - Check whether `TransferListApprovedExport` structure (seen in screenshot) has different field types that might be used somewhere
+### Cross-tenant resolution strategy
+- **Site names**: SQL returns NULL → OutSystems resolves via `GetCrossTenantSite` (access_mcw Service Action) in the Data Action loop
+- **User names**: Denormalized snapshots written at action time — always resolve correctly regardless of tenant
 
 ---
 

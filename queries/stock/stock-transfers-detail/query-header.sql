@@ -20,17 +20,6 @@ WITH InputVar AS (
             WHEN 'Fj' THEN 0.15
             ELSE 0.10
         END AS GSTRate
-),
-
--- Deduped favourite site names (one name per FavouriteSiteId)
--- Provides denormalized name fallback for cross-tenant sites that
--- won't resolve via tenant-filtered {Site}
-FavouriteNames AS (
-    SELECT
-        FavouriteSiteId,
-        MAX(FavouriteSiteName) AS FavouriteSiteName
-    FROM {SiteFavorties}
-    GROUP BY FavouriteSiteId
 )
 
 SELECT
@@ -43,21 +32,23 @@ SELECT
     sm.Date AS ApprovedDate,
     sm.CreatedAt,
 
-    -- Sites (fallback to denormalized name for cross-tenant favourites)
+    -- Sites (NULL for cross-tenant sites — OutSystems resolves via access_mcw)
     t.FromSiteId,
     sm.DeliverySiteId AS ToSiteId,
-    COALESCE(fromSite.Name, sfFrom.FavouriteSiteName) AS FromSiteName,
-    COALESCE(toSite.Name, sfTo.FavouriteSiteName) AS ToSiteName,
+    fromSite.Name AS FromSiteName,
+    toSite.Name AS ToSiteName,
 
     -- Status
     t.IsApproved,
 
     -- Approval panel - Sending side (auto-approved at creation)
-    createdByUser.Name AS SenderApprovedByName,
+    -- Uses denormalized snapshot — no {User} join needed
+    sm.CreatedByUserName AS SenderApprovedByName,
     sm.CreatedAt AS SenderApprovedAt,
 
     -- Approval panel - Receiving side
-    approvedByUser.Name AS ReceiverApprovedByName,
+    -- Uses denormalized snapshot — no {User} join needed
+    t.ApprovedByUserName AS ReceiverApprovedByName,
     t.ApprovedAt AS ReceiverApprovedAt,
 
     -- Amounts
@@ -71,21 +62,9 @@ SELECT
 FROM {Transfer} t
 INNER JOIN {StockMovement} sm ON t.StockMovementId = sm.Id
 
--- Site names (LEFT JOIN — cross-tenant favourites won't resolve via tenant-filtered {Site})
+-- Site names (LEFT JOIN — cross-tenant sites return NULL, resolved by OutSystems)
 LEFT JOIN {Site} fromSite ON t.FromSiteId = fromSite.Id
 LEFT JOIN {Site} toSite ON sm.DeliverySiteId = toSite.Id
-
--- Denormalized name fallback for cross-tenant favourites (deduped via FavouriteNames CTE)
-LEFT JOIN FavouriteNames sfFrom ON sfFrom.FavouriteSiteId = t.FromSiteId
-LEFT JOIN FavouriteNames sfTo ON sfTo.FavouriteSiteId = sm.DeliverySiteId
-
--- User names
--- ⚠️ KNOWN LIMITATION: {User} is tenant-filtered by OutSystems at the Advanced SQL
--- layer, so cross-tenant receiver names return NULL here. Denormalization workaround
--- was attempted but broke the sibling list query in OutSystems runtime. Reverted
--- until root cause is found. See session context.
-LEFT JOIN {User} createdByUser ON sm.CreatedBy = createdByUser.Id
-LEFT JOIN {User} approvedByUser ON t.ApprovedByUserId = approvedByUser.Id
 
 -- Line totals for pending transfers (sm amounts are null)
 LEFT JOIN (
