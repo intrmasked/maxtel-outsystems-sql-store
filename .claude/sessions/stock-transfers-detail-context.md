@@ -246,4 +246,4 @@ This error only occurred on the **list** query, never on the detail query. The l
 2. All queries done: list (query.sql), detail header (query-header.sql), detail lines (query-lines.sql)
 3. All server actions done: ApproveStockTransfer, DeleteStockTransfer
 4. All frontend views done: Pending list, Completed list, Pending detail, Completed detail
-5. Continue from: End-to-end testing
+5. **SQL is complete** — remaining work is OutSystems UI wiring (GetCrossTenantSite loop in detail Data Action)

@@ -70,10 +70,11 @@ Used `{SiteFavorties}` table with `FavouriteNames` CTE + COALESCE fallback. Remo
 | Cross-tenant site | No (NULL) | Yes (via access_mcw) |
 
 ## Next Steps
-1. Test list query in OutSystems with access_mcw name resolution
-2. Test filter-sites utility query
-3. Wire up filter dropdown to use utility query results
-4. Handle cross-tenant name resolution in OutSystems Data Action
+1. ~~Test list query in OutSystems with access_mcw name resolution~~ ✅ Done — working
+2. ~~Wire up GetCrossTenantSite loop in Data Action~~ ✅ Done — ListAppend pattern with FromSite/ToSite calls
+3. ~~Test filter-sites utility query~~ ✅ Done — dropdown populates from transfer data
+4. Wire up GetCrossTenantSite loop for **detail screen** Data Action (same pattern as list)
+5. Remaining work is all **UI/OutSystems** — no more SQL changes needed
 
 ## Notes for Next Session
 - GST rate now country-aware: AU=10%, NZ=15%, Fj=15% (via @CountryCode param)
