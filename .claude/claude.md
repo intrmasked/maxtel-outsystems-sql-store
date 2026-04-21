@@ -680,6 +680,28 @@ OPTION (MAXRECURSION 1000, RECOMPILE);  -- ← CRITICAL for date range queries
 
 ---
 
+## Session Folder Structure
+
+Sessions are organized by **feature** (folder) with individual **story** session files inside:
+
+```
+.claude/sessions/
+├── [feature]/
+│   ├── prd.md                          ← shared PRD & design for the whole feature
+│   ├── [story-1]-context.md            ← story-specific session
+│   └── [story-2]-context.md
+├── standalone/                         ← one-off queries with no parent feature
+│   └── [query-name]-context.md
+```
+
+**Rules:**
+- **One PRD file per feature** — `prd.md` lives in the feature folder, shared across all stories
+- **One session file per story** — story-specific context, references `prd.md` instead of duplicating it
+- **Standalone queries** go in `standalone/` if they don't belong to a feature group
+- **Story sessions reference the PRD** — `**PRD:** See prd.md in this folder`
+
+---
+
 ## Session Context Updates (CRITICAL!)
 
 ### 🚨 MANDATORY: Update Session Context on EVERY Change!
@@ -691,7 +713,7 @@ OPTION (MAXRECURSION 1000, RECOMPILE);  -- ← CRITICAL for date range queries
 4. Did I make a decision? → Update session context
 5. Did I fix an error? → Update session context
 
-**When to update `.claude/sessions/[query-name]-context.md`:**
+**When to update `.claude/sessions/[feature]/[story-name]-context.md`:**
 
 1. **After major decisions** - Document why you chose an approach
 2. **After table changes** - New tables added, filters changed, joins updated
@@ -848,7 +870,7 @@ Breaking: no
 
 ### Automatic Wrap-Up Process:
 
-1. **Final session context update** - Ensure `.claude/sessions/[query-name]-context.md` has:
+1. **Final session context update** - Ensure `.claude/sessions/[feature]/[story-name]-context.md` has:
    - Full story/requirements (exact wording)
    - All tables used + whether they were created new
    - Key decisions with rationale
@@ -911,7 +933,7 @@ To continue:
 
 ### When User Says "Continue [query-name]" or References Previous Session:
 
-1. **Load the context** - Read `.claude/sessions/[query-name]-context.md`
+1. **Load the context** - Read `.claude/sessions/[feature]/[story-name]-context.md`
 2. **Read table docs** - Load all tables mentioned in context
 3. **Check current query** - Review `queries/[category]/[query-name]/query.sql`
 4. **Understand status** - Check what's done vs what's next
@@ -946,8 +968,8 @@ To continue:
 | Understand a table | `database-context/tables/[table]/README.md` | Read first |
 | Create new table docs | `database-context/tables/[table]/README.md` | Ask user for info, use template |
 | Find similar query | `queries/[category]/` | Browse patterns |
-| Wrap up session | `.claude/sessions/[name]-context.md` | Auto-create on finish |
-| Resume work | `.claude/sessions/[name]-context.md` | Load context, continue |
+| Wrap up session | `.claude/sessions/[feature]/[story-name]-context.md` | Auto-create on finish |
+| Resume work | `.claude/sessions/[feature]/[story-name]-context.md` | Load context, continue |
 | Store query | `queries/[category]/[query-name]/` | One folder per query |
 
 ---
