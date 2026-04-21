@@ -66,9 +66,12 @@ Stock_CS module:
 
 1. **Understand the story** - Clarify requirements briefly
 
-2. **🔗 ASK FOR STORY LINK** - Before starting any work:
-   - Ask the user for the Azure DevOps story/work item link
-   - Add it to the session context file as `**Story Link:**` at the top
+2. **🔗🚨 HARD RULE: REQUIRE STORY LINK BEFORE STARTING** - Before starting any work:
+   - **DO NOT proceed with any session work until the user provides the Azure DevOps story link**
+   - Ask: "What's the Azure DevOps story link for this?"
+   - **BLOCK all work** (no queries, no table docs, no session files) until the link is provided
+   - **Only exception**: utility queries in `queries/utilities/` — these don't need a story link
+   - Once provided, add it to the session context file as `**Story Link:**` at the top
    - Format: `https://dev.azure.com/MaxtelNZ/Scheduling/_boards/board/t/Scheduling%20Team/Stories?workitem=XXXX`
    - This links our SQL work back to the original story for traceability
 
