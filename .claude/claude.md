@@ -9,6 +9,36 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
 1. **Simplicity First** - Write SQL a junior dev can understand
 2. **OutSystems Compatible** - Standard SQL only, no fancy DB-specific functions
 3. **Document Everything** - Why, not just what
+4. **Aggregates First, SQL Second** - Always prefer OutSystems Aggregates over Advanced SQL unless SQL is genuinely faster or necessary
+
+---
+
+## Aggregates vs Advanced SQL — Decision Guide
+
+**Default to Aggregates** for data fetching in Server Actions. Only use Advanced SQL when Aggregates can't do the job or SQL is measurably faster.
+
+### Use Aggregates when:
+- Simple CRUD: fetch, filter, sort, join 1-3 tables
+- Standard lookups: Get record by Id, filter by FK, EXISTS checks
+- Count checks: `COUNT(*) WHERE condition` → use a Count aggregate
+- Basic joins: inner/left joins with straightforward ON conditions
+- Entity actions: Create/Update/Delete → always use entity actions, never raw INSERT/UPDATE/DELETE SQL
+
+### Use Advanced SQL when:
+- **TOP 1 per group** — Aggregates can't do `ROW_NUMBER() OVER (PARTITION BY ...)` or `OUTER APPLY` with `TOP 1`
+- **CROSS JOIN** — Aggregates don't support CROSS JOIN (e.g. building an Item × Shift matrix)
+- **Complex date math** — `DATEADD`, recursive CTEs, date range generation
+- **CY/PY UNION ALL pattern** — performance-critical year-over-year queries
+- **Window functions** — `SUM() OVER(PARTITION BY ...)`, `ROW_NUMBER()`, etc.
+- **Conditional aggregation** — `SUM(CASE WHEN ... THEN ... END)` across multiple dimensions
+- **STRING_SPLIT / Expand Inline** — multi-site comma-separated list filtering
+- **4+ table joins** with complex conditions that would be awkward in Aggregates
+
+### Decision checklist:
+1. Can an Aggregate do this? → **Use Aggregate**
+2. Would it need 2-3 Aggregates chained together? → Still probably **Aggregates** (simpler to maintain)
+3. Does it need TOP 1 per group, CROSS JOIN, window functions, or UNION ALL? → **Advanced SQL**
+4. Is performance critical on a large table (SalesFact, StockPeriodBalance)? → **Advanced SQL** with optimisation patterns
 
 ---
 
@@ -36,7 +66,13 @@ Stock_CS module:
 
 1. **Understand the story** - Clarify requirements briefly
 
-2. **🚨 ALWAYS CHECK TABLE DOCS FIRST** - Before asking ANY questions:
+2. **🔗 ASK FOR STORY LINK** - Before starting any work:
+   - Ask the user for the Azure DevOps story/work item link
+   - Add it to the session context file as `**Story Link:**` at the top
+   - Format: `https://dev.azure.com/MaxtelNZ/Scheduling/_boards/board/t/Scheduling%20Team/Stories?workitem=XXXX`
+   - This links our SQL work back to the original story for traceability
+
+3. **🚨 ALWAYS CHECK TABLE DOCS FIRST** - Before asking ANY questions:
    - **READ** existing table docs in `database-context/tables/[table-name]/README.md`
    - Check if columns, types, and relationships are already documented
    - **ONLY ask user for table info if docs don't exist or are incomplete**

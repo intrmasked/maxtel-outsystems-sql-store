@@ -1,0 +1,5 @@
+{
+  "LogicalItemId": "LongInteger",
+  "DayPartsId":    "LongInteger",
+  "CostPerUnit":   "Decimal"
+}

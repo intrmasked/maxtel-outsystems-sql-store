@@ -1,0 +1,13 @@
+{
+  "name": "get-wasteable-items-with-cost",
+  "category": "stock",
+  "description": "Returns wasteable LogicalItem × DayPart matrix with CostPerUnit for RawWasteCount row initialisation",
+  "author": "Claude",
+  "created": "2026-04-21",
+  "tables": ["LogicalItem", "LogicalItemSiteConfig", "PhysicalItem", "DayParts", "BO_RawItemPrice"],
+  "inputParameters": [
+    { "name": "SiteId", "type": "LongInteger", "expandInline": false }
+  ],
+  "outputStructure": "output-structure.json",
+  "status": "new"
+}
