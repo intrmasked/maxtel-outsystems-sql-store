@@ -10,7 +10,7 @@ When a user first opens a date in Raw Waste, initialise RawWasteCount rows for t
 - [X] Complete
 
 ## Queries Created
-- `queries/stock/get-wasteable-items-with-cost/` - **COMPLETE**
+- `queries/utilities/get-wasteable-items-with-cost/` - **COMPLETE**
   - Returns LogicalItem × DayPart matrix with CostPerUnit for bulk-creating RawWasteCount rows
   - Tables: LogicalItem, LogicalItemSiteConfig, PhysicalItem, DayParts, BO_RawItemPrice
   - Used by: GetOrCreateRawWasteCount Server Action (only runs when no rows exist)

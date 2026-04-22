@@ -1,0 +1,11 @@
+{
+  "Date":             "2026-04-22",
+  "StockPeriodId":    12345,
+  "OvernightTotal":   15.50,
+  "BreakfastTotal":   32.75,
+  "DayTotal":         48.20,
+  "NightTotal":       12.00,
+  "DailyTotal":       108.45,
+  "ShiftsCompleted":  3,
+  "TotalShifts":      4
+}

@@ -1033,16 +1033,21 @@ All new or modified SQL queries **MUST** be verified via the MCP SQL Sandbox Bri
 ### 🗳️ OutSystems Integration Handover
 For every query intended for an Advanced SQL block, create an **`output-structure.json`** file in the query folder.
 - **MANDATORY** for all new queries — create alongside `query.sql`
-- Format: A JSON array of objects with `Name` and `Type`
-- Types must be OutSystems compatible: `Text`, `Integer`, `LongInteger`, `Decimal`, `Date`, `Boolean`
-- The user copies this directly into the OutSystems Advanced SQL Output Structure
+- **Format: Sample JSON data** — use realistic sample values so the user can paste directly into OutSystems via **"Paste JSON as Structure"** to auto-create the output structure
+- OutSystems infers types from the sample values:
+  - Text → `"sample text"`
+  - Integer → `1`
+  - Long Integer → `12345` (same as integer in JSON, set type manually in OS if needed)
+  - Decimal → `25.50`
+  - Date → `"2026-04-22"`
+  - Boolean → `true`
 
 **Example `output-structure.json`:**
 ```json
 {
-  "SiteName":   "Text",
-  "NetAmount":  "Decimal",
-  "GuestCount": "Integer"
+  "SiteName":   "Auckland CBD",
+  "NetAmount":  1250.75,
+  "GuestCount": 42
 }
 ```
 
