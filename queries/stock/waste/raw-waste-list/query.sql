@@ -25,7 +25,7 @@ DateList AS (
 ),
 
 SiteList AS (
-    SELECT s.Id AS SiteId, ISNULL(s.DisplayName, s.Name) AS SiteName
+    SELECT s.Id AS SiteId, s.Name AS SiteName
     FROM {Site} s
     WHERE s.Id IN (@SiteIds)
 ),
