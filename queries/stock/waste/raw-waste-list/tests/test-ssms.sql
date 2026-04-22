@@ -1,10 +1,10 @@
 -- =============================================
 -- Test: Raw Waste List (SSMS)
--- Purpose: Verify query returns one row per day
+-- Purpose: Verify query returns one row per day per site
 --          including dates with no RawWasteCount data
 -- =============================================
 
-DECLARE @SiteId BIGINT = 3187;
+DECLARE @SiteIds VARCHAR(200) = '3187';
 DECLARE @ConceptId BIGINT = 129;
 DECLARE @StartDate DATE = '2026-04-15';
 DECLARE @EndDate DATE = '2026-04-22';
@@ -18,8 +18,21 @@ DateList AS (
     WHERE ReportDate < @EndDate
 ),
 
+SiteList AS (
+    SELECT s.Id AS SiteId, ISNULL(s.DisplayName, s.Name) AS SiteName
+    FROM {Site} s
+    WHERE s.Id IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
+),
+
+Scaffold AS (
+    SELECT dl.ReportDate, sl.SiteId, sl.SiteName
+    FROM DateList dl
+    CROSS JOIN SiteList sl
+),
+
 WasteData AS (
     SELECT
+        sp.SiteId,
         sp.Date,
         sp.Id AS StockPeriodId,
         SUM(CASE WHEN dp.[Order] = 1 THEN rwc.WasteQty * rwc.CostPerUnit ELSE 0 END) AS OvernightTotal,
@@ -31,13 +44,15 @@ WasteData AS (
     FROM {StockPeriod} sp
     INNER JOIN {RawWasteCount} rwc ON rwc.StockPeriodId = sp.Id
     INNER JOIN {DayParts} dp ON rwc.DayPartsId = dp.Id AND dp.ConceptId = @ConceptId
-    WHERE sp.SiteId = @SiteId
+    WHERE sp.SiteId IN (SELECT CAST(value AS BIGINT) FROM STRING_SPLIT(@SiteIds, ','))
       AND sp.Date BETWEEN @StartDate AND @EndDate
-    GROUP BY sp.Date, sp.Id
+    GROUP BY sp.SiteId, sp.Date, sp.Id
 )
 
 SELECT
-    dl.ReportDate AS Date,
+    sc.ReportDate AS Date,
+    sc.SiteId,
+    sc.SiteName,
     wd.StockPeriodId,
     ISNULL(wd.OvernightTotal, 0) AS OvernightTotal,
     ISNULL(wd.BreakfastTotal, 0) AS BreakfastTotal,
@@ -46,7 +61,7 @@ SELECT
     ISNULL(wd.DailyTotal, 0) AS DailyTotal,
     ISNULL(wd.ShiftsCompleted, 0) AS ShiftsCompleted,
     (SELECT COUNT(*) FROM {DayParts} d WHERE d.ConceptId = @ConceptId) AS TotalShifts
-FROM DateList dl
-LEFT JOIN WasteData wd ON dl.ReportDate = wd.Date
-ORDER BY dl.ReportDate DESC
+FROM Scaffold sc
+LEFT JOIN WasteData wd ON sc.ReportDate = wd.Date AND sc.SiteId = wd.SiteId
+ORDER BY sc.ReportDate DESC
 OPTION (MAXRECURSION 1000)

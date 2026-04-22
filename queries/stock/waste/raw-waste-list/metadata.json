@@ -1,13 +1,13 @@
 {
   "name": "raw-waste-list",
-  "description": "One row per day showing waste cost per shift, daily total, and shift completion count for the Raw Waste browse screen",
-  "category": "stock",
+  "description": "One row per day per site showing waste cost per shift, daily total, and shift completion count for the Raw Waste browse screen",
+  "category": "stock/waste",
   "created": "2026-04-22",
   "author": "Claude",
   "story": "3746",
-  "tables": ["StockPeriod", "RawWasteCount", "DayParts"],
+  "tables": ["Site", "StockPeriod", "RawWasteCount", "DayParts"],
   "inputParameters": [
-    { "name": "SiteId", "type": "LongInteger", "expandInline": false },
+    { "name": "SiteIds", "type": "Text", "expandInline": true },
     { "name": "ConceptId", "type": "LongInteger", "expandInline": false },
     { "name": "StartDate", "type": "Date", "expandInline": false },
     { "name": "EndDate", "type": "Date", "expandInline": false }

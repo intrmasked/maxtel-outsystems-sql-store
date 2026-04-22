@@ -1,5 +1,7 @@
 {
   "Date":             "2026-04-22",
+  "SiteId":           3187,
+  "SiteName":         "Auckland CBD",
   "StockPeriodId":    12345,
   "OvernightTotal":   15.50,
   "BreakfastTotal":   32.75,
