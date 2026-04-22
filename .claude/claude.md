@@ -188,6 +188,7 @@ This allows easy testing by changing values at the top.
 
 **Default Values:**
 - `@SiteId` = 3187 (standard test site)
+- `@ConceptId` = 129 (standard test concept)
 - `@Date` = Current or test date in 'YYYY-MM-DD' format
 - `@SelectedView` = 'D' (if query uses view parameter)
   - 'D' = Dollar Sales (NetAmount)

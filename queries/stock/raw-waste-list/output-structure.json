@@ -1,0 +1,11 @@
+{
+  "Date":             "Date",
+  "StockPeriodId":    "LongInteger",
+  "OvernightTotal":   "Decimal",
+  "BreakfastTotal":   "Decimal",
+  "DayTotal":         "Decimal",
+  "NightTotal":       "Decimal",
+  "DailyTotal":       "Decimal",
+  "ShiftsCompleted":  "Integer",
+  "TotalShifts":      "Integer"
+}
