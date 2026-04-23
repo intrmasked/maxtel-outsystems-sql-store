@@ -1,0 +1,16 @@
+{
+  "WRIN":             "12345",
+  "Menu":             "Food",
+  "Description":      "10:1 Reg Meat",
+  "UOM":              "Pattie",
+  "OvernightQty":     2,
+  "OvernightValue":   3.50,
+  "BreakfastQty":     5,
+  "BreakfastValue":   8.75,
+  "DayQty":           3,
+  "DayValue":         5.25,
+  "NightQty":         1,
+  "NightValue":       1.75,
+  "TotalQty":         11,
+  "TotalValue":       19.25
+}

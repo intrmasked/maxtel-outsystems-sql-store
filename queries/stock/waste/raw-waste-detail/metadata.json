@@ -1,0 +1,13 @@
+{
+  "name": "raw-waste-detail",
+  "description": "Cross-tab of wasteable items x shifts for a single day showing QTY and VALUE per cell",
+  "category": "stock/waste",
+  "created": "2026-04-22",
+  "author": "Claude",
+  "story": "3744",
+  "tables": ["RawWasteCount", "LogicalItem", "PhysicalItem", "DayParts"],
+  "inputParameters": [
+    { "name": "StockPeriodId", "type": "LongInteger", "expandInline": false },
+    { "name": "ConceptId", "type": "LongInteger", "expandInline": false }
+  ]
+}
