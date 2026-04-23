@@ -16,7 +16,7 @@ When a user saves waste quantities from the entry slideout:
 
 ## Status
 - [ ] Complete / [ ] In Progress / [X] In Testing
-- Current step: Backend complete (Server Action + Service Action). Waiting for UI build, then end-to-end test.
+- Current step: Backend complete. List screen built (query + UI + export). Detail screen SQL done, UI paused on category separators. Slideout not started yet.
 - **Not using** existing `UpdateStockPeriodBalanceRawWaste` action — building fresh in SaveRawWasteEntry
 
 ---

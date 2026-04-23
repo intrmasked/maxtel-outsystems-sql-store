@@ -75,6 +75,13 @@ Stock_CS module:
    - Format: `https://dev.azure.com/MaxtelNZ/Scheduling/_boards/board/t/Scheduling%20Team/Stories?workitem=XXXX`
    - This links our SQL work back to the original story for traceability
 
+2b. **🎨 ASK FOR MOCK LINK** - After getting the story link:
+   - Ask: "Is there a mock/design link for this?" (not a hard rule — just ask)
+   - If provided, add it to the session context file as `**Mock:**` at the top
+   - Mock links are hosted on surge.sh (e.g. `https://maxtel-stock.surge.sh/...`, `https://maxtel-reports.surge.sh/...`)
+   - Use `WebFetch` to scrape the mock page for layout, structure, and data requirements
+   - Focus on the **body/main content area** — sidebar navigation is generally not relevant to the story
+
 3. **🚨 ALWAYS CHECK TABLE DOCS FIRST** - Before asking ANY questions:
    - **READ** existing table docs in `database-context/tables/[table-name]/README.md`
    - Check if columns, types, and relationships are already documented
