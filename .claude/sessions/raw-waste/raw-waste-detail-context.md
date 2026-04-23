@@ -13,7 +13,28 @@ Build the day detail screen. Shows a cross-tab table with wasteable logical item
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Writing detail query
+- Current step: **PAUSED** — SQL queries written, summary strip built, detail screen paused pending category separator decision
+
+---
+
+## What's Done
+
+### SQL Queries (committed)
+- `queries/stock/waste/raw-waste-detail/query.sql` — item cross-tab (WRIN, Menu, Description, UOM, QTY+VALUE per shift)
+- `queries/stock/waste/raw-waste-detail/query-summary.sql` — single row with per-shift totals for summary strip
+- Both take `@StockPeriodId` + `@ConceptId`
+
+### UI — Summary Strip (built)
+- Widget tree with `summary-strip` container layout
+- CSS: bordered card with rounded corners
+- Expressions bound to `GetRawWasteDetail.RawWasteSummary.*`
+
+### UI — Item Table (partially built)
+- DataGrid with 22+ ListViewColumns for all shift QTY/VALUE pairs
+- **BLOCKED**: Category separators (CHILL, FROZEN, MCCAFE groupings in mock) — no matching column in database
+  - `LogicalItem.ItemType` only has Food/Paper/Other (too broad)
+  - CHILL/FROZEN storage categories don't exist in data model
+  - Need to decide: group by ItemType, add new column, or skip separators
 
 ---
 
@@ -21,17 +42,14 @@ Build the day detail screen. Shows a cross-tab table with wasteable logical item
 
 ### Summary Strip (top)
 - Day Total: $X.XX
-- Overnight: $X.XX
-- Breakfast: $X.XX
-- Day: $X.XX
-- Night: $X.XX
+- Overnight / Breakfast / Day / Night shift totals
 - Total: $X.XX
 
 ### Item Table (cross-tab)
 | WRIN | Menu | Description | Overnight QTY | Overnight VALUE | Breakfast QTY | Breakfast VALUE | Day QTY | Day VALUE | Night QTY | Night VALUE | Total QTY | Total VALUE |
 |------|------|-------------|---------------|-----------------|---------------|-----------------|---------|-----------|-----------|-------------|-----------|-------------|
 
-Plus Total row at bottom.
+Plus Total row at bottom. Items grouped by category with separator rows.
 
 ---
 
@@ -40,8 +58,16 @@ Plus Total row at bottom.
 ### Advanced SQL required
 - Cross-tab pivot (items as rows, shifts as column groups)
 - Conditional SUM per shift (QTY and VALUE)
-- Total row via UNION ALL
-- Summary strip can be derived from the same query using window functions or calculated in UI from Total row
+- Summary strip via separate query
+
+### Summary strip as separate query
+- `query-summary.sql` returns single row — cleaner than window functions in item query
+- Both queries called in same data action
+
+### GetOrCreate flow
+- Detail screen calls `GetOrCreateRawWasteCount(SiteId, Date)` first
+- Returns StockPeriodId used as input for both detail queries
+- Ensures RawWasteCount rows exist before querying
 
 ---
 
@@ -50,10 +76,19 @@ Plus Total row at bottom.
 - `LogicalItem` — EXISTING — WRIN, ItemName, ItemType (menu)
 - `PhysicalItem` — EXISTING — UnitName (UOM display)
 - `DayParts` — EXISTING — shift structure
-- `LogicalItemSiteConfig` — EXISTING — filter wasteable items
 
 ---
 
-## Query Input
-- `@StockPeriodId` (Long Integer) — from list screen row click
-- `@ConceptId` (Long Integer) — for DayParts lookup
+## Pending / Blockers
+1. **Category separators** — need a data source for CHILL/FROZEN/MCCAFE groupings
+2. **Total row** — to be calculated in UI (sum of all item rows)
+3. **Slideout integration** — "+ Add/Edit" button opens entry panel (separate story)
+
+---
+
+## Quick Resume
+To continue:
+1. Read this context
+2. Check queries: `queries/stock/waste/raw-waste-detail/`
+3. Decide on category separator approach
+4. Wire up DataGrid columns with expressions
