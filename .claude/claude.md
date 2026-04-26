@@ -211,7 +211,7 @@ FROM {BusinessUser} bu
 INNER JOIN {Person} p ON p.Id = bu.PersonId
 WHERE p.Name LIKE '%FirstName%'
 ```
-A test query is also available at: `queries/reports/grouped-reports/tests/test-find-business-user.sql`
+A test query is also available at: `queries/report-control/grouped-reports/tests/test-find-business-user.sql`
 
 **After any query changes**: Update session context with what changed and why.
 

@@ -44,7 +44,7 @@
 
 ### SQL Store (this repo)
 - Table docs: SupportedReport, MaxtelApp, ReportModules, ReportFavourites, BusinessUser
-- Utility query: `queries/utilities/find-business-user/` — look up BusinessUserId by name
+- Utility query: `queries/utilities/find-business-user/ and queries/report-control/grouped-reports/tests/` — look up BusinessUserId by name
 - Test queries: module mapping investigation, seed reference
 - No production SQL needed — endpoint uses Aggregate
 
