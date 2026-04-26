@@ -196,11 +196,22 @@ This allows easy testing by changing values at the top.
 **Default Values:**
 - `@SiteId` = 3187 (standard test site)
 - `@ConceptId` = 129 (standard test concept)
+- `@BusinessUserId` = 317646 (Abdul Haseeb @ site 3187)
 - `@Date` = Current or test date in 'YYYY-MM-DD' format
 - `@SelectedView` = 'D' (if query uses view parameter)
   - 'D' = Dollar Sales (NetAmount)
   - 'G' = Guest Count (TransactionCount)
   - 'A' = Average Check (NetAmount / TransactionCount)
+
+**🔍 Finding a BusinessUserId for a different user:**
+If someone other than Abdul is working, ask for their name and run:
+```sql
+SELECT bu.Id AS BusinessUserId, bu.IsActive, bu.HomeSiteId
+FROM {BusinessUser} bu
+INNER JOIN {Person} p ON p.Id = bu.PersonId
+WHERE p.Name LIKE '%FirstName%'
+```
+A test query is also available at: `queries/reports/grouped-reports/tests/test-find-business-user.sql`
 
 **After any query changes**: Update session context with what changed and why.
 

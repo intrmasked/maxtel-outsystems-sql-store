@@ -2,7 +2,7 @@
 
 **Story Link:** https://dev.azure.com/MaxtelNZ/Scheduling/_workitems/edit/3786
 **PRD:** See prd.md in this folder
-**Mock:** _(not provided yet)_
+**Mock:** _(not provided)_
 
 ## Original Story/Requirements
 
@@ -12,106 +12,60 @@
 > - New endpoint returns reports for the current MaxtelAppId grouped by module, each with Description
 
 ## Status
-- [ ] In Progress
-- Current step: OutSystems entity work (Service Studio), then build aggregate endpoint
-- SQL side: No Advanced SQL needed — Aggregate handles this
+- [X] Complete
+- Module field removal deferred until full UI migration
+
+## What Was Built
+
+### OutSystems (Service Studio)
+1. **SupportedReport** — Added `Description` field (nullable string). Module field kept for backward compat.
+2. **ReportModules** — New entity in Report_CS (Id, SupportedReportId FK, MaxtelAppId). Needs composite unique index.
+3. **ReportFavourites** — New entity in Report_CS (Id, SupportedReportId FK, BusinessUserId). For feature 2.2.
+4. **GetReportsForModule** — Server Action (Private) + Service Action (Public) in Report_CS.
+
+### Server Action: GetReportsForModule
+
+**Structure: ReportForModule**
+
+| Attribute | Type | Description |
+|---|---|---|
+| SupportedReportId | Long Integer | Report ID |
+| ReportName | Text | StructureName |
+| Description | Text | Info button text |
+| SmartReportTypeUniqueName | Text | For routing |
+| IsFavourite | Boolean | Star filled or not |
+
+**Flow:**
+- Input: MaxtelAppId, BusinessUserId
+- Aggregate: ReportModules → Only With SupportedReport → With or Without ReportFavourites
+- Filters: MaxtelAppId match + Is_Active = True
+- For Each: map to ReportForModule structure, IsFavourite = ReportFavourites.Id <> NullIdentifier()
+- Output: ReportForModule List
+
+### SQL Store (this repo)
+- Table docs: SupportedReport, MaxtelApp, ReportModules, ReportFavourites, BusinessUser
+- Utility query: `queries/utilities/find-business-user/` — look up BusinessUserId by name
+- Test queries: module mapping investigation, seed reference
+- No production SQL needed — endpoint uses Aggregate
 
 ## Tables Documentation
-- `SupportedReport` — **DONE** — documented from Service Studio screenshot
-- `ReportModules` — **CREATED** in OutSystems (Report_CS) — needs composite unique index
-- `ReportFavourites` — **DOCS DONE** — needs creation in OutSystems
-- `MaxtelApp` — **DONE** — documented from Service Studio screenshot (Access_CS)
-- `BusinessUser` — not yet documented (Access_CS, referenced by ID only)
-
-## MaxtelApp ID Mapping (from test query)
-
-| Id | Name |
-|----|------|
-| 1 | (Unassigned) |
-| 7 | Scheduling |
-| 9 | Employee Files |
-| 11 | Smart Reports |
-| 12 | Authorise Shifts |
-| 13 | Stock Management Module |
-| 14 | Employee Centre |
-| 15 | Requests |
-| 16 | Sales App |
-| 17 | Self Service |
-| 18 | Reports |
-| 19 | Maxtel Back Office |
-| 20 | KPI Dashboard |
-| 22 | Accounting |
-| 23 | Cash |
-| 24 | Accounting Reports |
-
-## Old Module → New Module Mapping
-
-The frontend Report Settings UI (already built) uses **new module groupings** that differ from old `SupportedReport.Module` values:
-
-| Old Module (SupportedReport.Module) | New UI Grouping |
-|-------------------------------------|-----------------|
-| Scheduling | Schedules (5) |
-| Cash | Daily Shift (10) |
-| Admin Review | Daily Shift (moved) |
-| Employee Centre | ??? |
-| Stock Count | ??? |
-| _(empty)_ | 3 reports unassigned |
-
-**New UI groups**: Daily Shift (10), Schedules (5), Accounting (11), Miscellaneous (3), Employee Turnover (1), Net Promoter Score (1)
+- `SupportedReport` — **DONE**
+- `ReportModules` — **DONE** (created in OutSystems)
+- `ReportFavourites` — **DONE** (created in OutSystems)
+- `MaxtelApp` — **DONE**
+- `BusinessUser` — **DONE**
 
 ## Key Decisions
-- **Don't delete Module field yet** — keep it until all UI code migrated to ReportModules
-- **Add Description to SupportedReport** — safe, new nullable field
-- **Seed via UI, not SQL** — frontend Report Settings page already handles module assignments with new groupings
-- **Description populated from frontend** — Report Settings UI has inline description editing
-- **No Advanced SQL needed** — Aggregate handles the grouped-reports endpoint (simple 3-table join)
+- **Don't delete Module field yet** — keep until all UI code migrated to ReportModules
+- **Seed via UI, not SQL** — Report Settings frontend handles module assignments with new groupings
+- **No Advanced SQL needed** — Aggregate handles the endpoint (simple 3-table join)
+- **Clean output via Structure** — Server Action maps to ReportForModule structure, UI gets flat list
+- **Favourites per user** — BusinessUserId only, no tenant/site scoping needed
 
-## Grouped Reports Endpoint — Aggregate Design
+## Known User IDs
+- Abdul Haseeb: BusinessUserId = 317646, HomeSiteId = 3187
 
-**No SQL needed — use OutSystems Aggregate in a Server Action → Service Action wrapper**
-
-**Inputs:** `MaxtelAppId`, `BusinessUserId`
-
-**Aggregate Sources:**
-1. `ReportModules` — base, filtered by `MaxtelAppId = @MaxtelAppId`
-2. INNER JOIN `SupportedReport` on `SupportedReport.Id = ReportModules.SupportedReportId`, filtered by `Is_Active = True`
-3. LEFT JOIN `ReportFavourites` on `ReportFavourites.SupportedReportId = SupportedReport.Id` AND `ReportFavourites.BusinessUserId = @BusinessUserId`
-
-**Output Columns:**
-- `SupportedReport.Id` — report identifier
-- `SupportedReport.StructureName` — display name on card
-- `SupportedReport.Description` — shown via info (i) button
-- `SupportedReport.SmartReportTypeUniqueName` — for routing
-- `ReportFavourites.Id <> NullIdentifier()` — computed as `IsFavourite` (boolean)
-
-**Sort:** `SupportedReport.StructureName` ASC
-
-**Pattern:**
-```
-Report_CS module:
-├─ Server Action: GetReportsForModule (Private)
-│   ├─ Input: MaxtelAppId, BusinessUserId
-│   ├─ Aggregate: joins ReportModules → SupportedReport → ReportFavourites
-│   └─ Output: List of reports with IsFavourite flag
-└─ Service Action: GetReportsForModule (Public) ← wrapper
-```
-
-## Queries Created (test/reference only)
-- `queries/reports/grouped-reports/tests/test-distinct-modules.sql` — get distinct Module values
-- `queries/reports/grouped-reports/tests/test-maxtelapp-list.sql` — get all MaxtelApp rows
-- `queries/reports/grouped-reports/tests/test-admin-review-reports.sql` — identify Admin Review reports
-- `queries/reports/grouped-reports/tests/test-seed-report-modules.sql` — reference seed query (not for production)
-
-## Outstanding Service Studio Work
-1. Add composite unique index on ReportModules (`SupportedReportId`, `MaxtelAppId`)
-2. Create ReportFavourites entity — Id, SupportedReportId (FK), BusinessUserId (Long Integer) + composite unique index
-3. Add `Description` field to SupportedReport (nullable Text)
-4. Build GetReportsForModule Server Action with Aggregate
-5. Wrap in Service Action
-
-## Notes for Next Session
-- Report Settings frontend already built — handles module assignments + descriptions
-- Module assignments use new groupings (Daily Shift, Schedules, etc.) not old Module values
-- No cross-service FK constraints between Report_CS and Access_CS
-- "Admin Review" module has no MaxtelApp match — reports appear moved to Daily Shift in new UI
-- Favourite toggle is entity action logic (INSERT/DELETE) — no SQL needed
+## Deferred
+- Remove `Module` field from SupportedReport (after full migration)
+- Composite unique index on ReportModules (SupportedReportId, MaxtelAppId)
+- "Admin Review" module mapping — 3 reports have no MaxtelApp match
