@@ -2,7 +2,7 @@
 
 **Story Link:** https://dev.azure.com/MaxtelNZ/Scheduling/_workitems/edit/3787
 **PRD:** See prd.md in this folder
-**Mock:** _(not provided)_
+**Mock:** _(see screenshot in session — Daily Shift module view with 10 report cards)_
 
 ## Original Story/Requirements
 
@@ -12,8 +12,8 @@
 > - Report slideover is maintained
 
 ## Status
-- [X] Complete
-- All work is OutSystems UI + Aggregate-based Server/Service Actions (no SQL needed)
+- [ ] In Progress
+- Endpoint designs complete, block designs complete, building in Service Studio
 
 ## Dependencies
 - **Story #3786** (complete) — GetReportsForModule endpoint, ReportModules + ReportFavourites tables
@@ -23,6 +23,7 @@
 ### Endpoints (Report_CS — Aggregates, no SQL)
 
 **1. GetReportModuleList** — Sidebar module list
+> Returns the list of report modules for the sidebar navigation. Each item contains the module name, its MaxtelAppId, and the count of active reports assigned to it. Only modules with at least one active report are returned.
 
 Structure: `ReportModuleItem`
 
@@ -42,6 +43,7 @@ Flow:
 - Wrap in Service Action
 
 **2. GetReportsForModule** — Card grid data (from story #3786)
+> Returns all active reports assigned to a given module. Takes a MaxtelAppId (from the sidebar selection) and a BusinessUserId (logged-in user) to determine each report's favourite status. Each item contains the report name, description, routing key, and whether the user has favourited it.
 
 Structure: `ReportForModule`
 
@@ -61,23 +63,106 @@ Flow:
 - Output: ReportForModule List
 - Wrap in Service Action
 
-### UI Flow (Report_UI)
+---
+
+### UI Blocks (Report_UI)
+
+**Block 1: ReportModuleNav** — Sidebar module list
+
+| Input | Type | Description |
+|---|---|---|
+| BusinessUserId | Long Integer | Passed down for GetReportsForModule |
+
+| Event | Parameters | Description |
+|---|---|---|
+| OnModuleSelected | MaxtelAppId, ModuleName | User clicked a module |
+
+| Local Variable | Type | Description |
+|---|---|---|
+| ModuleList | ReportModuleItem List | From API |
+| ActiveMaxtelAppId | Long Integer | Currently selected (for highlighting) |
+
+Initialize:
+- Data Action calls GetReportModuleList
+- Auto-select first module → set ActiveMaxtelAppId, trigger OnModuleSelected
+
+Click Handler:
+- Set ActiveMaxtelAppId = clicked item
+- Trigger OnModuleSelected
+
+Active Highlighting:
+- CSS class: `If(Current.MaxtelAppId = ActiveMaxtelAppId, "active-module", "")`
+
+---
+
+**Block 2: ReportCard** — Individual report card item
+
+| Input | Type | Mandatory | Description |
+|---|---|---|---|
+| SupportedReportId | Long Integer | Yes | Report ID |
+| ReportName | Text | Yes | Display name |
+| Description | Text | No | Info tooltip text |
+| IsFavourite | Boolean | Yes | Star filled or not |
+| BusinessUserId | Long Integer | Yes | For favourite toggle |
+
+| Event | Parameters | Description |
+|---|---|---|
+| OnReportClick | SupportedReportId | Card clicked — open report |
+| OnFavouriteChanged | SupportedReportId, IsFavourite | Star toggled |
+
+| Local Variable | Type | Description |
+|---|---|---|
+| IsFav | Boolean | Local copy for optimistic UI |
+
+Initialize:
+- Set IsFav = IsFavourite (copy input to local)
+
+Card Click:
+- Trigger OnReportClick(SupportedReportId)
+
+Star Click (handled inside block):
+```
+ToggleFavourite
+├─ Set IsFav = NOT IsFav  (optimistic — star flips immediately)
+├─ If IsFav = True
+│   ├─ CreateReportFavourites(SupportedReportId, BusinessUserId)
+│   └─ On Error → revert IsFav
+├─ Else
+│   ├─ Aggregate: find ReportFavourites row by SupportedReportId + BusinessUserId
+│   ├─ DeleteReportFavourites(row.Id)
+│   └─ On Error → revert IsFav
+├─ Trigger OnFavouriteChanged(SupportedReportId, IsFav)
+```
+
+Layout:
+```
+Card Container (clickable → CardClicked)
+├─ Star Icon (clickable → ToggleFavourite, STOP PROPAGATION)
+│   └─ If IsFav: filled star (gold) / Else: outline star (grey)
+├─ Report Name (text)
+└─ Info Icon (i) → Tooltip: Description
+```
+
+---
+
+### Full Page Assembly (Reports Screen)
 
 ```
-Page Load
-├─ Call GetReportModuleList
-├─ Render sidebar: ModuleName (ReportCount) for each item
-├─ Auto-select first module
+Reports Screen
 │
-User clicks module in sidebar
-├─ Call GetReportsForModule(MaxtelAppId, BusinessUserId)
-├─ Render two-column card grid
-│   ├─ Card: ReportName + star icon (IsFavourite) + info tooltip (Description)
-│   └─ Click card → open report parameter form / slideover
+├─ Header: ModuleName (ReportCount) + "Smart Reports" / "My Reports" buttons
 │
-Star icon click
-├─ Toggle favourite (entity action INSERT/DELETE on ReportFavourites)
-├─ Optimistic UI update
+├─ Sidebar: ReportModuleNav Block
+│   └─ OnModuleSelected →
+│       ├─ Call GetReportsForModule(MaxtelAppId, BusinessUserId)
+│       └─ Update card grid
+│
+├─ Main Content: 2-column grid (List Widget)
+│   └─ For each report:
+│       ReportCard Block
+│       ├─ Inputs: SupportedReportId, ReportName, Description, IsFavourite, BusinessUserId
+│       ├─ OnReportClick → open report slideover/parameter form
+│       └─ OnFavouriteChanged → (optional refresh)
 ```
 
 ## Query Folder Structure
@@ -92,8 +177,10 @@ queries/reports/                 ← actual report queries (sales, stock, etc.)
 
 ## Key Decisions
 - **Fully dynamic sidebar** — module names and counts from API, not hardcoded
-- **Separated report-control from reports** — `queries/report-control/` for UI/backend control, `queries/reports/` for actual report queries
+- **Separated report-control from reports** — `queries/report-control/` for UI/backend, `queries/reports/` for actual reports
 - **No SQL needed** — both endpoints use Aggregates
+- **Favourite toggle inside ReportCard block** — block handles entity actions + optimistic UI
+- **Stop propagation on star click** — prevents card click from firing when toggling favourite
 - **Slideover maintained** — no changes to existing slideover behaviour
 
 ## Known User IDs
