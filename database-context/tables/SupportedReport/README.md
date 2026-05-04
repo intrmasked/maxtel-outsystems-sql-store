@@ -23,9 +23,9 @@ The SupportedReport table is the central registry of all reports in the system. 
 
 | Column Name | Data Type | Constraints | Description |
 |-------------|-----------|-------------|-------------|
-| `Id` | BIGINT | PK, NOT NULL | Auto-generated primary key |
+| `Id` | TEXT | PK, NOT NULL | **Report display name** — NOT an auto-number. The Id IS the human-readable name (e.g. "Adjusted Preferred Work Times", "Cash Sheet"). Defined as static Records in OutSystems. |
 | `Is_Active` | BIT | NOT NULL | Whether the report is active/visible |
-| `StructureName` | VARCHAR | | Display name shown in report lists (e.g. "Daily Cash Sheet") |
+| `StructureName` | VARCHAR | | Secondary name / OutSystems screen structure name. Often empty — NOT the display name. |
 | `Module` | VARCHAR | | Module grouping (e.g. "Scheduling", "Cash", "Admin Review", "Employee Centre") — **being removed** |
 | `SmartReportTypeUniqueName` | VARCHAR | UNIQUE | URL-safe identifier for routing (e.g. "cash_sheet", "daily_labour_activity") |
 | `ShowSite` | BIT | | Show site selector parameter |

@@ -69,29 +69,104 @@ Flow:
 
 **Block 1: ReportModuleNav** — Sidebar module list
 
-| Input | Type | Description |
+**Location**: `Report_UI / UI Flows / Common / ReportModuleNav`
+
+**Inputs**: _none_ — sidebar list is user-agnostic (same modules/counts for everyone). Parent screen owns `BusinessUserId` and pairs it with the `MaxtelAppId` from `OnModuleSelected` when calling `GetReportsForModule`.
+
+**Events**
+
+| Name | Parameters | Description |
 |---|---|---|
-| BusinessUserId | Long Integer | Passed down for GetReportsForModule |
+| `OnModuleSelected` | `MaxtelAppId` (Long Integer), `ModuleName` (Text) | Fires on initial auto-select AND every click |
 
-| Event | Parameters | Description |
-|---|---|---|
-| OnModuleSelected | MaxtelAppId, ModuleName | User clicked a module |
+**Local Variables**
 
-| Local Variable | Type | Description |
-|---|---|---|
-| ModuleList | ReportModuleItem List | From API |
-| ActiveMaxtelAppId | Long Integer | Currently selected (for highlighting) |
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `ActiveMaxtelAppId` | Long Integer | `0` | Currently selected — drives highlight |
+| `ActiveModuleName` | Text | `""` | Echoed in `OnModuleSelected` |
 
-Initialize:
-- Data Action calls GetReportModuleList
-- Auto-select first module → set ActiveMaxtelAppId, trigger OnModuleSelected
+**Data Action**: `GetReportModuleList` (Service Action from Report_CS) — Cache = 0 (counts can change)
 
-Click Handler:
-- Set ActiveMaxtelAppId = clicked item
-- Trigger OnModuleSelected
+**Widget Tree**
+```
+Container [Class: "report-module-nav"]
+│
+├─ Container [Class: "nav-header"]
+│   └─ Text "Reports"
+│
+├─ If [GetReportModuleList.List.Length = 0 AND NOT IsDataFetched]    ← LOADING
+│   └─ Container [Class: "nav-loading"] → Text "Loading..."
+│
+├─ If [IsDataFetched AND List.Length = 0]                            ← EMPTY
+│   └─ Container [Class: "nav-empty"] → Text "No reports available"
+│
+└─ If [List.Length > 0]
+    └─ List [Source: GetReportModuleList.List, Class: "nav-list"]
+        │
+        └─ Container [Class: "nav-item " +
+                              If(Current.MaxtelAppId = ActiveMaxtelAppId,
+                                 "active-module", "")]
+            │   OnClick: SelectModule (Ajax Submit, no confirmation)
+            │
+            ├─ Text [Value: Current.ModuleName, Class: "nav-item-name"]
+            └─ Container [Class: "nav-item-badge"]
+                └─ Text [Value: Current.ReportCount]
+```
 
-Active Highlighting:
-- CSS class: `If(Current.MaxtelAppId = ActiveMaxtelAppId, "active-module", "")`
+**Client Action: `SelectModule`** (no inputs — reads `Current` from List)
+```
+Assign  ActiveMaxtelAppId = GetReportModuleList.List.Current.MaxtelAppId
+        ActiveModuleName  = GetReportModuleList.List.Current.ModuleName
+Trigger OnModuleSelected(ActiveMaxtelAppId, ActiveModuleName)
+```
+
+**OnAfterFetch (on GetReportModuleList)** — auto-select first module
+```
+If List.Length > 0 AND ActiveMaxtelAppId = NullIdentifier()
+  ├─ Assign ActiveMaxtelAppId = List[0].MaxtelAppId
+  ├─ Assign ActiveModuleName  = List[0].ModuleName
+  └─ Trigger OnModuleSelected(ActiveMaxtelAppId, ActiveModuleName)
+```
+
+> **Why the `NullIdentifier()` guard?** Prevents re-firing `OnModuleSelected` if the data action re-fetches — once a module is active, don't clobber the user's selection.
+
+**CSS** (block's Style Sheet)
+```css
+.report-module-nav { display: flex; flex-direction: column; width: 240px;
+    padding: 16px 0; border-right: 1px solid var(--color-neutral-4);
+    background: var(--color-neutral-1); }
+.nav-header { padding: 0 16px 12px 16px; font-size: 18px; font-weight: 600;
+    color: var(--color-neutral-9); }
+.nav-loading, .nav-empty { padding: 16px; color: var(--color-neutral-7);
+    font-style: italic; }
+.nav-list { display: flex; flex-direction: column; }
+.nav-item { display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 16px; cursor: pointer; border-left: 3px solid transparent;
+    transition: background 0.12s, border-color 0.12s; }
+.nav-item:hover { background: var(--color-neutral-3); }
+.nav-item.active-module { background: var(--color-neutral-4);
+    border-left-color: var(--color-primary); font-weight: 600; }
+.nav-item-name { flex: 1; color: var(--color-neutral-9); }
+.nav-item-badge { background: var(--color-neutral-5); color: var(--color-neutral-9);
+    border-radius: 12px; padding: 2px 10px; font-size: 12px; font-weight: 500;
+    min-width: 24px; text-align: center; }
+.nav-item.active-module .nav-item-badge { background: var(--color-primary); color: white; }
+```
+
+**Build Checklist**
+1. Create block in `Report_UI / Common / ReportModuleNav`
+2. Add event `OnModuleSelected(MaxtelAppId: Long Integer, ModuleName: Text)`
+3. Add local vars `ActiveMaxtelAppId`, `ActiveModuleName`
+4. Manage Dependencies → Report_CS → tick `GetReportModuleList`
+5. Drop Data Action `GetReportModuleList`, Cache = 0
+6. Build widget tree
+7. Wire `OnAfterFetch` → auto-select logic
+8. Wire `OnClick` of `nav-item` → `SelectModule`
+9. Paste CSS into Style Sheet tab
+10. Publish
+
+**Status**: Spec finalized 2026-04-30 — ready to build in Service Studio
 
 ---
 
