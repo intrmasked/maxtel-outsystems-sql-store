@@ -15,7 +15,9 @@
 - [ ] In Progress
 - Backend endpoints built and working
 - UI blocks built, cards rendering, grid working
-- Pending: active state on sidebar nav, favourite toggle via service action
+- Active state on sidebar nav — FIXED
+- Initial load auto-select first module — FIXED
+- Pending: favourite toggle testing, style refinements
 
 ## Dependencies
 - **Story #3786** (complete) — GetReportsForModule endpoint, ReportModules + ReportFavourites tables
@@ -32,7 +34,7 @@
    - Group By: MaxtelApp.Id, MaxtelApp.Name, Count SupportedReport.Id
 
 2. **GetReportsForModule** — returns reports for a module with favourite status
-   - Structure: `ReportForModule` (SupportedReportId, ReportName, Description, SmartReportTypeUniqueName, IsFavourite)
+   - Structure: `ReportForModule` (SupportedReportId, ReportName, SmartReportTypeUniqueName, IsFavourite)
    - Input: MaxtelAppId, BusinessUserId
    - Aggregate: ReportModules → Only With SupportedReport → With or Without ReportFavourites
    - **ReportName = SupportedReport.Id** (Id is TEXT type, contains the display name)
@@ -48,17 +50,24 @@
 
 ### Frontend (Report_UI)
 
-**Screen: ReportsHomeNew**
-- Contains ReportNav block (sidebar) + ReportHome block (card grid)
-- Screen local vars: ActiveMaxtelAppId, ActiveModuleName, BusinessUserId
-- OnModuleSelected handler sets ActiveMaxtelAppId + ActiveModuleName, ReportHome re-fetches
+**Screen: ReportsHome**
+- Layout: Common\Layout_V4
+- MenuNavigation / NavOptions: ReportsMenu block (sidebar)
+- MainContent: ReportsHomeNew block (content area)
+- Input params: MaxtelAppId, ModuleName — passed to both ReportsMenu and ReportsHomeNew
+- On initial load with no params: ReportNav auto-selects first module via OnAfterFetch
 
-**Block: ReportNav (sidebar)**
-- Container class: `report-nav`
-- List → Link with `menu-item` + `active` classes (reusing existing menu styling)
-- Style Classes: `If(Current.MaxtelAppId = ActiveMaxtelAppId, "menu-item active", "menu-item")`
-- OnClick → ModuleClicked client action → triggers OnModuleSelected event
-- **ISSUE**: Active class not updating on click — need to verify ActiveMaxtelAppId is being set in ModuleClicked and on initial load
+**Block: ReportsMenu (sidebar wrapper)**
+- Input params: ActiveMaxtelAppId (Long Integer), ActiveModuleName (Text)
+- Contains: ReportNav block + Settings nav link (wrench icon)
+- ReportNavOnModuleSelected handler: navigates to ReportsHome with MaxtelAppId + ModuleName params
+
+**Block: ReportNav (sidebar nav list)**
+- Input param: ActiveMaxtelAppId (Long Integer)
+- Data Action: FetchReportModuleList → GetReportModuleList service action
+- List → Link with Style Classes: `If(Current.MaxtelAppId = ActiveMaxtelAppId, "menu-item active", "menu-item")`
+- OnClick → triggers OnModuleSelected event
+- **OnAfterFetch**: if ActiveMaxtelAppId = 0, fires OnModuleSelected with List[0] to auto-select first module
 
 **Block: ReportHome (card grid)**
 - Input: MaxtelAppId, ModuleName, BusinessUserId
@@ -68,11 +77,10 @@
 - Each list item = ReportCard block
 
 **Block: ReportCard**
-- Input: SupportedReportId, ReportName, Description, IsFavourite, BusinessUserId
+- Input: SupportedReportId, ReportName, IsFavourite, BusinessUserId
 - Events: OnReportClick(SupportedReportId)
 - Local var: IsFav (optimistic toggle)
 - Star: If widget swapping `star` (filled) / `star-o` (outline) icons
-- Info: Tooltip widget wrapping info-circle icon, content = Description
 - ToggleFavourite: optimistic flip → call ToggleReportFavourite service action → revert on failure
 
 ### CSS Classes
@@ -172,23 +180,22 @@
 
 ## Key Decisions
 - **SupportedReport.Id is TEXT** — contains the report display name, not an auto-number
+- **Description removed** — no longer shown on report cards or settings
 - **Sidebar uses existing menu-item/active classes** — no custom nav styling needed
 - **Favourite toggle via Server/Service Action** — not raw entity actions from UI
 - **Optimistic UI** — star flips immediately, reverts on failure
 - **Grid CSS targets .list child** — OutSystems list wrapper sits between grid container and items
 - **No font-awesome** — using OutSystems default icon library (star/star-o, info-circle)
+- **ActiveMaxtelAppId as Input Parameter** on ReportsMenu and ReportNav — not local var (fixes active class issue)
+- **Auto-select first module** — ReportNav OnAfterFetch fires OnModuleSelected with List[0] when ActiveMaxtelAppId is 0
 
-## Pending Issues
-1. **Active class on sidebar not updating** — ActiveMaxtelAppId may not be set on initial load or on click. Check:
-   - OnAfterFetch: `ActiveMaxtelAppId = List[0].MaxtelAppId` when list loads
-   - ModuleClicked: `ActiveMaxtelAppId = Current.MaxtelAppId` on click
-2. **Module names missing from sidebar** — verify GetReportModuleList assigns ModuleName correctly
+## Resolved Issues
+1. ~~**Active class on sidebar not updating**~~ — FIXED: Changed ActiveMaxtelAppId from local variable to Input Parameter on ReportsMenu and ReportNav. Screen binds its input params to these inputs.
+2. ~~**Empty screen on initial load**~~ — FIXED: ReportNav OnAfterFetch auto-selects first module when no module specified.
 
 ## Next Steps
-1. Fix sidebar active state (ActiveMaxtelAppId initialization + click handler)
-2. Test favourite toggle with ToggleReportFavourite service action
-3. Verify tooltip shows Description on hover
-4. Style refinements to match mock
+1. Test favourite toggle with ToggleReportFavourite service action
+2. Style refinements to match mock
 
 ## Known User IDs
 - Abdul Haseeb: BusinessUserId = 317646, HomeSiteId = 3187
