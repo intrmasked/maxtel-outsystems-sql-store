@@ -1,0 +1,10 @@
+{
+  "name": "seed-reportmodules-conceptid",
+  "category": "utilities",
+  "created": "2026-05-19",
+  "author": "Claude",
+  "story": "3824",
+  "description": "Seed ConceptId = 129 on all existing ReportModules rows",
+  "tables": ["ReportModules"],
+  "type": "UPDATE"
+}
