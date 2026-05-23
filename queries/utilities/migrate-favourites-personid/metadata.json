@@ -1,0 +1,11 @@
+{
+  "name": "migrate-favourites-personid",
+  "description": "Backfill PersonId on ReportFavourites from BusinessUser.PersonId for cross-tenant favourites migration",
+  "category": "utilities",
+  "story": "3826",
+  "storyUrl": "https://dev.azure.com/MaxtelNZ/Scheduling/_workitems/edit/3826",
+  "author": "Claude",
+  "dateCreated": "2026-05-23",
+  "tables": ["ReportFavourites", "BusinessUser"],
+  "type": "data-migration"
+}
