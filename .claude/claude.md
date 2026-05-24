@@ -11,7 +11,20 @@ SQL query development for OutSystems Advanced SQL Block. Keep it simple, documen
 | `origin` | `https://github.com/TrueNorthTeamsAI/maxtel-outsystems-sql-store` | TNT |
 | `heziico` | `https://github.com/intrmasked/maxtel-outsystems-sql-store.git` | heziico / personal |
 
-Push to both if you have access (`git push origin main && git push heziico main`), otherwise push to whichever you can.
+Push to both if you have access, otherwise push to whichever you can.
+
+### Branching Strategy
+
+**All work goes through branches and PRs — no direct pushes to `main`.**
+
+- **Branch naming**: `story/[story-number]-[story-name]` (e.g. `story/3786-grouped-reports`)
+- **Create branch** at the start of each story: `git checkout -b story/1234-query-name main`
+- **Push branch** and open a PR when ready for review
+- **Push to both remotes** if you have access: `git push origin story/... && git push heziico story/...`
+- **Merge via PR** — Abdul reviews and merges to `main`
+- **Delete branch** after merge
+
+**Utility queries** (`queries/utilities/`) that don't have a story number use `util/[name]` (e.g. `util/find-business-user`).
 
 ---
 
@@ -47,11 +60,13 @@ Push to both if you have access (`git push origin main && git push heziico main`
 1. **Understand the story** - Clarify requirements briefly
 2. **HARD RULE: Require story link** - Block ALL work until user provides the Azure DevOps story link. Only exception: utility queries in `queries/utilities/`. Add as `**Story Link:**` in session context.
 3. **Ask for mock link** (soft rule) - If provided, add as `**Mock:**` and use `WebFetch` to scrape layout/data requirements (focus on body content, ignore sidebar nav). Mock links hosted on surge.sh.
-4. **Check table docs** - Read `database-context/tables/[table-name]/README.md` BEFORE asking questions or writing SQL. Verify every column name against docs. Only ask user for table info if docs don't exist or are incomplete. If missing, create docs first.
-5. **Create query folder** - `queries/[category]/[story-name]/` (name from the story)
-6. **Write the query** - Start simple, iterate
-7. **Document it** - README.md + metadata.json
-8. **Update session context** after every major change
+4. **Create story branch** - `git checkout -b story/[number]-[name] main` (e.g. `story/3786-grouped-reports`)
+5. **Check table docs** - Read `database-context/tables/[table-name]/README.md` BEFORE asking questions or writing SQL. Verify every column name against docs. Only ask user for table info if docs don't exist or are incomplete. If missing, create docs first.
+6. **Create query folder** - `queries/[category]/[story-name]/` (name from the story)
+7. **Write the query** - Start simple, iterate
+8. **Document it** - README.md + metadata.json
+9. **Update session context** after every major change
+10. **Push branch and open PR** when ready for review
 
 ### Folder Structure Per Query
 ```
