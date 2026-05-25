@@ -55,6 +55,22 @@ Push to both if you have access, otherwise push to whichever you can.
 
 ---
 
+## Resume Workflow (When User Says "Continue")
+
+When the user says "continue", "pick up where we left off", or similar:
+
+1. **Detect the current branch** - Run `git branch --show-current` to identify the story
+2. **Find the session context** - Search `.claude/sessions/` for the matching context file
+3. **Read session context** - Load the full context file — it has requirements, status, decisions, and next steps
+4. **Read referenced table docs** - Load all tables mentioned in the session context
+5. **Check current query state** - If queries exist, read them
+6. **Resume from "Next Steps"** - Continue from exactly where the session context says to pick up
+7. **Brief the user** - Give a short summary: "Resuming story X. Last time we did Y. Next up: Z."
+
+**If no session context found**: Ask the user which story they want to continue and check `.claude/sessions/` for available contexts.
+
+---
+
 ## Story Workflow (When User Says "Start")
 
 1. **Understand the story** - Clarify requirements briefly

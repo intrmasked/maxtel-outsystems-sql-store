@@ -1,171 +1,127 @@
 # MaxTel OutSystems SQL Store
 
-**Purpose**: Collaborative SQL query repository with full context tracking. Built for seamless Claude AI workflow.
+SQL query repository for OutSystems Advanced SQL blocks. Full context tracking so Claude (or any dev) can pick up any story and continue.
 
 ---
 
-## 🤖 For Claude AI
+## Using This Repo with Claude
 
-### When User Says: "Work on [query-name]"
+### Start a New Story
+```
+You: "Start story [paste Azure DevOps link]"
+```
+Claude will: create a branch, check/create table docs, write queries, document everything, save session context.
 
-**Auto-load sequence:**
-1. Read `.claude/sessions/[query-name]-context.md` first (resume ticket)
-2. Load all table docs mentioned in context
-3. Read `queries/[category]/[query-name]/query.sql`
-4. Check metadata.json for status
-5. Continue from current step in context
+### Resume Existing Work
+```
+You: "Continue working on [story-name]"
+```
+Claude will: read `.claude/sessions/[feature]/[story-name]-context.md`, load table docs, pick up from where it left off.
 
-### When User Says: "Start new query" or "Create [story-name]"
+### Wrap Up
+```
+You: "Finish" or "Wrap up"
+```
+Claude will: update session context with current status, decisions, and next steps. Anyone can resume later.
 
-**Auto-create sequence:**
-1. Ask for story requirements
-2. Check for table docs needed
-3. If missing → Ask for table structure, create docs
-4. Create `queries/[category]/[story-name]/` folder
-5. Build query.sql with DECLARE pattern
-6. Create README.md, metadata.json, WORKFLOW.md
-7. Save session context to `.claude/sessions/[story-name]-context.md`
-
-### Key Rules
-- **Session context = resume ticket** - Read it first, always
-- **Table docs are universal** - Reusable across all queries
-- **Query naming** - Use exact story name in kebab-case
-- **DECLARE at top** - Parameters always at top of query.sql
-- See `.claude/claude.md` for full workflow instructions
+All workflow rules are in `.claude/CLAUDE.md` — Claude reads this automatically.
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```
 maxtel-outsystems-sql-store/
 ├── .claude/
-│   ├── claude.md                      # Claude workflow instructions (READ THIS)
+│   ├── CLAUDE.md                           # Workflow rules (Claude reads this)
 │   └── sessions/
-│       └── [query-name]-context.md    # Resume tickets for each query
+│       ├── [feature]/
+│       │   ├── prd.md                      # Shared PRD for the feature
+│       │   └── [story-name]-context.md     # Session context (resume ticket)
+│       └── standalone/
+│           └── [query-name]-context.md
 │
 ├── database-context/
-│   └── tables/
-│       └── [table-name]/
-│           └── README.md              # Universal table docs (reusable)
+│   ├── tables/
+│   │   └── [TableName]/
+│   │       └── README.md                   # Table schema, relationships, patterns
+│   └── patterns/
+│       └── yoy-date-range-template.sql     # Reusable SQL patterns
 │
 ├── queries/
-│   └── [category]/
-│       └── [story-name]/
-│           ├── query.sql              # SQL with DECLARE params at top
-│           ├── README.md              # Query documentation
-│           ├── metadata.json          # Tracking info
-│           └── WORKFLOW.md            # Process guide
+│   ├── reports/                            # Sales, product mix, operating periods
+│   ├── report-control/                     # Report config and module lists
+│   ├── stock/                              # Ledger, transfers, waste
+│   └── utilities/                          # Helper queries
 │
-└── README.md                          # This file
+└── README.md                              # This file
 ```
 
-## 🚀 Quick Start
-
-### For Developers
-
-**Starting new query:**
+### Query Folder Structure
 ```
-You: "I need a query for [describe requirement]. Start."
-Claude: (auto-creates everything)
+queries/[category]/[story-name]/
+├── query.sql               # Production query ({TableName} format)
+├── README.md               # What it does, parameters, output
+├── metadata.json           # Date, author, category
+├── output-structure.json   # JSON for OutSystems "Paste as Structure"
+└── tests/
+    ├── test-ssms.sql       # SSMS test with DECLARE params
+    └── test-[name].sql
 ```
-
-**Continuing existing query:**
-```
-You: "Work on product-sales-by-drawer"
-Claude: (auto-loads context and continues)
-```
-
-**Wrapping up:**
-```
-You: "Finish" or "Wrap up"
-Claude: (creates session context for resumability)
-```
-
-### For Claude (Auto-Workflow)
-
-**User says "work on X":**
-→ Load `.claude/sessions/X-context.md`
-→ Load table docs
-→ Check `queries/**/X/query.sql`
-→ Continue seamlessly
-
-**User says "start" or gives story:**
-→ Clarify requirements
-→ Check/create table docs
-→ Build query with DECLARE pattern
-→ Document everything
-→ Save session context
-
-**User says "finish":**
-→ Create comprehensive session context
-→ Mark status (complete/in-progress)
-→ List next steps
-→ Enable anyone to continue
-
-## 📋 Current Queries
-
-| Query | Status | Location | Description |
-|-------|--------|----------|-------------|
-| Product Sales By Drawer | In Progress | `queries/reports/product-sales-by-drawer/` | Cash drawer reconciliation with GT values and sales |
-
-**To work on a query**: Tell Claude "work on [query-name]"
 
 ---
 
-## 🗂️ Available Tables
+## For Developers
 
-| Table | Purpose | Docs |
-|-------|---------|------|
-| SWCCashDrawer | Cash drawer sessions & GT values | `database-context/tables/SWCCashDrawer/` |
-| SWCPosTerminal | POS terminal session data | `database-context/tables/SWCPosTerminal/` |
-| SWCCashDrawerTender | Tender-specific refunds & amounts | `database-context/tables/SWCCashDrawerTender/` |
-| SalesFact | Sales transactions & tax | `database-context/tables/SalesFact/` |
+### Key Conventions
+- **Table names**: `{TableName}` format in SQL (not `[dbo].[TableName]`)
+- **No DECLARE in production queries** — use OutSystems Input Parameters
+- **No ORDER BY in production queries** — OutSystems handles sorting
+- **Tests**: SSMS format with `DECLARE` params, single `SELECT` only
+- **Branching**: `story/[number]-[name]` branches, merge via PR
 
-**Table docs are universal** - Reusable across all queries
+### Aggregates vs Advanced SQL
+Default to OutSystems Aggregates. Use Advanced SQL only when needed (window functions, CROSS JOIN, complex date math, UNION ALL patterns, 4+ table joins).
 
-## 💡 Key Concepts
+### Table Documentation
+All table docs live in `database-context/tables/[TableName]/README.md`. These are shared across all queries — check existing docs before asking for table info.
 
-### Session Context = Resume Ticket
-Every query has a context file in `.claude/sessions/[query-name]-context.md`:
-- Original requirements (exact wording)
-- What's done vs what's pending
-- All decisions with rationale
-- Next steps clearly listed
-- **Anyone can pick up and continue**
+**Current tables documented**: 46 (covering Sales, Stock, Menu/Recipe, Users, Reports, Leave/Roster/PH)
 
-### Table Docs = Universal Reference
-Table docs in `database-context/tables/` are:
-- **Reusable** - Used by all queries
-- **Generic** - Not tied to specific queries
-- **Complete** - Columns, types, relationships, patterns
-
-### Queries = Story-Based
-- Named after user story (e.g., "Product Sales By Drawer")
-- DECLARE parameters at top for easy testing
-- Comprehensive docs (README, metadata, workflow)
-- TODO markers for incomplete items
+### Session Context
+Every story has a context file in `.claude/sessions/`. It contains: requirements, table references, key decisions, query locations, current status, and next steps. This is how work persists across sessions.
 
 ---
 
-## 🔧 Workflow Commands
+## Current Inventory
 
-| You Say | Claude Does |
-|---------|-------------|
-| "Start new query for [X]" | Creates everything from scratch |
-| "Work on [query-name]" | Loads context and continues |
-| "Finish" or "Wrap up" | Saves session context for resumability |
-| "Show me all queries" | Lists current queries with status |
+### Queries (25+)
+
+| Category | Queries |
+|----------|---------|
+| **reports/** | cash-misc-detail, operating-periods, product-mix (3 variants), product-sales (5 variants), recipe-for-logical-item |
+| **report-control/** | grouped-reports, report-module-list |
+| **stock/** | ledger, transfers, waste |
+| **utilities/** | actual-sales, daily-tracking, find-business-user, get-pods, get-tender-list, get-wasteable-items, migrate-favourites, period-tracking, seed-reportmodules |
+
+### Table Domains
+
+| Domain | Tables |
+|--------|--------|
+| **Sales** | SalesFact, SalesHour, SWCPeriod, SWCPosTerminal, SWCCashDrawer, SWCCashDrawerTender, TenderType, ProductSalesByOperation |
+| **Stock** | PhysicalItem, LogicalItem, LogicalItemSiteConfig, LogicalItemUsage, CentralStockItem, StockMovement, StockMovementLine, StockPeriod, StockPeriodBalance, Transfer, RawWasteCount, MovementType |
+| **Menu/Recipe** | BO_MenuItem, BO_MenuIngredient, BO_RawIngredient, BO_Recipe, BO_RawItemPrice, ProductMenu, DayParts |
+| **Users/Org** | BusinessUser, Person, User, Site, Concept, MaxtelApp |
+| **Reports** | ReportFavourites, SiteFavourite, SupportedReport, ReportModules, CountPeriod |
+| **Leave/Roster/PH** | EmployeeWeek, RosterWeek, PublicHoliday, PublicHolidayReview, RosterWeekPublicHolidayReview, ScheduleStatus, OT_LeaveBalance |
 
 ---
 
-## 📚 Documentation
+## Git Remotes
 
-- **`.claude/claude.md`** - Full workflow guide for Claude
-- **`.claude/sessions/[query]-context.md`** - Resume tickets per query
-- **`queries/[category]/[query]/README.md`** - Query documentation
-- **`database-context/tables/[table]/README.md`** - Table specs
+| Remote | URL |
+|--------|-----|
+| `origin` | `https://github.com/TrueNorthTeamsAI/maxtel-outsystems-sql-store` |
+| `heziico` | `https://github.com/intrmasked/maxtel-outsystems-sql-store.git` |
 
----
-
-**Built for seamless Claude AI collaboration. Context persists, work continues, queries evolve.**
+Push to both when possible.
