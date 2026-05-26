@@ -3,7 +3,7 @@
 **OutSystems Entity**: ReportModules
 **Module**: Report_CS
 **Purpose**: Many-to-many join table linking SupportedReport to MaxtelApp per Concept, allowing a report to be assigned to multiple operational modules scoped by concept.
-**Last Updated**: 2026-05-19
+**Last Updated**: 2026-05-26
 
 ---
 
@@ -68,3 +68,4 @@ As of Story #3824, each assignment is scoped to a Concept (brand). This means th
 |------|--------|---------|
 | 2026-04-24 | Claude | Initial documentation — table not yet created |
 | 2026-05-19 | Claude | Added ConceptId column (Story #3824) |
+| 2026-05-26 | Claude | UniqueReportModule constraint updated to include ConceptId (Story #3824) |

@@ -20,7 +20,7 @@
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Tasks 1–4 done (table docs, migration, multi-tenant off, dedup, unique constraint). Next: CRUD changes documentation.
+- Current step: Tasks 1–5 done (table docs, migration, multi-tenant off, dedup, unique constraint, ReportModules fixes). Next: CRUD changes documentation.
 
 ## Context
 
@@ -69,7 +69,12 @@
 - Old `(SupportedReportId, BusinessUserId)` unique constraint removed
 - Dedup query: `queries/utilities/migrate-favourites-personid/dedup.sql`
 
-### Task 4: Document CRUD Operation Changes ⬜ (Next)
+### Task 4: ReportModules — ConceptId Fixes (Story #3824 overlap) ✅
+- Fixed "Add Module" aggregate: moved `ReportModules.ConceptId = SelectedConceptId` from filter to JOIN condition (was conflicting with the `ReportModules.Id = NullIdentifier()` filter — LEFT JOIN returned nulls, so ConceptId filter eliminated all rows)
+- Added `ConceptId` to `UniqueReportModule` unique constraint → now `(SupportedReportId, MaxtelAppId, ConceptId)` so same app+report can exist for different concepts
+- Both fixes verified working in OutSystems
+
+### Task 5: Document CRUD Operation Changes ⬜ (Next)
 - Toggle favourite: use PersonId instead of BusinessUserId
 - GetReportsForModule: input changes from BusinessUserId → PersonId, filter by PersonId
 - Document what changes in OutSystems Server/Service Actions
@@ -95,7 +100,8 @@
 
 ## Git Commits
 - `feat(report-favourites): Add PersonId for cross-tenant favourites — schema, migration, table docs` (on main)
-- _(dedup + session update commit pending)_
+- `feat(report-favourites): Add dedup query + update sessions for multi-tenant off` (on main)
+- _(ReportModules fixes + session update commit pending)_
 
 ## Next Steps
-1. Task 4 — Document CRUD operation changes (what to update in OutSystems)
+1. Task 5 — Document CRUD operation changes (what to update in OutSystems)
