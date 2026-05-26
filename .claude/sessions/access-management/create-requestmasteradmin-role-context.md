@@ -124,8 +124,12 @@ Screen-level role assignments may need RequestMasterAdmin added directly to the 
 
 ## Status
 
-- [ ] In Progress
-- **Current step:** Ready to begin OutSystems implementation — role creation + role check updates
+- [x] Step 1 — Role created in EmpApp_Roles espace ✅ (Abdul, 2026-05-25)
+- [ ] Step 2 — Import role into consumer espaces (Manage Dependencies)
+- [ ] Step 3 — Audit all 15 role check usages
+- [ ] Step 4 — Add OR conditions at every check point
+- [ ] Step 5 — Publish & test
+- **Current step:** Step 2 — Import RequestMasterAdmin into consumer espaces via Manage Dependencies
 - **Blockers:** None
 
 ---
@@ -142,16 +146,18 @@ Screen-level role assignments may need RequestMasterAdmin added directly to the 
 
 ## Next Steps
 
-1. **Create role** in EmpApp_Roles espace (Service Studio)
-2. **Audit all 15 role check usages** across the Requests app espace(s) using Find Usages
-3. **Add OR CheckRequestMasterAdmin()** at every check point
-4. **Test** — assign RequestMasterAdmin to a test user and verify access to all 15 areas
-5. **Regression check** — confirm users without the role still cannot access
+1. ~~**Create role** in EmpApp_Roles espace (Service Studio)~~ ✅ Done
+2. **Import role** into all consumer espaces via Manage Dependencies (Ctrl+Q → EmpApp_Roles → Roles → tick RequestMasterAdmin)
+3. **Audit all 15 role check usages** across the Requests app espace(s) using Find Usages
+4. **Add OR CheckRequestMasterAdmin()** at every check point
+5. **Test** — assign RequestMasterAdmin to a test user and verify access to all 15 areas
+6. **Regression check** — confirm users without the role still cannot access
 
 ---
 
 ## Notes for Next Session
 
+- **Role is created** — Step 1 complete. Consumer espaces still need to import it via Manage Dependencies before `CheckRequestMasterAdmin()` is available.
 - The 15 role System Names map directly to `Check<SystemName>()` functions in OutSystems
 - Screen-level role access is set in the screen properties (Roles field) — may need RequestMasterAdmin added there directly rather than in logic
 - Story explicitly states: do NOT modify existing roles — additive only, OR pattern only
@@ -161,5 +167,5 @@ Screen-level role assignments may need RequestMasterAdmin added directly to the 
 
 To continue:
 1. Read this file: `.claude/sessions/access-management/create-requestmasteradmin-role-context.md`
-2. Open EmpApp_Roles espace in Service Studio
-3. Continue from: **Step 1 — Create the role record in Service Studio**
+2. Open consumer espaces in Service Studio
+3. Continue from: **Step 2 — Import role via Manage Dependencies**

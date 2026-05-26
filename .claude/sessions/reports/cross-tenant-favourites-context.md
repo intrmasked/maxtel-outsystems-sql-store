@@ -20,7 +20,7 @@
 
 ## Status
 - [ ] Complete / [X] In Progress / [ ] Needs Review
-- Current step: Tasks 1 & 2 done (table docs + migration query). Next: CRUD changes documentation.
+- Current step: Tasks 1–4 done (table docs, migration, multi-tenant off, dedup, unique constraint). Next: CRUD changes documentation.
 
 ## Context
 
@@ -62,7 +62,14 @@
   - `README.md` — purpose, when to run, how it works
   - `metadata.json` — standard metadata
 
-### Task 3: Document CRUD Operation Changes ⬜ (Next)
+### Task 3: Multi-Tenant Off + Dedup ✅
+- Turned Multi-Tenant = No on ReportFavourites entity in OutSystems (so favourites are visible across tenants)
+- Ran dedup query to remove duplicate `(SupportedReportId, PersonId)` rows caused by tenant isolation removal
+- Added unique constraint `OSUNIQ_ReportFavourites_SupportedReportPersonId` on `(SupportedReportId, PersonId)`
+- Old `(SupportedReportId, BusinessUserId)` unique constraint removed
+- Dedup query: `queries/utilities/migrate-favourites-personid/dedup.sql`
+
+### Task 4: Document CRUD Operation Changes ⬜ (Next)
 - Toggle favourite: use PersonId instead of BusinessUserId
 - GetReportsForModule: input changes from BusinessUserId → PersonId, filter by PersonId
 - Document what changes in OutSystems Server/Service Actions
@@ -83,9 +90,12 @@
 | `queries/utilities/migrate-favourites-personid/tests/test-ssms.sql` | Created | SSMS sandbox preview |
 | `queries/utilities/migrate-favourites-personid/README.md` | Created | Query documentation |
 | `queries/utilities/migrate-favourites-personid/metadata.json` | Created | Query metadata |
+| `queries/utilities/migrate-favourites-personid/dedup.sql` | Created | Dedup query for post-multi-tenant-off cleanup |
+| `queries/utilities/migrate-favourites-personid/tests/test-dedup-check.sql` | Created | Read-only duplicate check |
 
 ## Git Commits
-- _(none yet)_
+- `feat(report-favourites): Add PersonId for cross-tenant favourites — schema, migration, table docs` (on main)
+- _(dedup + session update commit pending)_
 
 ## Next Steps
-1. Task 3 — Document CRUD operation changes (what to update in OutSystems)
+1. Task 4 — Document CRUD operation changes (what to update in OutSystems)
