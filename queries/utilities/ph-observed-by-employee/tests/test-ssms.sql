@@ -9,8 +9,8 @@
 -- =============================================
 
 DECLARE @SiteId BIGINT = 3187;
+DECLARE @BusinessUserId BIGINT = 312565;
 DECLARE @WeekEndDate DATE = '2026-03-01';  -- Week containing the original PH (28 Feb)
-
 SELECT
     p.Name                          AS EmployeeName,
     ew.BusinessUserId,
@@ -43,5 +43,6 @@ INNER JOIN {PublicHoliday} ph
 INNER JOIN {RosterWeek} rw
     ON rw.Id = rwphr.RosterWeekId
     AND rw.SiteId = @SiteId
-WHERE ew.WeekEndDate = @WeekEndDate
+WHERE ew.WeekEndDate IN (@WeekEndDate, DATEADD(DAY, 7, @WeekEndDate))
+  AND ew.BusinessUserId = @BusinessUserId
 ORDER BY p.Name, phr.HolidayDate;

@@ -12,7 +12,7 @@ When entering Leave Release week, the filter defaults to "Pending" in all cases.
 
 **Potential issue**: If `ButtonGroup2OnChange` refreshes everything (including `GetRosterWeeksBySiteId`), it could cause an infinite loop. If so, add an `IsInitialLoad` boolean guard. During testing it didn't loop, but watch for it.
 
-### Part 2: PH Mondayized Badge Fix — IN PROGRESS
+### Part 2: PH Mondayized Badge Fix ✅ VERIFIED
 
 **Problem**: PH badge shows on both the original and Mondayized date for all employees. Should only show on the day the employee has `IsObserved = 1`.
 
@@ -63,20 +63,21 @@ Branch B (Mondayisable & Past = True) uses `IsObserved` directly:
 - **True** → ListAppend — ✅ CORRECT
 - **False** → No Op — ✅ CORRECT
 
-### Fix Applied (2026-05-26)
+### Fix Applied & Verified (2026-05-26)
 **Swapped True/False connectors** on the `Parent complete & Not Observed?` If node in Branch A:
 - **True** (not observed on parent) → **ListAppend** (show Mondayized badge)
 - **False** (observed on parent) → **No Op** (skip Mondayized date)
 
 Branch B left untouched — it was already correct.
 
-### Current Issue After Fix
-- 28 Feb (original) badge now shows correctly ✅
-- 2 Mar (Mondayized) badge NOT showing ❌
-- Likely cause: `WeekEndDate < DateTimeToDate(...)` check in Branch A — the Mondayized date (2 Mar) falls in a different roster week (ending 8 Mar) than the original PH (ending 1 Mar). Need to investigate whether GetPublicHolidaysBySiteId fetches the Mondayized PH record when viewing the week ending 8 Mar.
+### Verification (2026-05-26)
+Tested with two employees at site 3187:
+- **Ajay LAWRENCE-WILLIAMS-POMANA** (267904): `IsObserved=False` on 28 Feb, `IsObserved=True` on 2 Mar → badge shows on 2 Mar only ✅
+- **Akanihi WINIATA-HEITIA** (312565): `IsObserved=True` on 28 Feb, `IsObserved=False` on 2 Mar → badge shows on 28 Feb only ✅
+- Reverted swap to confirm bug returned (badge on both dates) → re-applied swap → fix confirmed ✅
 
 ## Status
-- [ ] Complete / [x] In Progress / [ ] Needs Review
+- [ ] Complete / [ ] In Progress / [x] Needs Review
 
 ## Tables Documentation Created (ALL VERIFIED FROM ENTITY SCREENSHOTS)
 - `database-context/tables/PublicHolidayReview/` - NEW — key columns: EmployeeWeekId, HolidayDate, IsObserved, IsEntitledBySystem, IsEntitledByOverride, RosterWeekPHReviewId
@@ -116,13 +117,12 @@ Note: EmployeeWeek does NOT have RosterWeekId FK — uses WeekEndDate instead
 - `queries/utilities/ph-observed-by-employee/tests/test-ssms.sql` — debug query showing which date each employee observes a PH on for a given site/week
 
 ## Next Steps
-1. **Debug Mar 2nd**: Investigate why Mondayized badge doesn't show on week ending Mar 8th — check if `GetPublicHolidaysBySiteId` returns the Mondayized PH for that week, and whether the `WeekEndDate < CurrDateTime` check passes
-2. **Test broadly**: Once fixed, verify multiple employees — some should show badge on 28 Feb, others on 2 Mar
-3. **Run test query**: Use `test-ssms.sql` to see IsObserved values per employee
+1. **Abdul to review** and confirm ready for QA / production
+2. **Broader regression testing** — check other Mondayized PHs across different sites
 
 ## Quick Resume
 1. Read this context file
-2. Branch A fix is applied (swap True/False on `Parent complete & Not Observed?`)
-3. Branch B was already correct
-4. Outstanding issue: Mondayized date (2 Mar) badge not showing — likely a data fetch or week boundary issue
-5. Debug query available: `queries/utilities/ph-observed-by-employee/tests/test-ssms.sql`
+2. Both parts fixed and verified:
+   - Part 1: Filter defaults to "All" when PayweekClosed or LeaveReleased ✅
+   - Part 2: Branch A True/False swapped on `Parent complete & Not Observed?` ✅
+3. Debug query: `queries/utilities/ph-observed-by-employee/tests/test-ssms.sql`
