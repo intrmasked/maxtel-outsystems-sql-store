@@ -55,6 +55,22 @@ Push to both if you have access, otherwise push to whichever you can.
 
 ---
 
+## Resume Workflow (When User Says "Continue")
+
+When the user says "continue", "pick up where we left off", or similar:
+
+1. **Detect the current branch** - Run `git branch --show-current` to identify the story
+2. **Find the session context** - Search `.claude/sessions/` for the matching context file
+3. **Read session context** - Load the full context file — it has requirements, status, decisions, and next steps
+4. **Read referenced table docs** - Load all tables mentioned in the session context
+5. **Check current query state** - If queries exist, read them
+6. **Resume from "Next Steps"** - Continue from exactly where the session context says to pick up
+7. **Brief the user** - Give a short summary: "Resuming story X. Last time we did Y. Next up: Z."
+
+**If no session context found**: Ask the user which story they want to continue and check `.claude/sessions/` for available contexts.
+
+---
+
 ## Story Workflow (When User Says "Start")
 
 1. **Understand the story** - Clarify requirements briefly
@@ -62,6 +78,7 @@ Push to both if you have access, otherwise push to whichever you can.
 3. **Ask for mock link** (soft rule) - If provided, add as `**Mock:**` and use `WebFetch` to scrape layout/data requirements (focus on body content, ignore sidebar nav). Mock links hosted on surge.sh.
 4. **Create story branch** - `git checkout -b story/[number]-[name] main` (e.g. `story/3786-grouped-reports`)
 5. **Check table docs** - Read `database-context/tables/[table-name]/README.md` BEFORE asking questions or writing SQL. Verify every column name against docs. Only ask user for table info if docs don't exist or are incomplete. If missing, create docs first.
+   - **Image processing rule**: When the user provides entity/table screenshots, ask for them **one at a time**. Process each image individually, write/update the table doc, then ask for the next. Do NOT batch multiple entity screenshots — column details get mixed up or missed when processing multiple images at once.
 6. **Create query folder** - `queries/[category]/[story-name]/` (name from the story)
 7. **Write the query** - Start simple, iterate
 8. **Document it** - README.md + metadata.json
